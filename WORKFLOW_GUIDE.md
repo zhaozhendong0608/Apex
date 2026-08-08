@@ -221,5 +221,17 @@ graph TD
 4. **第 4 阶段：归档与二次复活**
    - 下班输入 `5` 归档。第二天/未来任何新窗口开启时，**直接输入 `6` 即可一键恢复记忆**！
 
+---
+
+## ⚠️ 7. 已知缺陷与 4.0 演进路线图 (Known Limitations)
+
+为了保持工程落地的客观严谨，本项目在 [docs/05-known-limitations.md](file:///Users/up_dong/Documents/%E8%B5%B5%E6%8C%AF%E4%B8%9C%E7%A7%81%E6%9C%89/energy_carbon/docs/05-known-limitations.md) 中完整记录了 5 大已知硬伤与 4.0 演进方案：
+1. **多人 Git Merge 冲突问题** ➔ 建议单人分支开发，4.0 将引入脱离 Git 的轻量 CLI 状态解耦。
+2. **缺乏强制自动化测试门禁** ➔ 4.0 将在 SOP 04 强制阻断未跑通 `npm test`/`pytest` 的 Task 标记 DONE。
+3. **记忆黑匣子 Token 膨胀** ➔ 4.0 将推出 `board.py compress` 自动化长记忆压缩器。
+4. **Python 环境依赖风险** ➔ 4.0 将提供环境自适应嗅探与纯 Markdown 降级方案。
+5. **老代码隐蔽盲区** ➔ 4.0 将引入运行时日志捕获与动态切片验证。
+
+
 
 
