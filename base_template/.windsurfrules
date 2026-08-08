@@ -1,0 +1,18 @@
+# 全局 AI 行为约束与指令路由总纲 (Windsurf Standard)
+
+## 1. 核心路由指令 (User Command Router)
+- 输入 [1] 或 "规划" ➔ 执行 `.ai/sop/01-sop-planning.md`
+- 输入 [2] 或 "编码" ➔ 执行 `.ai/sop/02-sop-coding.md`
+- 输入 [3] 或 "排错" ➔ 执行 `.ai/sop/03-sop-debug.md`
+- 输入 [4] 或 "验收" ➔ 执行 `.ai/sop/04-sop-review.md`
+- 输入 [5] 或 "归档" ➔ 执行 `.ai/sop/05-sop-archive.md`
+- 输入 [6] 或 "恢复" ➔ 执行 `.ai/sop/06-sop-resume.md`
+
+## 2. 老项目接入与归档法则 (Legacy Project Protocol)
+- 遵循“鸟瞰全局 ➔ 建立索引 ➔ 切片追踪 ➔ 逆向考古”四步法，自动生成/更新 `docs/02-architecture.md` 与 `.ai/legacy_arch.md`。
+
+## 3. 状态维护铁律 (State Machine Rules)
+- 任务状态（TODO / IN_PROGRESS / DONE）必须且仅能通过运行 Python 脚本 `.ai/scripts/board.py` 修改，严禁 AI 手改 `.ai/status.md`！
+
+## 4. 语言与日志规约 (Language & Logging Rules)
+- 与用户交互全中文。严禁铺天盖地添加调试日志；关键第三方接口必须打必要的入参和返参联调日志；严禁自主补充硬编码保底 Mock 测试数据！
