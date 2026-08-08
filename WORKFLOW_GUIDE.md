@@ -54,17 +54,19 @@ my-project/
 
 ```mermaid
 graph TD
-    subgraph U["👤 用户指令打卡"]
-        INPUT["发送数字指令 [1] ~ [6]"]
+    subgraph U["👤 用户指令打卡 (单按键 / 极简符号)"]
+        INPUT["发送快捷指令 [0] ~ [6] 或 [1+]"]
     end
 
-    subgraph SOP["🔄 1~6 数字 SOP 闭环矩阵"]
-        S1["[1] 🎯 01-sop-planning<br/>需求对撞 (Grill-Me) & Pizza 切片拆解"]
-        S2["[2] 💻 02-sop-coding<br/>单焦点编码 & 看门狗护栏机制"]
-        S3["[3] 🐞 03-sop-debug<br/>小黄鸭定位 & 微创手术修补"]
-        S4["[4] 🏁 04-sop-review<br/>白话目标终验 & 文档自动同步"]
-        S5["[5] 📦 05-sop-archive<br/>对话压缩 & 追加交接记忆卡"]
-        S6["[6] 🛟 06-sop-resume<br/>读取看板与记忆一键断点复活"]
+    subgraph MENU["🤖 AI 主动预设引导菜单 & SOP 闭环"]
+        M0["[0] 🏛️ 破局老项目 ➔ 建立 legacy_arch.md 地图"]
+        M1["[1] 🎯 新需求规划 ➔ Grill-Me 对撞拆 Task"]
+        M1P["[1+] 📦 新大模块 ➔ 创建 docs/modules/ PRD"]
+        M2["[2] 💻 单焦点编码 ➔ 看门狗护栏机制"]
+        M3["[3] 🐞 报错排错 ➔ 小黄鸭定位 (微创修复)"]
+        M4["[4] 🏁 目标验收 ➔ 自动打钩 & 同步 docs/"]
+        M5["[5] 📦 下班归档 ➔ 追加 handover.md 记忆"]
+        M6["[6] 🛟 续航复活 ➔ 读取看板与记忆一键复活"]
     end
 
     subgraph RULES["🛡️ 核心质量与安全护栏"]
@@ -78,22 +80,27 @@ graph TD
         PY["🛠️ board.py (底层 Python 看板控制脚本)"]
         ST["📊 status.md (唯一 ACTIVE 动态任务看板)"]
         HO["📦 handover.md (长效历史交接黑匣子)"]
-        DOC["📁 docs/ (静态架构 / API / 数据库文档)"]
+        LEG["🏛️ legacy_arch.md (老代码切片索引地图)"]
+        DOC["📁 docs/ (静态 PRD / 架构 / 数据库文档)"]
     end
 
-    INPUT -->|触发路由| SOP
-    S1 -->|自动调用| PY
-    S2 -->|约束于| RULES
-    S2 -->|增量落盘| PY
-    S3 -->|微创切口| S2
-    S4 -->|标记 DONE| PY
-    S4 -->|同步更新| DOC
-    S5 -->|追加交接| HO
-    S6 -->|恢复记忆| ST & HO
+    INPUT -->|选择菜单| MENU
+    M0 -->|扫描目录树| LEG
+    M1 -->|自动调用| PY
+    M1P -->|生成 PRD| DOC
+    M1P -->|拆解 Task| PY
+    M2 -->|约束于| RULES
+    M2 -->|增量落盘| PY
+    M3 -->|微创切口| M2
+    M4 -->|标记 DONE| PY
+    M4 -->|同步更新| DOC
+    M5 -->|追加交接| HO
+    M6 -->|恢复记忆| ST & HO
 
     PY -->|硬性管控| ST
-    ST -->|锁定 ACTIVE 焦点| S2
+    ST -->|锁定 ACTIVE 焦点| M2
 ```
+
 
 ### 💡 双轨记忆机制
 - **`status.md` (当前记忆)**：存储当前的唯一 `IN_PROGRESS` 任务及 `TODO`/`DONE` 队列。
