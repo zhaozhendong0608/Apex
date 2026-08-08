@@ -12,6 +12,8 @@ import datetime
 
 STATUS_FILE = os.path.join(".ai", "status.md")
 HANDOVER_FILE = os.path.join(".ai", "handover.md")
+SNAPSHOT_FILE = os.path.join(".ai", "snapshot.md")
+
 
 DEFAULT_STATUS_TEMPLATE = """# 📋 任务看板 (Task Board)
 
