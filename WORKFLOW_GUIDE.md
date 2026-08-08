@@ -17,11 +17,15 @@ my-project/
 ├── README.md                  # 📖 项目门面与开发指引
 │
 ├── .ai/                       # 🧠 AI 动态协作与状态控制中心
-│   ├── status.md              # 📊 实时任务看板 (唯一 ACTIVE 焦点)
-│   ├── handover.md            # 📦 历史交接记忆卡 (追加模式黑匣子)
+│   ├── snapshot.md            # ⚡ (第一层) 动态极简快照名片 (<30行，断点复活专享)
+│   ├── modules.md             # 🧩 (第二层) 所有大模块总览索引矩阵 (与handover同级好管理)
+│   ├── status.md              # 📊 (第三层) 实时任务看板 (唯一 ACTIVE 焦点)
+│   ├── handover.md            # 📦 (第三层) 历史交接记忆卡 (追加模式黑匣子)
 │   ├── legacy_arch.md         # 🏛️ (老项目专有) 老代码模块与接口切片索引库
 │   ├── scripts/
-│   │   └── board.py           # 🛠️ 确定性 Python 状态控制脚本
+│   │   ├── board.py           # 🛠️ 确切 Python 看板与状态控制脚本
+│   │   └── arch.py            # 🛠️ 确切 Python 老项目目录树与切片脚本
+
 │   ├── sop/                   # 📜 0~6 号数字 SOP 规则矩阵
 │   │   ├── 00-sop-legacy.md   # [0] 🏛️ 老项目破局与切片索引
 │   │   ├── 01-sop-planning.md # [1] 🎯 需求拆解与 Grill-Me 对撞
