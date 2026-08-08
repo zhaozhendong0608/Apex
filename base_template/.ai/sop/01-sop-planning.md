@@ -26,12 +26,16 @@
 3. **🖥️ 第二层可交互 HTML 原型 (`mockup.html`)**：在 `docs/modules/<module_name>/mockup.html` 自动生成**包含真实前端交互逻辑的线框原型页面**！
 
 ### 🎨 可交互 HTML 原型 (`mockup.html`) 制作规约：
-- **零依赖解耦**：采用纯 Vanilla HTML5 + Vanilla JS + 语义化 Class（如 `.btn`, `.modal`, `.table`, `.form-input`），便于后续通用主题直接换肤。
+- **强制继承通用外壳 (`base-shell-template.html`)**：
+  - AI 生成 `mockup.html` 时，**必须强制继承 `docs/templates/base-shell-template.html` 的结构外壳**（顶部 Header + 左侧 Sidebar 导航）。
+  - **严禁私自修改 Layout 风格**（杜绝模块 A 顶部布局、模块 B 左右布局的风格割裂），AI 只能且只需填充中间 `Main Content` 主业务区域！
+- **全局 UI Design Tokens**：采用纯 Vanilla HTML5 + CSS 变量（如 `var(--primary-color)`, `var(--radius-base)`），便于后续通用主题直接无缝换肤。
 - **必须具备真实交互效果**：
   - 点击按钮 ➔ 必须真的支持**弹窗 Modal 打开/关闭**、**Tab 选项卡切换**；
   - 点击表单提交 ➔ 必须具备**前端空校验与模拟成功提示**；
   - 列表数据 ➔ 必须具备**动态数据渲染与行选中状态**。
 - **双击即用**：保证双击即可在本地浏览器中完美运行，作为团队需求评审与 Sign-off 的物理交互标准。
+
 
 ---
 
