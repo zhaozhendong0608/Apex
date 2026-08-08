@@ -10,7 +10,8 @@ import os
 import re
 import json
 
-ARCH_FILE = os.path.join(".ai", "legacy_arch.md")
+ARCH_FILE = os.path.join(".ai", "tier2_legacy_arch.md")
+
 
 IGNORE_DIRS = {
     ".git", ".idea", ".vscode", "node_modules", "dist", "build",

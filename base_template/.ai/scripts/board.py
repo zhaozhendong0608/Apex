@@ -10,9 +10,11 @@ import os
 import re
 import datetime
 
-STATUS_FILE = os.path.join(".ai", "status.md")
-HANDOVER_FILE = os.path.join(".ai", "handover.md")
-SNAPSHOT_FILE = os.path.join(".ai", "snapshot.md")
+STATUS_FILE = os.path.join(".ai", "tier3_status.md")
+HANDOVER_FILE = os.path.join(".ai", "tier3_handover.md")
+SNAPSHOT_FILE = os.path.join(".ai", "tier1_snapshot.md")
+MODULES_FILE = os.path.join(".ai", "tier2_modules.md")
+
 
 
 DEFAULT_STATUS_TEMPLATE = """# 📋 任务看板 (Task Board)
