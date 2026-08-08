@@ -22,14 +22,17 @@ my-project/
 │   ├── legacy_arch.md         # 🏛️ (老项目专有) 老代码模块与接口切片索引库
 │   ├── scripts/
 │   │   └── board.py           # 🛠️ 确定性 Python 状态控制脚本
-│   ├── sop/                   # 📜 1~6 号数字 SOP 规则矩阵
-│   │   ├── 01-sop-planning.md # [1] 需求拆解与 Grill-Me 对撞
-│   │   ├── 02-sop-coding.md   # [2] 单焦点护栏编码 (看门狗机制)
-│   │   ├── 03-sop-debug.md    # [3] 小黄鸭探针排错
-│   │   ├── 04-sop-review.md   # [4] 目标终验与文档更新
+│   ├── sop/                   # 📜 0~6 号数字 SOP 规则矩阵
+│   │   ├── 00-sop-legacy.md   # [0] 🏛️ 老项目破局与切片索引
+│   │   ├── 01-sop-planning.md # [1] 🎯 需求拆解与 Grill-Me 对撞
+│   │   ├── 02-sop-coding.md   # [2] 💻 单焦点护栏编码 (看门狗机制)
+│   │   ├── 03-sop-debug.md    # [3] 🐞 小黄鸭探针排错
+│   │   ├── 04-sop-review.md   # [4] 🏁 目标终验与文档更新
+│   │   ├── 05-sop-archive.md  # [5] 📦 上下文归档 (写 handover.md)
 │   │   └── 06-sop-resume.md   # [6] 🛟 续航重连 (一键复活)
 │   └── templates/
 │       └── user-manual-template.md # 软著/使用手册导出模版
+
 │
 ├── docs/                      # 📁 静态工程架构与软著资产库
 │   ├── 01-requirements.md     # 🗺️ 需求全景 MAP 导航中心
