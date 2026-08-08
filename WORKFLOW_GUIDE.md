@@ -27,7 +27,6 @@ my-project/
 │   │   ├── 02-sop-coding.md   # [2] 单焦点护栏编码 (看门狗机制)
 │   │   ├── 03-sop-debug.md    # [3] 小黄鸭探针排错
 │   │   ├── 04-sop-review.md   # [4] 目标终验与文档更新
-│   │   ├── 05-sop-archive.md  # [5] 上下文归档 (写 handover.md)
 │   │   └── 06-sop-resume.md   # [6] 🛟 续航重连 (一键复活)
 │   └── templates/
 │       └── user-manual-template.md # 软著/使用手册导出模版
@@ -54,23 +53,16 @@ my-project/
 ### 🔄 1~6 数字 SOP 开发全流程
 
 ```mermaid
-flowchart TD
-    %% 样式定义
-    classDef router fill:#3B82F6,stroke:#1D4ED8,color:#fff,stroke-width:2px;
-    classDef sop fill:#10B981,stroke:#047857,color:#fff,stroke-width:2px;
-    classDef guard fill:#F59E0B,stroke:#D97706,color:#fff,stroke-width:2px;
-    classDef storage fill:#8B5CF6,stroke:#6D28D9,color:#fff,stroke-width:2px;
-    classDef user fill:#64748B,stroke:#334155,color:#fff,stroke-width:2px;
 
-    %% 1. 用户入口与路由
-    subgraph Layer1["1. 用户指令交互层 (User Command Router)"]
-        U["👤 用户 (指令打卡)"] ::: user
-        R1["[1] 规划 / 想法"] ::: router
-        R2["[2] 开始 / 编码"] ::: router
-        R3["[3] 报错 / 排错"] ::: router
-        R4["[4] 验收 / 审查"] ::: router
-        R5["[5] 归档 / 清理"] ::: router
-        R6["[6] 恢复 / 续航"] ::: router
+graph TD
+    subgraph L1["1. 用户指令交互层 (User Command Router)"]
+        U["👤 用户 (打卡指挥官)"]
+        R1["[1] 规划 / 想法"]
+        R2["[2] 开始 / 编码"]
+        R3["[3] 报错 / 排错"]
+        R4["[4] 验收 / 审查"]
+        R5["[5] 归档 / 清理"]
+        R6["[6] 恢复 / 续航"]
         
         U -->|输入 1| R1
         U -->|输入 2| R2
@@ -80,11 +72,58 @@ flowchart TD
         U -->|输入 6| R6
     end
 
-    %% 2. 数字 SOP 执行闭环
-    subgraph Layer2["2. SOP 数字闭环逻辑矩阵"]
-        S1["🎯 01-sop-planning<br/>需求规划与对撞"] ::: sop
-        S2["💻 02-sop-coding<br/>单焦点编码开发"] ::: sop
-        S3["🐞 03-sop-debug<br/>小黄鸭探针排错"] ::: sop
+    subgraph L2["2. SOP 数字闭环逻辑矩阵"]
+        S1["🎯 01-sop-planning<br/>需求规划与对撞"]
+        S2["💻 02-sop-coding<br/>单焦点编码开发"]
+        S3["🐞 03-sop-debug<br/>小黄鸭探针排错"]
+        S4["🏁 04-sop-review<br/>目标验收与文档同步"]
+        S5["📦 05-sop-archive<br/>上下文黑匣子归档"]
+        S6["🛟 06-sop-resume<br/>一键断点续航复活"]
+
+        R1 --> S1
+        R2 --> S2
+        R3 --> S3
+        R4 --> S4
+        R5 --> S5
+        R6 --> S6
+    end
+
+    subgraph L3["3. 安全看门狗与质量护栏 (Guardrails)"]
+        G1["💬 Grill-Me 对撞<br/>A/B/C 选择题消除歧义"]
+        G2["🍕 Pizza Slicing<br/>S1-Bone / S2-Muscle 切片"]
+        G3["🛡️ 看门狗护栏<br/>单次改动≤3文件 / 零新依赖"]
+        G4["🔌 联调日志规约<br/>必打印第三方入参返参"]
+        G5["🚫 真实数据原则<br/>严禁自主补充保底假数据"]
+        G6["🔒 Solid 资产保护<br/>与 Reverse Testing 反向验证"]
+    end
+
+    subgraph L4["4. 双轨存储与确切控制引擎 (Storage & Engine)"]
+        PY["🛠️ board.py<br/>(底层 Python 状态控制脚本)"]
+        ST["📊 .ai/status.md<br/>(唯一 ACTIVE 动态看板)"]
+        HO["📦 .ai/handover.md<br/>(长效交接黑匣子)"]
+        DOC["📁 docs/<br/>(静态架构/API/数据库文档)"]
+    end
+
+    S1 --> G1 --> G2 -->|自动调用| PY
+    S2 --> G3
+    S2 --> G4
+    S2 --> G5
+    S2 --> G6
+    G3 & G4 & G5 & G6 -->|增量写入代码| PY
+    S3 --> G4
+    S3 --> G5
+    G4 & G5 -->|微创修复代码| S2
+    S4 -->|对比白话目标| PY
+    S4 -->|同步更新| DOC
+    S5 -->|压缩对话| HO
+    S6 -->|读取记忆| ST
+    S6 -->|读取记忆| HO
+
+    PY -->|硬性控制状态机| ST
+    ST -->|锁定单个 ACTIVE 任务| S2
+    S4 -->|自动推荐下一个 Task| S1
+```
+
         S4["🏁 04-sop-review<br/>目标验收与文档同步"] ::: sop
         S5["📦 05-sop-archive<br/>上下文黑匣子归档"] ::: sop
         S6["🛟 06-sop-resume<br/>一键断点续航复活"] ::: sop
