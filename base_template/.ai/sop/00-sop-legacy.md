@@ -17,14 +17,22 @@
 ## 🤖 阶段二：AI 执行流程 (支持 3 大触发模式)
 
 ### 模式 A：顶层骨架鸟瞰 (输入 `0` 或 `0 骨架`)
-1. 静默抓取老项目前 3 层目录树与核心包依赖文件。
+1. **静默调用 Python 确切脚本**获取真实前 3 层目录树与依赖：
+   ```bash
+   python3 .ai/scripts/arch.py tree 3
+   python3 .ai/scripts/arch.py deps
+   ```
 2. 识别项目框架（MVC、微服务、前端 SPA）、入口文件与核心结构。
 3. 自动生成或更新 `.ai/legacy_arch.md` 顶层索引。
 
 ### 模式 B：黑盒线索解密 (输入 `0 接口URL` / `0 关键词` / `0 表名`)
 1. 根据用户给出的线索（如 `/api/refund` 或表名 `t_order`），在全盘路由表或注解中执行全局搜索。
 2. 逆向定位到对应的 3~4 个核心 Controller/Service/DAO 文件。
-3. 将该条业务链路结构追加至 `.ai/legacy_arch.md`。
+3. **静默调用 Python 脚本追加结构化切片**：
+   ```bash
+   python3 .ai/scripts/arch.py append "退款模块" "src/controllers/refund.js" "处理订单退款与流水计算"
+   ```
+
 
 ### 模式 C：探查菜单生成 (输入 `0 菜单`)
 1. 扫描前 2 层主要文件夹。
