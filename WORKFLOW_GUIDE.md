@@ -223,14 +223,15 @@ graph TD
 
 ---
 
-## ⚠️ 7. 已知缺陷与 4.0 演进路线图 (Known Limitations)
+## ⚠️ 7. 缺陷与改进追溯看板 (Workflow Defect & Improvement Board)
 
-为了保持工程落地的客观严谨，本项目在 [docs/05-known-limitations.md](file:///Users/up_dong/Documents/%E8%B5%B5%E6%8C%AF%E4%B8%9C%E7%A7%81%E6%9C%89/energy_carbon/docs/05-known-limitations.md) 中完整记录了 5 大已知硬伤与 4.0 演进方案：
-1. **多人 Git Merge 冲突问题** ➔ 建议单人分支开发，4.0 将引入脱离 Git 的轻量 CLI 状态解耦。
-2. **缺乏强制自动化测试门禁** ➔ 4.0 将在 SOP 04 强制阻断未跑通 `npm test`/`pytest` 的 Task 标记 DONE。
-3. **记忆黑匣子 Token 膨胀** ➔ 4.0 将推出 `board.py compress` 自动化长记忆压缩器。
-4. **Python 环境依赖风险** ➔ 4.0 将提供环境自适应嗅探与纯 Markdown 降级方案。
-5. **老代码隐蔽盲区** ➔ 4.0 将引入运行时日志捕获与动态切片验证。
+为了保持工程落地的客观严谨，本项目建立了可动态更新状态的 [docs/05-known-limitations.md](file:///Users/up_dong/Documents/%E8%B5%B5%E6%8C%AF%E4%B8%9C%E7%A7%81%E6%9C%89/energy_carbon/docs/05-known-limitations.md) 缺陷追溯看板（包含 🔴 OPEN / 🟡 IN_PROGRESS / 🟢 RESOLVED 状态标记）：
+1. **[BUG-001] 多人 Git Merge 冲突问题** ➔ 🔴 待解决 (OPEN)
+2. **[BUG-002] 缺乏强制自动化测试门禁** ➔ 🟡 优化中 (IN_PROGRESS)
+3. **[BUG-003] 记忆黑匣子 Token 膨胀** ➔ 🔴 待解决 (OPEN)
+4. **[BUG-004] 缺乏老项目专属 SOP 与自动化扫描脚本** ➔ 🟢 已解决 (RESOLVED: 已上线 00-sop-legacy 与 arch.py)
+5. **[BUG-005] 缺少极简打卡与 AI 主动引导菜单** ➔ 🟢 已解决 (RESOLVED: 已上线 0/1/1+ 快捷菜单)
+
 
 
 
