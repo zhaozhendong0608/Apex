@@ -53,19 +53,82 @@ my-project/
 
 ### 🔄 1~6 数字 SOP 开发全流程
 
-```plaintext
-[用户输入 1] ➔ 01-sop-planning ➔ Grill-Me 对撞 ➔ 自动拆解 Task 写入 status.md
-                                                            │
-[用户输入 2] ➔ 02-sop-coding ➔ 自动执行 board.py start ➔ 驱动单焦点编写代码
-                                                            │
-[用户输入 3] (若报错) ➔ 03-sop-debug ➔ 小黄鸭定位根因 ➔ 微创手术精准修补
-                                                            │
-[用户输入 4] ➔ 04-sop-review ➔ 白话目标终验 ➔ 同步更新 docs/ ➔ 静默标记 DONE
-                                                            │
-[用户输入 5] ➔ 05-sop-archive ➔ 压缩对话 ➔ 追加写入 handover.md ➔ 可安全关窗口
-                                                            │
-[用户输入 6] ➔ 06-sop-resume (新窗口) ➔ 读取 status.md + handover.md ➔ 一键复活记忆
+```mermaid
+flowchart TD
+    %% 样式定义
+    classDef router fill:#3B82F6,stroke:#1D4ED8,color:#fff,stroke-width:2px;
+    classDef sop fill:#10B981,stroke:#047857,color:#fff,stroke-width:2px;
+    classDef guard fill:#F59E0B,stroke:#D97706,color:#fff,stroke-width:2px;
+    classDef storage fill:#8B5CF6,stroke:#6D28D9,color:#fff,stroke-width:2px;
+    classDef user fill:#64748B,stroke:#334155,color:#fff,stroke-width:2px;
+
+    %% 1. 用户入口与路由
+    subgraph Layer1["1. 用户指令交互层 (User Command Router)"]
+        U["👤 用户 (指令打卡)"] ::: user
+        R1["[1] 规划 / 想法"] ::: router
+        R2["[2] 开始 / 编码"] ::: router
+        R3["[3] 报错 / 排错"] ::: router
+        R4["[4] 验收 / 审查"] ::: router
+        R5["[5] 归档 / 清理"] ::: router
+        R6["[6] 恢复 / 续航"] ::: router
+        
+        U -->|输入 1| R1
+        U -->|输入 2| R2
+        U -->|输入 3| R3
+        U -->|输入 4| R4
+        U -->|输入 5| R5
+        U -->|输入 6| R6
+    end
+
+    %% 2. 数字 SOP 执行闭环
+    subgraph Layer2["2. SOP 数字闭环逻辑矩阵"]
+        S1["🎯 01-sop-planning<br/>需求规划与对撞"] ::: sop
+        S2["💻 02-sop-coding<br/>单焦点编码开发"] ::: sop
+        S3["🐞 03-sop-debug<br/>小黄鸭探针排错"] ::: sop
+        S4["🏁 04-sop-review<br/>目标验收与文档同步"] ::: sop
+        S5["📦 05-sop-archive<br/>上下文黑匣子归档"] ::: sop
+        S6["🛟 06-sop-resume<br/>一键断点续航复活"] ::: sop
+
+        R1 --> S1
+        R2 --> S2
+        R3 --> S3
+        R4 --> S4
+        R5 --> S5
+        R6 --> S6
+    end
+
+    %% 3. 安全看门狗与护栏
+    subgraph Layer3["3. 安全看门狗与质量护栏 (Guardrails)"]
+        G1["💬 Grill-Me 对撞<br/>A/B/C 消除歧义"] ::: guard
+        G2["🍕 Pizza Slicing<br/>S1-Bone / S2-Muscle 切片"] ::: guard
+        G3["🛡️ 看门狗护栏<br/>单次改动≤3文件 / 零新依赖"] ::: guard
+        G4["🔌 联调日志规约<br/>必打印第三方入参返参"] ::: guard
+        G5["🚫 真实数据原则<br/>严禁自主补充保底假数据"] ::: guard
+        G6["🔒 Solid 资产保护<br/>与 Reverse Testing 反向验证"] ::: guard
+    end
+
+    %% 4. 双轨记忆与确切控制引擎
+    subgraph Layer4["4. 双轨存储与确切控制引擎 (Storage & Engine)"]
+        PY["🛠️ board.py<br/>(底层 Python 状态控制脚本)"] ::: storage
+        ST["📊 .ai/status.md<br/>(唯一 ACTIVE 动态看板)"] ::: storage
+        HO["📦 .ai/handover.md<br/>(长效交接黑匣子)"] ::: storage
+        DOC["📁 docs/<br/>(静态架构/API/数据库文档)"] ::: storage
+    end
+
+    %% 节点流转绑定
+    S1 --> G1 --> G2 -->|自动调用| PY
+    S2 --> G3 & G4 & G5 & G6 -->|自动调用| PY
+    S3 --> G4 & G5 -->|微创修复代码| S2
+    S4 -->|对比白话目标| PY
+    S4 -->|同步更新| DOC
+    S5 -->|压缩对话| HO
+    S6 -->|读取记忆| ST & HO
+
+    PY -->|硬性控制状态机| ST
+    ST -->|锁定单个 ACTIVE 任务| S2
+    S4 -->|推荐下一个 Task| S1
 ```
+
 
 ### 💡 双轨记忆机制
 - **`status.md` (当前记忆)**：存储当前的唯一 `IN_PROGRESS` 任务及 `TODO`/`DONE` 队列。
