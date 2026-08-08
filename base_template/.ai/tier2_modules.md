@@ -9,5 +9,6 @@
 
 | 模块标识 (ID) | 模块中文名称 | 开发状态 | 详细 PRD 文档路径 | 核心业务职责描述 |
 | :--- | :--- | :--- | :--- | :--- |
-| `auth` | 认证与权限 | 🟢 已上线 | [docs/modules/auth/prd-auth-v1.md](file:///Users/up_dong/Documents/%E8%B5%B5%E6%8C%AF%E4%B8%9C%E7%A7%81%E6%9C%89/energy_carbon/base_template/docs/modules/auth/prd-auth-v1.md) | 用户登录、JWT 签发、权限控制 |
-| `demo` | DEMO 样例模块 | 🟢 已上线 | `docs/modules/demo/prd-demo-v1.md` | 业务样例示范与模版结构展示 |
+| `auth` | 认证与权限 | 🟢 已上线 | [prd-auth-v1.md](docs/modules/auth/prd-auth-v1.md) | 用户登录、JWT 签发、权限控制 |
+| `demo` | DEMO 样例模块 | 🟢 已上线 | [prd-demo-v1.md](docs/modules/demo/prd-demo-v1.md) | 业务样例示范与模版结构展示 |
+
