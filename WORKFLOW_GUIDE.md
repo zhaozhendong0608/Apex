@@ -53,121 +53,47 @@ my-project/
 ### 🔄 1~6 数字 SOP 开发全流程
 
 ```mermaid
-
 graph TD
-    subgraph L1["1. 用户指令交互层 (User Command Router)"]
-        U["👤 用户 (打卡指挥官)"]
-        R1["[1] 规划 / 想法"]
-        R2["[2] 开始 / 编码"]
-        R3["[3] 报错 / 排错"]
-        R4["[4] 验收 / 审查"]
-        R5["[5] 归档 / 清理"]
-        R6["[6] 恢复 / 续航"]
-        
-        U -->|输入 1| R1
-        U -->|输入 2| R2
-        U -->|输入 3| R3
-        U -->|输入 4| R4
-        U -->|输入 5| R5
-        U -->|输入 6| R6
+    subgraph U["👤 用户指令打卡"]
+        INPUT["发送数字指令 [1] ~ [6]"]
     end
 
-    subgraph L2["2. SOP 数字闭环逻辑矩阵"]
-        S1["🎯 01-sop-planning<br/>需求规划与对撞"]
-        S2["💻 02-sop-coding<br/>单焦点编码开发"]
-        S3["🐞 03-sop-debug<br/>小黄鸭探针排错"]
-        S4["🏁 04-sop-review<br/>目标验收与文档同步"]
-        S5["📦 05-sop-archive<br/>上下文黑匣子归档"]
-        S6["🛟 06-sop-resume<br/>一键断点续航复活"]
-
-        R1 --> S1
-        R2 --> S2
-        R3 --> S3
-        R4 --> S4
-        R5 --> S5
-        R6 --> S6
+    subgraph SOP["🔄 1~6 数字 SOP 闭环矩阵"]
+        S1["[1] 🎯 01-sop-planning<br/>需求对撞 (Grill-Me) & Pizza 切片拆解"]
+        S2["[2] 💻 02-sop-coding<br/>单焦点编码 & 看门狗护栏机制"]
+        S3["[3] 🐞 03-sop-debug<br/>小黄鸭定位 & 微创手术修补"]
+        S4["[4] 🏁 04-sop-review<br/>白话目标终验 & 文档自动同步"]
+        S5["[5] 📦 05-sop-archive<br/>对话压缩 & 追加交接记忆卡"]
+        S6["[6] 🛟 06-sop-resume<br/>读取看板与记忆一键断点复活"]
     end
 
-    subgraph L3["3. 安全看门狗与质量护栏 (Guardrails)"]
-        G1["💬 Grill-Me 对撞<br/>A/B/C 选择题消除歧义"]
-        G2["🍕 Pizza Slicing<br/>S1-Bone / S2-Muscle 切片"]
-        G3["🛡️ 看门狗护栏<br/>单次改动≤3文件 / 零新依赖"]
-        G4["🔌 联调日志规约<br/>必打印第三方入参返参"]
-        G5["🚫 真实数据原则<br/>严禁自主补充保底假数据"]
-        G6["🔒 Solid 资产保护<br/>与 Reverse Testing 反向验证"]
+    subgraph RULES["🛡️ 核心质量与安全护栏"]
+        R1["单次改动 ≤ 3 文件 & 零新依赖"]
+        R2["第三方 API 联调日志 (必打入参/返参)"]
+        R3["严禁自主补充保底硬编码 Mock 假数据"]
+        R4["Solid 核心资产保护 & 反向测试验证"]
     end
 
-    subgraph L4["4. 双轨存储与确切控制引擎 (Storage & Engine)"]
-        PY["🛠️ board.py<br/>(底层 Python 状态控制脚本)"]
-        ST["📊 .ai/status.md<br/>(唯一 ACTIVE 动态看板)"]
-        HO["📦 .ai/handover.md<br/>(长效交接黑匣子)"]
-        DOC["📁 docs/<br/>(静态架构/API/数据库文档)"]
+    subgraph ENGINE["⚙️ 双轨存储与确切控制引擎"]
+        PY["🛠️ board.py (底层 Python 看板控制脚本)"]
+        ST["📊 status.md (唯一 ACTIVE 动态任务看板)"]
+        HO["📦 handover.md (长效历史交接黑匣子)"]
+        DOC["📁 docs/ (静态架构 / API / 数据库文档)"]
     end
 
-    S1 --> G1 --> G2 -->|自动调用| PY
-    S2 --> G3
-    S2 --> G4
-    S2 --> G5
-    S2 --> G6
-    G3 & G4 & G5 & G6 -->|增量写入代码| PY
-    S3 --> G4
-    S3 --> G5
-    G4 & G5 -->|微创修复代码| S2
-    S4 -->|对比白话目标| PY
+    INPUT -->|触发路由| SOP
+    S1 -->|自动调用| PY
+    S2 -->|约束于| RULES
+    S2 -->|增量落盘| PY
+    S3 -->|微创切口| S2
+    S4 -->|标记 DONE| PY
     S4 -->|同步更新| DOC
-    S5 -->|压缩对话| HO
-    S6 -->|读取记忆| ST
-    S6 -->|读取记忆| HO
+    S5 -->|追加交接| HO
+    S6 -->|恢复记忆| ST & HO
 
-    PY -->|硬性控制状态机| ST
-    ST -->|锁定单个 ACTIVE 任务| S2
-    S4 -->|自动推荐下一个 Task| S1
+    PY -->|硬性管控| ST
+    ST -->|锁定 ACTIVE 焦点| S2
 ```
-
-        S4["🏁 04-sop-review<br/>目标验收与文档同步"] ::: sop
-        S5["📦 05-sop-archive<br/>上下文黑匣子归档"] ::: sop
-        S6["🛟 06-sop-resume<br/>一键断点续航复活"] ::: sop
-
-        R1 --> S1
-        R2 --> S2
-        R3 --> S3
-        R4 --> S4
-        R5 --> S5
-        R6 --> S6
-    end
-
-    %% 3. 安全看门狗与护栏
-    subgraph Layer3["3. 安全看门狗与质量护栏 (Guardrails)"]
-        G1["💬 Grill-Me 对撞<br/>A/B/C 消除歧义"] ::: guard
-        G2["🍕 Pizza Slicing<br/>S1-Bone / S2-Muscle 切片"] ::: guard
-        G3["🛡️ 看门狗护栏<br/>单次改动≤3文件 / 零新依赖"] ::: guard
-        G4["🔌 联调日志规约<br/>必打印第三方入参返参"] ::: guard
-        G5["🚫 真实数据原则<br/>严禁自主补充保底假数据"] ::: guard
-        G6["🔒 Solid 资产保护<br/>与 Reverse Testing 反向验证"] ::: guard
-    end
-
-    %% 4. 双轨记忆与确切控制引擎
-    subgraph Layer4["4. 双轨存储与确切控制引擎 (Storage & Engine)"]
-        PY["🛠️ board.py<br/>(底层 Python 状态控制脚本)"] ::: storage
-        ST["📊 .ai/status.md<br/>(唯一 ACTIVE 动态看板)"] ::: storage
-        HO["📦 .ai/handover.md<br/>(长效交接黑匣子)"] ::: storage
-        DOC["📁 docs/<br/>(静态架构/API/数据库文档)"] ::: storage
-    end
-
-    %% 节点流转绑定
-    S1 --> G1 --> G2 -->|自动调用| PY
-    S2 --> G3 & G4 & G5 & G6 -->|自动调用| PY
-    S3 --> G4 & G5 -->|微创修复代码| S2
-    S4 -->|对比白话目标| PY
-    S4 -->|同步更新| DOC
-    S5 -->|压缩对话| HO
-    S6 -->|读取记忆| ST & HO
-
-    PY -->|硬性控制状态机| ST
-    ST -->|锁定单个 ACTIVE 任务| S2
-    S4 -->|推荐下一个 Task| S1
-```
-
 
 ### 💡 双轨记忆机制
 - **`status.md` (当前记忆)**：存储当前的唯一 `IN_PROGRESS` 任务及 `TODO`/`DONE` 队列。
