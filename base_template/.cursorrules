@@ -10,6 +10,7 @@
 | **`[1+] 模块名`** | `.ai/sop/01-sop-planning.md` | 生成第二层 PRD、`base-shell` 交互原型 `mockup.html`，追加 `.ai/tier2_modules.md` |
 | **`[2]` / 编码** | `.ai/sop/02-sop-coding.md` | 运行 `board.py start` 锁定 ACTIVE 焦点，看门狗护栏增量编码 |
 | **`[3]` / 排错** | `.ai/sop/03-sop-debug.md` | 小黄鸭微创定位修复（只动错的那1行），严禁伪造 Mock 假数据 |
+| **`[F]` / 快修** | `.ai/sop/03_fast-sop-fasttrack.md` | 极速微创修补（零状态机行政阻尼）：免 board.py 入库，直修代码并静默刷新名片卡 |
 | **`[4]` / 验收** | `.ai/sop/04-sop-review.md` | 运行 `board.py complete` 标记 DONE 🟢，自动同步更新 `docs/` 文档 |
 | **`[5]` / 归档** | `.ai/sop/05-sop-archive.md` | 追加 Changelog 到 `tier3_handover.md`，覆盖刷新第一层 `.ai/tier1_snapshot.md` |
 | **`[6]` / 恢复** | `.ai/sop/06-sop-resume.md` | 一键断点复活：优先且只读取第一层 `.ai/tier1_snapshot.md`（<30行，3秒复活） |
@@ -23,4 +24,5 @@
 ## 4. 核心质量与看门狗护栏 (Watchdog Guardrails)
 1. **单次改动 ≤ 3 文件 & 零新依赖**：未经许可靠严禁私自安装第三方库。
 2. **联调日志**：关键第三方 API 必须打印请求入参 (Input) 与响应返参 (Output)。
-3. **严禁假数据**：禁止自主补充保底 Mock / Fallback 假数据，暴露真实接口状态。
+3. **阶段性 Mock 规约**：【需求与原型设计阶段】(mockup.html/演示页面) 允许且推荐使用 Mock 数据实现高保真交互；【前后端工程编码阶段】(src/ 源码) 严禁写死 Mock/Fallback 假数据，暴露真实接口与报错状态。
+4. **断点续传主动提示**：大任务完成或对话轮次加深时，主动提示用户：“发送 `[5]` 归档并在新窗口发送 `[6]` 一键恢复记忆”。

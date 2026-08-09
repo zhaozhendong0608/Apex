@@ -6,7 +6,8 @@
 - **输入 [1] 或 "规划"** ➔ 新需求规划：静默读取并执行 `.ai/sop/01-sop-planning.md`，开启 Grill-Me 选择题对撞，拆解 Task 写入 `.ai/tier3_status.md`。
 - **输入 [1+] 模块名** ➔ 新大模块开发：自动在 `docs/modules/` 创建第二层大模块 PRD，并在 `.ai/tier2_modules.md` 追加索引，拆解 Task 写入看板。
 - **输入 [2] 或 "编码"** ➔ 静默读取并执行 `.ai/sop/02-sop-coding.md`，自动执行 `board.py start` 锁定唯一 `ACTIVE` 任务，看门狗护栏代码编写。
-- **输入 [3] 或 "排错"**（可直接粘贴报错+发 3） ➔ 静默读取并执行 `.ai/sop/03-sop-debug.md`，小黄鸭微创修复，禁止伪造保底假数据。
+- **输入 [3] 或 "排错"**（可直接粘贴报错+发 3） ➔ 静默读取并执行 `.ai/sop/03-sop-debug.md`，小黄鸭微创修复，前后端源码排错中严禁伪造 Mock 假数据。
+- **输入 [F] 或 "快修"**（极速通道） ➔ 静默读取并执行 `.ai/sop/03_fast-sop-fasttrack.md`，无须 board.py 状态机审批，直修代码并静默刷新名片卡（解决阻尼效应）。
 - **输入 [4] 或 "验收"** ➔ 静默读取并执行 `.ai/sop/04-sop-review.md`，自动执行 `board.py complete` 标记 DONE，自动同步更新 `docs/` 文档。
 - **输入 [5] 或 "归档"** ➔ 静默读取并执行 `.ai/sop/05-sop-archive.md`，追加 Changelog 到 `.ai/tier3_handover.md`，并同步覆盖刷新第一层 `.ai/tier1_snapshot.md` 极简名片卡。
 - **输入 [6] 或 "恢复"** ➔ 静默读取并执行 `.ai/sop/06-sop-resume.md`，一键断点复活：优先且只读取第一层 `.ai/tier1_snapshot.md`（<30行），3秒极速恢复记忆。
@@ -18,4 +19,4 @@
 - 任务状态（TODO / IN_PROGRESS / DONE）必须且仅能通过运行 Python 脚本 `.ai/scripts/board.py` 修改，严禁 AI 手改 `.ai/tier3_status.md`！
 
 ## 4. 语言与日志规约 (Language & Logging Rules)
-- 与用户交互全中文。严禁铺天盖地添加调试日志；关键第三方接口必须打必要的入参和返参联调日志；严禁自主补充硬编码保底 Mock 测试数据！
+- 与用户交互全中文。严禁铺天盖地添加调试日志；关键第三方接口必须打必要的入参和返参联调日志；工程源码开发中严禁自主补充硬编码保底 Mock 假数据（原型设计阶段除外）！长对话或阶段性任务完成时，主动提示用户“发送 [5] 归档并在新窗口发送 [6] 一键复活记忆”。

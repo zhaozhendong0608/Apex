@@ -26,11 +26,12 @@ my-project/
 │   │   ├── board.py           # 🛠️ 确切 Python 看板与状态控制脚本
 │   │   └── arch.py            # 🛠️ 确切 Python 老项目目录树与切片脚本
 
-│   ├── sop/                   # 📜 0~6 号数字 SOP 规则矩阵
+│   ├── sop/                   # 📜 数字 SOP 规则矩阵
 │   │   ├── 00-sop-legacy.md   # [0] 🏛️ 老项目破局与切片索引
 │   │   ├── 01-sop-planning.md # [1] 🎯 需求拆解与 Grill-Me 对撞
 │   │   ├── 02-sop-coding.md   # [2] 💻 单焦点护栏编码 (看门狗机制)
 │   │   ├── 03-sop-debug.md    # [3] 🐞 小黄鸭探针排错
+│   │   ├── 03_fast-sop-fasttrack.md # [F] ⚡ 极速微创修补 (免状态机审批)
 │   │   ├── 04-sop-review.md   # [4] 🏁 目标终验与文档更新
 │   │   ├── 05-sop-archive.md  # [5] 📦 上下文归档 (写 handover.md)
 │   │   └── 06-sop-resume.md   # [6] 🛟 续航重连 (一键复活)
@@ -71,6 +72,7 @@ graph TD
         M1P["[1+] 📦 新大模块 ➔ 创建 docs/modules/ PRD"]
         M2["[2] 💻 单焦点编码 ➔ 看门狗护栏机制"]
         M3["[3] 🐞 报错排错 ➔ 小黄鸭定位 (微创修复)"]
+        MFAST["[F] ⚡ 极速微创 ➔ 免状态机直修 & 静默刷新名片卡"]
         M4["[4] 🏁 目标验收 ➔ 自动打钩 & 同步 docs/"]
         M5["[5] 📦 下班归档 ➔ 追加 handover.md 记忆"]
         M6["[6] 🛟 续航复活 ➔ 读取看板与记忆一键复活"]
@@ -86,6 +88,7 @@ graph TD
     subgraph ENGINE["⚙️ 双轨存储与确切控制引擎"]
         PY["🛠️ board.py (底层 Python 看板控制脚本)"]
         ST["📊 status.md (唯一 ACTIVE 动态任务看板)"]
+        SN["⚡ tier1_snapshot.md (第一层极简快照名片卡)"]
         HO["📦 handover.md (长效历史交接黑匣子)"]
         LEG["🏛️ legacy_arch.md (老代码切片索引地图)"]
         DOC["📁 docs/ (静态 PRD / 架构 / 数据库文档)"]
@@ -99,6 +102,7 @@ graph TD
     M2 -->|约束于| RULES
     M2 -->|增量落盘| PY
     M3 -->|微创切口| M2
+    MFAST -->|直修代码 & 0行政成本| SN
     M4 -->|标记 DONE| PY
     M4 -->|同步更新| DOC
     M5 -->|追加交接| HO
@@ -249,9 +253,10 @@ graph TD
 为了保持工程落地的客观严谨，本项目建立了可动态更新状态的 [docs/05-known-limitations.md](file:///Users/up_dong/Documents/%E8%B5%B5%E6%8C%AF%E4%B8%9C%E7%A7%81%E6%9C%89/energy_carbon/docs/05-known-limitations.md) 缺陷追溯看板（包含 🔴 OPEN / 🟡 IN_PROGRESS / 🟢 RESOLVED 状态标记）：
 1. **[BUG-001] 多人 Git Merge 冲突问题** ➔ 🔴 待解决 (OPEN)
 2. **[BUG-002] 缺乏强制自动化测试门禁** ➔ 🟡 优化中 (IN_PROGRESS)
-3. **[BUG-003] 记忆黑匣子 Token 膨胀** ➔ 🔴 待解决 (OPEN)
+3. **[BUG-003] 记忆黑匣子 Token 膨胀** ➔ 🟢 已解决 (RESOLVED: 上线三层记忆金字塔架构)
 4. **[BUG-004] 缺乏老项目专属 SOP 与自动化扫描脚本** ➔ 🟢 已解决 (RESOLVED: 已上线 00-sop-legacy 与 arch.py)
 5. **[BUG-005] 缺少极简打卡与 AI 主动引导菜单** ➔ 🟢 已解决 (RESOLVED: 已上线 0/1/1+ 快捷菜单)
+6. **[BUG-006] 仪式感过载与 Vibe 阻尼效应** ➔ 🟢 已解决 (RESOLVED: 已上线 03_fast-sop-fasttrack 与 [F] 极速路由)
 
 
 

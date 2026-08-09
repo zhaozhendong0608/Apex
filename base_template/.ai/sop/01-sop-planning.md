@@ -17,7 +17,7 @@
 - **第二层模块索引**：在 `.ai/tier2_modules.md` 追加注册该大模块。
 - **🖥️ 可交互 HTML 原型 (`mockup.html`)**：在 `docs/modules/<module_name>/mockup.html` 生成可点击测试的原型页面。
   - **外壳继承死命令**：**必须强行继承 `docs/templates/base-shell-template.html` 布局外壳**（Header+Sidebar），严禁改变 App 大布局！仅填充 `Main Content` 区域。
-  - **交互要求**：具备真实前端交互（弹窗 Modal 开合、Tab 切换、表单空校验与模拟成功提示）。双击即用。
+  - **交互与 Mock 要求**：**允许且推荐使用丰富的前端 Mock 假数据**，实现高保真交互（弹窗 Modal 开合、Tab 切换、列表展示与模拟提交）。双击即用。
 
 ### 3. Pizza Slicing 原子化拆解 (15~30 分钟/Task)
 - `S1-Bone` (骨架层)：数据结构、API 契约、数据库 Migration。

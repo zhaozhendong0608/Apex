@@ -35,10 +35,11 @@ Apex/
 │   ├── legacy_arch.md         # 🏛️ 老代码切片索引模版
 │   ├── scripts/
 │   │   └── board.py           # 🛠️ 确定性 Python 看板控制脚本
-│   ├── sop/                   # 📜 1~6 号数字 SOP 规约矩阵
+│   ├── sop/                   # 📜 数字 SOP 规约矩阵
 │   │   ├── 01-sop-planning.md # [1] 需求规划与 Grill-Me 对撞
 │   │   ├── 02-sop-coding.md   # [2] 编码开发与护栏控制
 │   │   ├── 03-sop-debug.md    # [3] 报错排错与微创修复
+│   │   ├── 03_fast-sop-fasttrack.md # [F] ⚡ 极速微创修补 (免状态机)
 │   │   ├── 04-sop-review.md   # [4] 目标验收与文档同步
 │   │   ├── 05-sop-archive.md  # [5] 上下文归档 (写 handover.md)
 │   │   └── 06-sop-resume.md   # [6] 🛟 续航重连 (一键复活)
@@ -62,6 +63,7 @@ Apex/
 | **`1`** 或 `规划` | `01-sop-planning.md` | 需求对撞 (Grill-Me A/B/C 选择题) ➔ Pizza 拆解 Task ➔ 自动落盘看板 |
 | **`2`** 或 `开始` | `02-sop-coding.md` | 锁定唯一 `ACTIVE` 任务 ➔ 看门狗护栏代码编写 ➔ 生成白话验证指引 |
 | **`3`** 或 `报错` | `03-sop-debug.md` | 小黄鸭根因分析 ➔ 微创切口修补 ➔ 禁止伪造保底数据 |
+| **`F`** 或 `快修` | `03_fast-sop-fasttrack.md` | 极速微创修补（免 board.py 审批） ➔ 直修代码 ➔ 静默刷新名片卡 |
 | **`4`** 或 `验收` | `04-sop-review.md` | 白话目标终验 ➔ 静默标记 DONE ➔ 同步更新 docs/ ➔ 推荐下一 Task |
 | **`5`** 或 `归档` | `05-sop-archive.md` | 对话压缩 ➔ 追加写入 handover.md ➔ 可安全关闭会话 |
 | **`6`** 或 `恢复` | `06-sop-resume.md` | 新会话唤醒 ➔ 读取 status.md + handover.md ➔ 一键复活断点 |
