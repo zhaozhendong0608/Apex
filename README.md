@@ -9,12 +9,12 @@
 - **📱 极简数字指令驱动 (1~6 数字 SOP)**：无需记忆繁琐命令，通过简单的按键数字控制 AI 完成从规划、编码、排错到验收归档的全流程。
 - **🧠 确定性看板与双轨记忆 (`board.py`)**：底层通过确定性 Python 脚本控制任务状态机，结合 `status.md` 焦点看板与 `handover.md` 长效黑匣子，防止 AI 幻觉与上下文丢失。
 - **🛡️ 看门狗护栏与防腐规范**：
-  - 单次修改 ≤ 3 个文件
+  - 最小改动原则 (Minimum Surgery Protocol，不限文件数，严禁凭 AI 想象力多写代码)
   - 零新依赖原则（授权后安装）
   - 关键第三方 API 联调日志规约（入参/返参必须可追溯）
   - 严禁自主补充保底硬编码 Mock 假数据
   - 融合 Sentinel Kernel v3.0 的 Solid 核心资产保护与 Reverse Testing 反向验证
-- **🏛️ 老项目破局四步法**：鸟瞰全局 ➔ 建立索引 ➔ 单链路切片 ➔ 逆向考古。
+- **🏛️ 老项目路由元数据图谱解密**：路由入口切入 ➔ 4D 元数据提取 ➔ 自动交集计算 ➔ Mermaid 全局关系图谱生成。
 
 ---
 
@@ -49,7 +49,9 @@ Apex/
 │   ├── 01-requirements.md     # 🗺️ 需求全景 MAP 导航中心
 │   ├── 02-architecture.md     # 架构设计与模块关系图
 │   ├── 03-database-design.md  # 数据库设计与 ER 图
-│   └── 04-api-design.md       # 接口详细设计
+│   ├── 04-api-design.md       # 接口详细设计
+│   ├── 05-known-limitations.md # 🐞 缺陷与改进追溯看板
+│   └── 06-legacy-graph-analysis.md # 🕸️ 老项目路由元数据与关系图谱分析指南
 │
 └── base_template/             # 📦 纯净脚手架模版备份包
 ```

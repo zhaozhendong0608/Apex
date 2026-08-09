@@ -151,13 +151,13 @@ graph TD
    - **操作**：向 AI 喂老项目的**前3层目录树**与**包依赖文件**（`package.json`/`pom.xml`/`go.mod`）。
    - **AI 职责**：判断技术栈架构（如 MVC、微服务、DDD）、框架版本与项目入口。
 
-3. **第二步：建立索引与模块归档**
-   - **操作**：提取 3~5 个核心主干/配置文件，命令 AI 自动生成 `docs/02-architecture.md` 以及 `.ai/legacy_arch.md`。
-   - **成果**：将老项目现存的模块（认证、订单、支付等）及 API 归档入 `docs/04-api-design.md`。
+3. **第二步：路由切入 ➔ 4D 元数据提取 ➔ 自动拓扑关联**
+   - **操作**：输入前端路由入口（如 `/order/create`），运行 `python .ai/scripts/arch.py analyze` 提取路由、文件、API、表名。
+   - **成果**：自动落盘注册入 `.ai/tier2_legacy_arch.md`（元数据池），并自动计算模块交集生成 Mermaid 可视化关系图谱（详见 [docs/06-legacy-graph-analysis.md](file:///Users/up_dong/Documents/%E8%B5%B5%E6%8C%AF%E4%B8%9C%E7%A7%81%E6%9C%89/energy_carbon/docs/06-legacy-graph-analysis.md)）。
 
-4. **第三步：切片追踪与逆向考古 (攻坚晦涩代码)**
-   - **单链路切片**：开发具体需求时，自顶向下（路由 ➔ 控制器 ➔ Service ➔ DAO）仅调阅该路径上的 3~4 个文件，绝不超载上下文。
-   - **逆向考古**：面对“祖传山寨代码”，让 AI **逆向补全中文注释**，并**编写探针单测**锁死老代码行为后再改动。
+4. **第三步：深层搜寻与单链路切片修改**
+   - **深层搜寻**：遇到深层嵌套文件时运行 `python .ai/scripts/arch.py find "keyword"` 穿透层级寻找。
+   - **单链路切片**：开发具体需求时自顶向下仅调阅该链路文件，绝不超载上下文。
 
 5. **第四步：纳入 Vibecoding 迭代**
    - 将改造任务或新需求拆解为 `[Task-XXX]` 写入 `.ai/status.md`。

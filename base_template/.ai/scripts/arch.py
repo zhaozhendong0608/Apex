@@ -90,7 +90,7 @@ def analyze_metadata_and_register(route, module_name, files_str, tables_str, api
         content = f.read()
 
     files = [f.strip() for f in files_str.split(",") if f.strip()]
-    tables = [t.strip() for t.strip().replace("，", ",").split(",") if t.strip()]
+    tables = [t.strip() for t in tables_str.replace("，", ",").split(",") if t.strip()]
     apis = [a.strip() for a in apis_str.split(",") if a.strip()]
 
     # 1. 查找现有元数据中的数据表交集 (共享表/共享依赖)
