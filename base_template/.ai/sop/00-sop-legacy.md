@@ -21,10 +21,14 @@ python3 .ai/scripts/arch.py tree 3
 python3 .ai/scripts/arch.py deps
 ```
 
-### 模式 B：黑盒线索解密 (输入 `0 接口URL` / `0 关键词` / `0 表名`)
-根据线索（如 `/api/refund` 或表名 `t_order`）全局搜索定位 3~4 个核心文件，静默追加：
+### 模式 B：黑盒线索解密与关系图谱构建 (输入 `0 路由` / `0 关键词` / `0 表名`)
+1. **深度穿透搜寻文件**：
 ```bash
-python3 .ai/scripts/arch.py append "退款模块" "src/controllers/refund.js" "处理订单退款"
+python3 .ai/scripts/arch.py find "order"
+```
+2. **注册四维元数据并自动生成 Mermaid 关系图谱**：
+```bash
+python3 .ai/scripts/arch.py analyze "/order/create" "订单创建模块" "OrderCalc.vue,OrderService.java" "t_order,t_user" "POST /api/v1/order"
 ```
 
 ### 模式 C：探查菜单生成 (输入 `0 菜单`)

@@ -44,6 +44,8 @@ my-project/
 │   ├── 02-architecture.md     # 架构设计与模块关系图
 │   ├── 03-database-design.md  # 数据库 ER 图与字典
 │   ├── 04-api-design.md       # API 接口规范
+│   ├── 05-known-limitations.md # 🐞 工作流缺陷与改进追溯看板
+│   ├── 06-legacy-graph-analysis.md # 🕸️ 老项目路由元数据与关系图谱分析指南
 │   ├── modules/               # 📦 业务模块化 PRD 文件夹
 │   │   ├── auth/              # 认证模块 PRD
 │   │   └── order/             # 订单模块 PRD
@@ -258,7 +260,8 @@ graph TD
 5. **[BUG-005] 缺少极简打卡与 AI 主动引导菜单** ➔ 🟢 已解决 (RESOLVED: 已上线 0/1/1+ 快捷菜单)
 6. **[BUG-006] 仪式感过载与 Vibe 阻尼效应** ➔ 🟢 已解决 (RESOLVED: 已上线 03_fast-sop-fasttrack 与 [F] 极速路由)
 7. **[BUG-007] board.py 正则绑定脆弱** ➔ 🟢 已解决 (RESOLVED: 上线 HTML 注释锚点与自动自愈逻辑)
-8. **[BUG-009] 看门狗“≤3文件”卡死** ➔ 🟢 已解决 (RESOLVED: 升级为最小改动原则，严禁凭 AI 想象力多写代码)
+8. **[BUG-008] 老项目扫描假象** ➔ 🟢 已解决 (RESOLVED: 上线路由 4D 元数据池与拓扑图谱分析指南 06-legacy-graph-analysis)
+9. **[BUG-009] 看门狗“≤3文件”卡死** ➔ 🟢 已解决 (RESOLVED: 升级为最小改动原则，严禁凭 AI 想象力多写代码)
 
 
 
