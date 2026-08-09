@@ -257,6 +257,7 @@ graph TD
 4. **[BUG-004] 缺乏老项目专属 SOP 与自动化扫描脚本** ➔ 🟢 已解决 (RESOLVED: 已上线 00-sop-legacy 与 arch.py)
 5. **[BUG-005] 缺少极简打卡与 AI 主动引导菜单** ➔ 🟢 已解决 (RESOLVED: 已上线 0/1/1+ 快捷菜单)
 6. **[BUG-006] 仪式感过载与 Vibe 阻尼效应** ➔ 🟢 已解决 (RESOLVED: 已上线 03_fast-sop-fasttrack 与 [F] 极速路由)
+7. **[BUG-009] 看门狗“≤3文件”卡死** ➔ 🟢 已解决 (RESOLVED: 升级为最小改动原则，严禁凭 AI 想象力多写代码)
 
 
 
