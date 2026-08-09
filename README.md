@@ -29,12 +29,15 @@ Apex/
 ├── README.md                  # 📖 项目门面与使用指南
 ├── WORKFLOW_GUIDE.md          # 📖 完整工作流与设计指南
 │
-├── .ai/                       # 🧠 AI 动态协作与状态控制中心
-│   ├── status.md              # 📊 任务看板 (初始通用模版)
-│   ├── handover.md            # 📦 历史交接记忆卡 (初始通用模版)
-│   ├── legacy_arch.md         # 🏛️ 老代码切片索引模版
+├── .ai/                       # 🧠 AI 动态协作与状态控制中心 (三层记忆金字塔)
+│   ├── tier1_snapshot.md      # ⚡ (第一层) 动态极简快照名片 (<30行，断点复活专享)
+│   ├── tier2_modules.md       # 🧩 (第二层) 大模块总览索引矩阵
+│   ├── tier2_legacy_arch.md   # 🏛️ (第二层) 老项目路由元数据与拓扑关系图谱
+│   ├── tier3_status.md        # 📊 (第三层) 任务看板 (唯一 ACTIVE 焦点)
+│   ├── tier3_handover.md      # 📦 (第三层) 历史交接记忆卡 (追加式 Changelog)
 │   ├── scripts/
-│   │   └── board.py           # 🛠️ 确定性 Python 看板控制脚本
+│   │   ├── board.py           # 🛠️ 确定性 Python 看板控制脚本
+│   │   └── arch.py            # 🛠️ 确定性 Python 拓扑图谱分析脚本
 │   ├── sop/                   # 📜 数字 SOP 规约矩阵
 │   │   ├── 01-sop-planning.md # [1] 需求规划与 Grill-Me 对撞
 │   │   ├── 02-sop-coding.md   # [2] 编码开发与护栏控制

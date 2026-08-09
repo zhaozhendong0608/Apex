@@ -27,12 +27,15 @@ my-project/
 ├── .env.example               # 环境变量占位模版
 ├── README.md                  # 本说明文档
 │
-├── .ai/                       # 🧠 AI 动态协作与状态控制中心
-│   ├── status.md              # 实时任务看板
-│   ├── handover.md            # 历史交接黑匣子 (追加式 Changelog)
-│   ├── legacy_arch.md         # (老项目专有) 老代码模块与接口切片索引库
+├── .ai/                       # 🧠 AI 动态协作与状态控制中心 (三层记忆金字塔)
+│   ├── tier1_snapshot.md      # ⚡ (第一层) 动态极简快照名片 (<30行，断点复活专享)
+│   ├── tier2_modules.md       # 🧩 (第二层) 大模块总览索引矩阵
+│   ├── tier2_legacy_arch.md   # 🏛️ (第二层) 老项目路由元数据与拓扑关系图谱
+│   ├── tier3_status.md        # 📊 (第三层) 任务看板 (唯一 ACTIVE 焦点)
+│   ├── tier3_handover.md      # 📦 (第三层) 历史交接黑匣子 (追加式 Changelog)
 │   ├── scripts/
-│   │   └── board.py           # 确定性状态修改 Python 脚本
+│   │   ├── board.py           # 🛠️ 确定性 Python 看板控制脚本
+│   │   └── arch.py            # 🛠️ 确定性 Python 拓扑图谱分析脚本
 │   ├── sop/                   # 数字 SOP 规则矩阵
 │   │   ├── 01-sop-planning.md # [1] 需求拆解与 Grill-Me
 │   │   ├── 02-sop-coding.md   # [2] 单焦点护栏编码

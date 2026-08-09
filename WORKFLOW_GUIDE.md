@@ -16,15 +16,15 @@ my-project/
 ├── .env.example               # 🔒 环境变量安全示例
 ├── README.md                  # 📖 项目门面与开发指引
 │
-├── .ai/                       # 🧠 AI 动态协作与状态控制中心
-│   ├── snapshot.md            # ⚡ (第一层) 动态极简快照名片 (<30行，断点复活专享)
-│   ├── modules.md             # 🧩 (第二层) 所有大模块总览索引矩阵 (与handover同级好管理)
-│   ├── status.md              # 📊 (第三层) 实时任务看板 (唯一 ACTIVE 焦点)
-│   ├── handover.md            # 📦 (第三层) 历史交接记忆卡 (追加模式黑匣子)
-│   ├── legacy_arch.md         # 🏛️ (老项目专有) 老代码模块与接口切片索引库
+├── .ai/                       # 🧠 AI 动态协作与状态控制中心 (三层记忆金字塔)
+│   ├── tier1_snapshot.md      # ⚡ (第一层) 动态极简快照名片 (<30行，断点复活专享)
+│   ├── tier2_modules.md       # 🧩 (第二层) 所有大模块总览索引矩阵
+│   ├── tier2_legacy_arch.md   # 🏛️ (第二层) 老项目路由元数据与拓扑关系图谱
+│   ├── tier3_status.md        # 📊 (第三层) 实时任务看板 (唯一 ACTIVE 焦点)
+│   ├── tier3_handover.md      # 📦 (第三层) 历史交接记忆卡 (追加模式黑匣子)
 │   ├── scripts/
 │   │   ├── board.py           # 🛠️ 确切 Python 看板与状态控制脚本
-│   │   └── arch.py            # 🛠️ 确切 Python 老项目目录树与切片脚本
+│   │   └── arch.py            # 🛠️ 确切 Python 拓扑图谱分析脚本
 
 │   ├── sop/                   # 📜 数字 SOP 规则矩阵
 │   │   ├── 00-sop-legacy.md   # [0] 🏛️ 老项目破局与切片索引
