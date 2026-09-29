@@ -1,67 +1,64 @@
-# 🚀 通用工程 Base 脚手架 (Vibe Coding 3.0 Standard)
+# 🚀 [业务项目名称 / Project Name]
 
-本工程基于 **Vibe Coding 3.0 自动化工程体系** 打造，集成了确定的任务状态机、自动看板控制脚本、数字 SOP 规约矩阵以及老项目破局归档机制。
-
----
-
-## ⚡ 数字指令速查表 (Quick SOP Router)
-
-在对话框中输入对应的数字或关键词，AI 将自动调阅对应 SOP 规约：
-
-- **`[1]` 或 `规划`**：启动 Grill-Me 需求拷问与原子任务拆解（自动写入 `.ai/status.md`）。
-- **`[2]` 或 `编码`**：锁死当前唯一的 `IN_PROGRESS` 任务，按看门狗规约单焦点开发。
-- **`[3]` 或 `排错`**：开启小黄鸭根因分析与微创代码修补。
-- **`[F]` 或 `快修`**：极速微创修补（免状态机审批），直修代码并静默刷新名片卡。
-- **`[4]` 或 `验收`**：目标终验、写审分离复核，静默标记任务为 `DONE`。
-- **`[5]` 或 `归档`**：压缩对话上下文，将改动与架构决策追加写入 `.ai/handover.md`。
-- **`[6]` 或 `恢复`**：新窗口极速复活记忆，一键无缝续传接续开发。
+> **项目一句话定位**：[例如：基于 React + Node.js 的企业级数字化业务平台]。
 
 ---
 
-## 📁 目录结构说明
+## 📌 1. 项目简介 (Project Overview)
 
-```plaintext
-my-project/
-├── .cursorrules               # AI 行为约束与数字路由总纲
-├── .gitignore                 # 垃圾与敏感文件过滤规约
-├── .env.example               # 环境变量占位模版
-├── README.md                  # 本说明文档
-│
-├── .ai/                       # 🧠 AI 动态协作与状态控制中心 (三层记忆金字塔)
-│   ├── tier1_snapshot.md      # ⚡ (第一层) 动态极简快照名片 (<30行，断点复活专享)
-│   ├── tier2_modules.md       # 🧩 (第二层) 大模块总览索引矩阵
-│   ├── tier2_legacy_arch.md   # 🏛️ (第二层) 老项目路由元数据与拓扑关系图谱
-│   ├── tier3_status.md        # 📊 (第三层) 任务看板 (唯一 ACTIVE 焦点)
-│   ├── tier3_handover.md      # 📦 (第三层) 历史交接黑匣子 (追加式 Changelog)
-│   ├── scripts/
-│   │   ├── board.py           # 🛠️ 确定性 Python 看板控制脚本
-│   │   └── arch.py            # 🛠️ 确定性 Python 拓扑图谱分析脚本
-│   ├── sop/                   # 数字 SOP 规则矩阵
-│   │   ├── 01-sop-planning.md # [1] 需求拆解与 Grill-Me
-│   │   ├── 02-sop-coding.md   # [2] 单焦点护栏编码
-│   │   ├── 03-sop-debug.md    # [3] 小黄鸭探针排错
-│   │   ├── 03_fast-sop-fasttrack.md # [F] ⚡ 极速微创修补 (免状态机)
-│   │   ├── 04-sop-review.md   # [4] 目标终验与文档更新
-│   │   ├── 05-sop-archive.md  # [5] 上下文归档
-│   │   └── 06-sop-resume.md   # [6] 🛟 续航重连
-│   └── templates/             # 软著与使用手册模版
-│
-├── docs/                      # 📁 静态工程架构与软著资产库
-│   ├── 01-requirements.md     # 🗺️ 需求全景 MAP 导航中心
-│   ├── 02-architecture.md     # 架构设计与模块关系图
-│   ├── 03-database-design.md  # 数据库设计与 ER 图
-│   ├── 04-api-design.md       # 接口详细设计
-│   ├── modules/               # 📦 业务模块化 PRD 文件夹
-│   │   ├── auth/              # 认证与权限 PRD
-│   │   └── order/             # 订单交易 PRD
-│   └── user-manual.md         # 产品使用手册
-│
-└── src/                       # 业务源码目录
+- **业务背景**：[简述项目的业务场景与核心解决的商业痛点]
+- **系统版本**：v1.0.0
+- **核心功能**：
+  - 🔑 **用户与权限管理**：支持多租户与 RBAC 角色权限控制。
+  - 📊 **核心业务数据看板**：实时数据统计、可视化图表展示与导出。
+  - ⚙️ **业务模块流转**：核心业务订单/数据的全生命周期管理。
+
+---
+
+## 🛠️ 2. 技术栈与运行环境 (Tech Stack & Prerequisites)
+
+- **前端 (Frontend)**: React / Vue3 / TypeScript / Tailwind CSS / Vite
+- **后端 (Backend)**: Node.js / Python (FastAPI/Django) / Java (Spring Boot) / Go
+- **数据库 (Database)**: PostgreSQL / MySQL / Redis
+- **环境要求**: Node.js >= 18.0.0, Docker
+
+---
+
+## 🚀 3. 本地快速启动 (Quick Start)
+
+### 1. 克隆与安装依赖
+```bash
+# 安装依赖项
+npm install
+```
+
+### 2. 启动本地开发服务
+```bash
+# 开启本地热重载开发服务
+npm run dev
+```
+
+### 3. 生产构建打包
+```bash
+# 编译生产 Bundle
+npm run build
 ```
 
 ---
 
-## 🛠️ 项目启动与使用
+## 📁 4. 业务工程目录导航
 
-1. **新项目使用**：直接拷贝本工程结构作为起始脚手架，发送 `1` 给 AI 开始需求规划。
-2. **老项目接入**：将 `.cursorrules`、`.ai/`、`docs/` 追加放入老项目根目录，发送 `1` 或让 AI 跑“老项目破局四步法”建立架构索引。
+- `src/`：业务源代码目录（包含组件、页面、路由、状态管理、服务层等）
+- `docs/`：本工程的技术资产库（包含需求 MAP、系统架构图、数据库 ER 图及 API 设计）
+
+---
+
+## 📖 5. 工程设计文档导航 (Documentation Hub)
+
+- 🗺️ [需求全景地图 (01-requirements.md)](docs/01-requirements.md)
+- 🏗️ [系统架构设计 (02-architecture.md)](docs/02-architecture.md)
+- 🗄️ [数据库 ER 图与字典 (03-database-design.md)](docs/03-database-design.md)
+- 🌐 [API 接口设计规范 (04-api-design.md)](docs/04-api-design.md)
+- 🎨 [UI 视觉规范与设计 Token (docs/design)](docs/design/README.md)
+- 📦 [业务大模块 PRD 与交互原型 (docs/modules)](docs/modules/README.md)
+- 📁 [文档与原型外壳模板 (docs/templates)](docs/templates/README.md)

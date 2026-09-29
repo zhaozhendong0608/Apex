@@ -23,7 +23,7 @@
 ## 🤖 阶段二：AI 执行流程
 
 ### 第一步：读取上下文与启动任务
-1. 静默读取 `.ai/status.md`，锁定唯一的 `ACTIVE` 任务。若当前尚无任务在 `ACTIVE` 区，静默调用 `python .ai/scripts/board.py start Task-XXX` 启动首个 TODO 任务。
+1. 静默读取 `.ai/tier3_status.md`，锁定唯一的 `ACTIVE` 任务。若当前尚无任务在 `ACTIVE` 区，静默调用 `python .ai/scripts/board.py start Task-XXX` 启动首个 TODO 任务。
 2. 明确该 Task 的 **白话验收目标** 和 **受影响的目标文件**。
 
 ### 第二步：增量编码

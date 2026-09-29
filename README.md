@@ -20,44 +20,30 @@
 
 ## 📂 项目目录结构
 
+<!-- AUTO-TREE-MACRO:START -->
 ```plaintext
-Apex/
-├── .cursorrules               # 🧠 AI 行为约束与数字路由总纲 (Cursor)
-├── .windsurfrules             # 🧠 IDE 规则适配文件 (Windsurf)
-├── .gitignore                 # 🔒 标准过滤规约
-├── .env.example               # 🔒 环境变量示例
-├── README.md                  # 📖 项目门面与使用指南
-├── WORKFLOW_GUIDE.md          # 📖 完整工作流与设计指南
-│
-├── .ai/                       # 🧠 AI 动态协作与状态控制中心 (三层记忆金字塔)
-│   ├── tier1_snapshot.md      # ⚡ (第一层) 动态极简快照名片 (<30行，断点复活专享)
-│   ├── tier2_modules.md       # 🧩 (第二层) 大模块总览索引矩阵
-│   ├── tier2_legacy_arch.md   # 🏛️ (第二层) 老项目路由元数据与拓扑关系图谱
-│   ├── tier3_status.md        # 📊 (第三层) 任务看板 (唯一 ACTIVE 焦点)
-│   ├── tier3_handover.md      # 📦 (第三层) 历史交接记忆卡 (追加式 Changelog)
-│   ├── scripts/
-│   │   ├── board.py           # 🛠️ 确定性 Python 看板控制脚本
-│   │   └── arch.py            # 🛠️ 确定性 Python 拓扑图谱分析脚本
-│   ├── sop/                   # 📜 数字 SOP 规约矩阵
-│   │   ├── 01-sop-planning.md # [1] 需求规划与 Grill-Me 对撞
-│   │   ├── 02-sop-coding.md   # [2] 编码开发与护栏控制
-│   │   ├── 03-sop-debug.md    # [3] 报错排错与微创修复
-│   │   ├── 03_fast-sop-fasttrack.md # [F] ⚡ 极速微创修补 (免状态机)
-│   │   ├── 04-sop-review.md   # [4] 目标验收与文档同步
-│   │   ├── 05-sop-archive.md  # [5] 上下文归档 (写 handover.md)
-│   │   └── 06-sop-resume.md   # [6] 🛟 续航重连 (一键复活)
-│   └── templates/             # 软著与使用手册模版
-│
-├── docs/                      # 📁 静态工程架构与软著资产库
-│   ├── 01-requirements.md     # 🗺️ 需求全景 MAP 导航中心
-│   ├── 02-architecture.md     # 架构设计与模块关系图
-│   ├── 03-database-design.md  # 数据库设计与 ER 图
-│   ├── 04-api-design.md       # 接口详细设计
-│   ├── 05-known-limitations.md # 🐞 缺陷与改进追溯看板
-│   └── 06-legacy-graph-analysis.md # 🕸️ 老项目路由元数据与关系图谱分析指南
-│
-└── base_template/             # 📦 纯净脚手架模版备份包
+Apex/                                 # 🚀 顶层工作区 (IDE 打开的根目录)
+├── 🧩 .agents/                        # 🧩 AI 专属技能包库
+│   └── 📁 skills/
+├── 🧠 .ai/                            # ⚙️ 统一工作流控制中心 (三层记忆金字塔)
+│   ├── 🛠️ scripts/                   # 🛠️ 自动化控制与分析脚本库
+│   ├── 📜 sop/                        # 📜 全套 00~06 数字 SOP 规则矩阵
+│   ├── 📄 tier1_snapshot.md           # [第一层：极简快照名片层] 项目动态快照 (tier1_snapshot.md) [DEMO 示例 / 样例模板]
+│   ├── 📄 tier2_legacy_arch.md        # (tier2_legacy_arch.md)
+│   ├── 📄 tier2_modules.md            # [第二层：宏观业务大模块总览层] 大模块矩阵索引表 (tier2_modules.md) [DEMO 示例 / 样例模板]
+│   ├── 📄 tier3_handover.md           # [第三层：微观原子任务层] 历史交接黑匣子 (tier3_handover.md) [DEMO 示例 / 样例模板]
+│   └── 📄 tier3_status.md             # 📋 [第三层：微观原子任务层] 实时任务看板 (tier3_status.md) [DEMO 示例 / 样例模板]
+├── 🧠 .cursorrules                    # 🧠 AI 行为约束与数字路由表
+├── 🧠 .windsurfrules                  # 🧠 IDE 规则适配文件
+├── 📖 README.md                       # 📖 项目门面与使用指南
+├── 📖 WORKFLOW_GUIDE.md               # 📖 完整工作流与设计指南
+└── 💻 base_template/                  # [业务项目名称 / Project Name]
+    ├── 🧠 .cursorrules                # 🧠 AI 行为约束与数字路由表
+    ├── 🧠 .windsurfrules              # 🧠 IDE 规则适配文件
+    ├── 📖 README.md                   # 📖 项目门面与使用指南
+    └── 📁 docs/                       # 📁 本工程 PRD / 架构 / 设计文档
 ```
+<!-- AUTO-TREE-MACRO:END -->
 
 ---
 

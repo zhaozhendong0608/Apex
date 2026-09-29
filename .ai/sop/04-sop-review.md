@@ -8,23 +8,24 @@
 ## 🤖 AI 执行流程
 
 ### 第一步：读取目标与现状
-1. 静默读取 `.ai/status.md`，锁定当前处于 `IN_PROGRESS` (ACTIVE) 状态的 Task。
+1. 静默读取 `.ai/tier3_status.md`，锁定当前处于 `IN_PROGRESS` (ACTIVE) 状态的 Task。
 2. 提取该 Task 的 **白话验收目标**。
 
 ### 第二步：对照核对 (Check-In) & 文档同步
 1. 评估功能是否已完全实现。
-2. **需求状态同步**：在 `docs/01-requirements.md` 中将对应已完成的 `FR-XXX` 需求标记为 `- [x]` 打勾。
-3. 若涉及 API 变动、数据库结构变动或核心架构调整，同步更新 `docs/` 目录下对应的其他架构文档。
+2. **需求状态同步**：在 `[工程目录]/docs/01-requirements.md` 中将对应已完成的 `FR-XXX` 需求标记为 `- [x]` 打勾。
+3. 若涉及 API 变动、数据库结构变动或核心架构调整，同步更新工程 `docs/` 目录下对应的其他架构文档。
 
-### 第三步：静默调用脚本更新状态 (Automation)
-确认通过后，AI 在后台**静默执行 Python 脚本**更新看板：
+### 第三步：静默调用脚本更新状态与刷新目录树 (Automation)
+确认通过后，AI 在后台**静默执行 Python 脚本**更新看板与自动刷新目录树：
 
 1. **调用指令**：
    ```bash
    python .ai/scripts/board.py complete "Task-001"
+   python3 .ai/scripts/sync_tree.py
    ```
 
-2. **确认更新**：检查 `.ai/status.md` 中该 Task 的状态是否已成功变为 `DONE` 🟢。
+2. **确认更新**：检查 `.ai/tier3_status.md` 中该 Task 的状态是否已成功变为 `DONE` 🟢。
 
 ---
 
@@ -35,7 +36,7 @@
 🎉 **[Task-XXX] 验收通过，已成功归档！**
 
 - **已完成任务**：[Task-XXX] [任务标题]
-- **看板状态**：已在 `.ai/status.md` 中更新为 `[DONE]` 🟢
+- **看板状态**：已在 `.ai/tier3_status.md` 中更新为 `[DONE]` 🟢
 - **文档同步**：[如：已更新 docs/04-api-design.md]
 
 ---
