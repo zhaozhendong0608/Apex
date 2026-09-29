@@ -10,64 +10,73 @@
 
 <!-- AUTO-TREE-FULL:START -->
 ```plaintext
-Apex/                                       # 🚀 顶层工作区 (IDE 打开的根目录)
-├── 🧩 .agents/                              # 🧩 AI 专属技能包库
+Apex/                                         # 🚀 顶层工作区 (IDE 打开的根目录)
+├── 🧩 .agents/                                # 🧩 AI 专属技能包库
 │   └── 📁 skills/
-│       └── 📁 archetype-architect/
-│           ├── 📄 SKILL.md                  # 原型架构与模块关系梳理专家。解析静态 HTML 原型，通过反向质询（Grill Protocol）补全隐藏业务逻辑，按场景选配生成 Mermaid 图表并强制落盘归档。
+│       ├── 📁 archetype-architect/            # (原型架构与模块关系梳理专家)
+│       │   ├── 📖 README.md                   # 📖 项目门面与使用指南
+│       │   ├── 📄 SKILL.md                    # 原型架构与模块关系梳理专家。解析静态 HTML 原型，通过反向质询（Grill Protocol）补全隐藏业务逻辑，按场景选配生成 Mermaid 图表并强制落盘归档。
+│       │   ├── 📁 examples/
+│       │   ├── 📁 references/
+│       │   ├── 🛠️ scripts/                   # 🛠️ 自动化控制与分析脚本库
+│       │   └── 📁 templates/                  # 📁 文档与原型外壳模板
+│       └── 📁 design-spec-architect/          # 📐 Design-Spec-Architect (架构设计说明书与变更同步专家)
+│           ├── 📖 README.md                   # 📖 项目门面与使用指南
+│           ├── 📄 SKILL.md                    # 概要设计说明书 (HLD) 与详细设计说明书 (DLD) 自动生成与变更同步专家。基于 PRD 和原型推演系统分层、表结构、接口契约与异常流，严格遵循钧天科技 V1.0 8大章节标准，并在需求变更时增量更新架构文档。
 │           ├── 📁 examples/
 │           ├── 📁 references/
-│           ├── 🛠️ scripts/                 # 🛠️ 自动化控制与分析脚本库
-│           └── 📁 templates/                # 📁 文档与原型外壳模板
-├── 🧠 .ai/                                  # ⚙️ 统一工作流控制中心 (三层记忆金字塔)
-│   ├── 🛠️ scripts/                         # 🛠️ 自动化控制与分析脚本库
-│   │   ├── 📄 arch.py                       # 🏛️ 老项目拓扑图谱分析脚本
-│   │   ├── 📄 board.py                      # 📊 确定性看板与任务状态控制脚本
-│   │   └── 📄 sync_tree.py                  # 🔄 目录树与 Markdown 文档自动同步脚本
-│   ├── 📜 sop/                              # 📜 全套 00~06 数字 SOP 规则矩阵
-│   │   ├── 📄 00-sop-legacy.md              # (00-sop-legacy)
-│   │   ├── 📄 01-sop-planning.md            # (01-sop-planning)
-│   │   ├── 📄 02-sop-coding.md              # (02-sop-coding)
-│   │   ├── 📄 03-sop-debug.md               # (03-sop-debug)
-│   │   ├── 📄 03_fast-sop-fasttrack.md      # (03_fast-sop-fasttrack)
-│   │   ├── 📄 04-sop-review.md              # (04-sop-review)
-│   │   ├── 📄 05-sop-archive.md             # (05-sop-archive)
-│   │   └── 📄 06-sop-resume.md              # (06-sop-resume)
-│   ├── 📄 tier1_snapshot.md                 # [第一层：极简快照名片层] 项目动态快照 (tier1_snapshot.md) [DEMO 示例 / 样例模板]
-│   ├── 📄 tier2_legacy_arch.md              # (tier2_legacy_arch.md)
-│   ├── 📄 tier2_modules.md                  # [第二层：宏观业务大模块总览层] 大模块矩阵索引表 (tier2_modules.md) [DEMO 示例 / 样例模板]
-│   ├── 📄 tier3_handover.md                 # [第三层：微观原子任务层] 历史交接黑匣子 (tier3_handover.md) [DEMO 示例 / 样例模板]
-│   └── 📄 tier3_status.md                   # 📋 [第三层：微观原子任务层] 实时任务看板 (tier3_status.md) [DEMO 示例 / 样例模板]
-├── 🧠 .cursorrules                          # 🧠 AI 行为约束与数字路由表
-├── 🧠 .windsurfrules                        # 🧠 IDE 规则适配文件
-├── 📖 README.md                             # 📖 项目门面与使用指南
-├── 📖 WORKFLOW_GUIDE.md                     # 📖 完整工作流与设计指南
-└── 💻 base_template/                        # [业务项目名称 / Project Name]
-    ├── 🧠 .cursorrules                      # 🧠 AI 行为约束与数字路由表
-    ├── 🧠 .windsurfrules                    # 🧠 IDE 规则适配文件
-    ├── 📖 README.md                         # 📖 项目门面与使用指南
-    └── 📁 docs/                             # 📁 本工程 PRD / 架构 / 设计文档
-        ├── 📄 01-requirements.md            # 🗺️ 01 - 业务需求全景地图与 PRD 导航中心 (Requirements Master MAP)
-        ├── 📄 02-architecture.md            # 🏛️ 02 - 概要设计与系统架构图
-        ├── 📄 03-database-design.md         # 🗄️ 03 - 数据库设计与 ER 关系规约
-        ├── 📄 04-api-design.md              # 🌐 04 - API 接口详细设计规范
-        ├── 📄 05-known-limitations.md       # (Workflow Defect & Improvement Board)
-        ├── 📄 06-legacy-graph-analysis.md   # 🕸️ 老项目路由元数据拆解与关系图谱分析指南 (Legacy Metadata Graph Analysis Guide)
-        ├── 🎨 design/                       # /UX 设计规范与主题资产库 (Design Assets Directory)
-        │   ├── 📖 README.md                 # 📖 项目门面与使用指南
-        │   ├── 📄 design-tokens.md          # (Design System Tokens)
+│           └── 📁 templates/                  # 📁 文档与原型外壳模板
+├── 🧠 .ai/                                    # ⚙️ 统一工作流控制中心 (三层记忆金字塔)
+│   ├── 🛠️ scripts/                           # 🛠️ 自动化控制与分析脚本库
+│   │   ├── 📄 arch.py                         # 🏛️ 老项目拓扑图谱分析脚本
+│   │   ├── 📄 board.py                        # 📊 确定性看板与任务状态控制脚本
+│   │   └── 📄 sync_tree.py                    # 🔄 目录树与 Markdown 文档自动同步脚本
+│   ├── 📜 sop/                                # 📜 全套 00~06 数字 SOP 规则矩阵
+│   │   ├── 📄 00-sop-legacy.md                # (00-sop-legacy)
+│   │   ├── 📄 01-sop-planning.md              # (01-sop-planning)
+│   │   ├── 📄 02-sop-coding.md                # (02-sop-coding)
+│   │   ├── 📄 03-sop-debug.md                 # (03-sop-debug)
+│   │   ├── 📄 03_fast-sop-fasttrack.md        # (03_fast-sop-fasttrack)
+│   │   ├── 📄 04-sop-review.md                # (04-sop-review)
+│   │   ├── 📄 05-sop-archive.md               # (05-sop-archive)
+│   │   └── 📄 06-sop-resume.md                # (06-sop-resume)
+│   ├── 📄 tier1_snapshot.md                   # [第一层：极简快照名片层] 项目动态快照 (tier1_snapshot.md) [DEMO 示例 / 样例模板]
+│   ├── 📄 tier2_legacy_arch.md                # (tier2_legacy_arch.md)
+│   ├── 📄 tier2_modules.md                    # [第二层：宏观业务大模块总览层] 大模块矩阵索引表 (tier2_modules.md) [DEMO 示例 / 样例模板]
+│   ├── 📄 tier3_handover.md                   # [第三层：微观原子任务层] 历史交接黑匣子 (tier3_handover.md) [DEMO 示例 / 样例模板]
+│   └── 📄 tier3_status.md                     # 📋 [第三层：微观原子任务层] 实时任务看板 (tier3_status.md) [DEMO 示例 / 样例模板]
+├── 🧠 .cursorrules                            # 🧠 AI 行为约束与数字路由表
+├── 🧠 .windsurfrules                          # 🧠 IDE 规则适配文件
+├── 📖 README.md                               # 📖 项目门面与使用指南
+├── 📖 WORKFLOW_GUIDE.md                       # 📖 完整工作流与设计指南
+└── 💻 base_template/                          # [业务项目名称 / Project Name]
+    ├── 🧠 .cursorrules                        # 🧠 AI 行为约束与数字路由表
+    ├── 🧠 .windsurfrules                      # 🧠 IDE 规则适配文件
+    ├── 📖 README.md                           # 📖 项目门面与使用指南
+    └── 📁 docs/                               # 📁 本工程 PRD / 架构 / 设计文档
+        ├── 📄 01-requirements.md              # 🗺️ 01 - 业务需求全景地图与 PRD 导航中心 (Requirements Master MAP)
+        ├── 📄 02-architecture.md              # 🏛️ 02 - 概要设计与系统架构图
+        ├── 📄 03-database-design.md           # 🗄️ 03 - 数据库设计与 ER 关系规约
+        ├── 📄 04-api-design.md                # 🌐 04 - API 接口详细设计规范
+        ├── 📄 05-known-limitations.md         # (Workflow Defect & Improvement Board)
+        ├── 📄 06-legacy-graph-analysis.md     # 🕸️ 老项目路由元数据拆解与关系图谱分析指南 (Legacy Metadata Graph Analysis Guide)
+        ├── 🎨 design/                         # /UX 设计规范与主题资产库 (Design Assets Directory)
+        │   ├── 📖 README.md                   # 📖 项目门面与使用指南
+        │   ├── 📄 design-tokens.md            # (Design System Tokens)
         │   ├── 📄 中国红-产品UI规范.pdf
         │   ├── 📄 国网绿-产品UI规范.pdf
+        │   ├── 📄 钧天科技-XX概要设计说明书（模板）V1.0.pdf
+        │   ├── 📄 钧天科技-XX详细设计说明书（模板）V1.0.pdf
         │   └── 📄 钧天蓝-产品UI规范.pdf
-        ├── 📦 modules/                      # (Modules Directory)
-        │   ├── 📖 README.md                 # 📖 项目门面与使用指南
+        ├── 📦 modules/                        # (Modules Directory)
+        │   ├── 📖 README.md                   # 📖 项目门面与使用指南
         │   ├── 📁 auth/
         │   └── 📁 order/
-        ├── 📁 templates/                    # 📁 文档与原型外壳模板库 (Templates Directory)
-        │   ├── 📖 README.md                 # 📖 项目门面与使用指南
+        ├── 📁 templates/                      # 📁 文档与原型外壳模板库 (Templates Directory)
+        │   ├── 📖 README.md                   # 📖 项目门面与使用指南
         │   ├── 📄 base-shell-template.html
-        │   └── 📄 user-manual-template.md   # [项目名称] 产品使用手册与软著说明书
-        └── 📄 user-manual.md                # (软著申报参考)
+        │   └── 📄 user-manual-template.md     # [项目名称] 产品使用手册与软著说明书
+        └── 📄 user-manual.md                  # (软著申报参考)
 ```
 <!-- AUTO-TREE-FULL:END -->
 

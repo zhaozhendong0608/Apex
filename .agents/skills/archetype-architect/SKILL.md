@@ -48,7 +48,8 @@ python3 .agents/skills/archetype-architect/scripts/validate_mermaid.py <path_to_
 
 ---
 
-## 📁 Phase 4: 强制持久化落盘归档 (Mandatory Persistence)
+## 📁 Phase 4: 强制持久化落盘归档与【原型 Sign-off 确认门禁】
+
 答复闭环后，参照 `templates/module_prd_template.md` 模版，**强制将产出物写入硬盘**：
 
 1. **落盘写入模块 PRD**：
@@ -57,3 +58,22 @@ python3 .agents/skills/archetype-architect/scripts/validate_mermaid.py <path_to_
    在 `.ai/tier2_modules.md`（第二层记忆金字塔矩阵）中追加注册该模块。
 3. **同步项目架构图**：
    若涉及跨模块核心架构变动，同步更新 `[工程目录]/docs/02-architecture.md` 中的 Mermaid 架构图。
+
+---
+
+## 🚪 Phase 5: 原型迭代与 Sign-off 确认门禁 (Gatekeeper Protocol)
+
+生成或更新 `mockup.html` 后，**严禁立即全量自动生成详细设计说明书**！必须向用户输出以下标准提示卡片，引导用户进行原型测试与 Sign-off 确认：
+
+---
+
+✨ **原型与需求 PRD 已更新完成！**
+- 📄 **模块 PRD**：`docs/modules/<module_name>/prd-<module_name>-v1.0.md`
+- 🖥️ **交互原型**：[mockup.html](docs/modules/<module_name>/mockup.html) (*请双击用浏览器打开体验动态交互*)
+
+💡 **后续操作指引：**
+- 🔄 **若界面或逻辑有偏差**：请直接提出修改意见，我将为您重新调校原型与 PRD。
+- ✅ **若原型确认无误 (Sign-off)**，请选择以下路径：
+  - 👉 **路径 A (回复 `[2]` 或 `继续`)**：跳过架构文档，直接开始编写实际代码。
+  - 👉 **路径 B (回复 `生成设计说明书` 或 `设计`)**：激活 `design-spec-architect` 专家 Skill，为您推演导出符合【钧天科技 V1.0 标准】的概要设计说明书 (HLD) 与详细设计说明书 (DLD)。
+
