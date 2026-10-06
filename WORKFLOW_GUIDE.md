@@ -15,7 +15,7 @@ Apex/                                       # 🚀 顶层工作区 (IDE 打开�
 │   └── 📁 skills/
 │       ├── 📁 archetype-architect/          # (原型架构与模块关系梳理专家)
 │       │   ├── 📖 README.md                 # 📖 项目门面与使用指南
-│       │   ├── 📄 SKILL.md                  # 原型架构与模块关系梳理专家。解析静态 HTML 原型，通过反向质询（Grill Protocol）补全隐藏业务逻辑，按场景选配生成 Mermaid 图表并强制落盘归档。
+│       │   ├── 📄 SKILL.md                  # 原型架构与模块关系梳理专家。解析静态 HTML 原型，通过反向质询 (Grill Protocol) 补全隐藏业务逻辑，按场景选配生成 Mermaid 图表并强制落盘归档。
 │       │   ├── 📁 examples/
 │       │   ├── 📁 references/
 │       │   ├── 🛠️ scripts/                 # 🛠️ 自动化控制与分析脚本库
@@ -37,7 +37,7 @@ Apex/                                       # 🚀 顶层工作区 (IDE 打开�
 │       │   └── 🛠️ scripts/                 # 🛠️ 自动化控制与分析脚本库
 │       ├── 📁 quality-verifier/             # 🧪 Quality-Verifier (质量验证与小黄鸭排错专家)
 │       │   ├── 📖 README.md                 # 📖 项目门面与使用指南
-│       │   ├── 📄 SKILL.md                  # 质量验证、测试用例先行 (TDD) 与小黄鸭探针排错专家。负责在编码前根据 DLD 契约自动生成测试用例文档与自动化脚本，在编码后执行契约碰撞测试，并在运行/编译报错时激活小黄鸭探针（日志抓取➔根因分析➔最小化验证）进行精准排错。
+│       │   ├── 📄 SKILL.md                  # 质量验证、TDD测试用例先行与小黄鸭探针排错专家。负责在编码前根据 DLD 契约自动生成测试用例文档与自动化脚本，在编码后执行契约碰撞测试，并在运行/编译报错时激活小黄鸭探针（日志抓取➔根因分析➔最小化验证）进行精准排错。
 │       │   ├── 📁 references/
 │       │   └── 🛠️ scripts/                 # 🛠️ 自动化控制与分析脚本库
 │       └── 📁 requirement-discovery/        # 🔍 Requirement-Discovery (AI 主导的需求发现与澄清流程)
@@ -99,6 +99,7 @@ Apex/                                       # 🚀 顶层工作区 (IDE 打开�
 │       └── 📄 user-manual.md                # (软著申报参考)
 ├── 🛠️ scripts/                             # 🛠️ 自动化控制与分析脚本库
 │   └── 📁 tests/
+├── 📄 workflow_guide.html
 └── 📄 工作流问题待办.md                            # 📋 Apex 工作流问题诊断与优化待办清单 (Workflow Issue & Action Plan)
 ```
 <!-- AUTO-TREE-FULL:END -->

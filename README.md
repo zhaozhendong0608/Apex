@@ -45,6 +45,7 @@ Apex/                                 # 🚀 顶层工作区 (IDE 打开的根�
 │   └── 📁 docs/                       # 📁 本工程 PRD / 架构 / 设计文档
 ├── 🛠️ scripts/                       # 🛠️ 自动化控制与分析脚本库
 │   └── 📁 tests/
+├── 📄 workflow_guide.html
 └── 📄 工作流问题待办.md                      # 📋 Apex 工作流问题诊断与优化待办清单 (Workflow Issue & Action Plan)
 ```
 <!-- AUTO-TREE-MACRO:END -->
