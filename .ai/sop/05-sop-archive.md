@@ -15,8 +15,13 @@
 1. 忽略所有排错过程中的临时报错日志、长堆栈信息和无效对话。
 2. 提炼出真正修改过的**核心文件列表**。
 
-### 第三步：生成交接卡并写入历史 (Automation)
-生成标准化 Markdown 格式的交接记忆，并**静默调用 Python 脚本追加保存至 `.ai/tier3_handover.md` 并刷新目录树**：
+### 第二.五步：踩坑经验扫描与 KI 自动演进 (Knowledge Card Extraction)
+1. 参照 `references/self-evolution-and-ki-guide.md`，扫描本会话中发生的复杂 Bug/框架坑/隐蔽报错。
+2. 若存在高价值踩坑，自动在 `.agents/skills/quality-verifier/references/knowledge-cards/` 导出 `postmortem-*.md` 踩坑卡片，并自动将预防看门狗规则反哺更新到校验规范中。
+
+### 第三步：生成交接卡与落盘 Handover Artifact
+1. 参照 `references/agent-handover-protocol.md`，在 `docs/handovers/` 目录下生成标准化的交接文档 `docs/handovers/handover-{YYYYMMDD}-{MODULE}.md`。
+2. 静默调用 Python 脚本追加保存至 `.ai/tier3_handover.md` 并刷新目录树：
 
 ```bash
 python .ai/scripts/board.py archive "* 🎯 完成任务: [Task-XXX]
@@ -39,6 +44,7 @@ AI 压缩完成后，向用户输出以下极简交接卡片：
 
 * **📅 归档时间**：[当前日期与时间]
 * **🎯 当前进度**：已完成 [X] 个任务 / 剩余 [Y] 个任务
+* **📄 标准交接文档**：`docs/handovers/handover-[日期]-[模块].md`
 * **🛠️ 本次改动核心文件**：
   - `src/app.js`
   - `.env`

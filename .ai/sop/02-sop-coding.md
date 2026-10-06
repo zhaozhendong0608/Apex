@@ -15,21 +15,21 @@
 5. **日志精简与联调规则**：**禁止添加大量无意义的调试日志**。但在关键业务节点（特别是**调用第三方接口/外部服务**时），**必须追加必要的联调日志（完整记录请求入参和响应返参）**，以备排查。
 6. **前后端工程严禁保底 Mock**：在 `src/` 源码开发与真实接口联调中，**严禁自主补充保底/兜底 Mock 假数据**。若接口报错或数据缺失，必须真实触发报错或暴露实际响应，切勿用写死的数据掩盖联调缺陷。
 7. **Solid 资产保护与反向测试 (Reverse Testing)**：触碰数据库 Schema、API 契约等核心资产必须在代码注释与文档中留痕；对于核心算法/安全计算逻辑，需支持“反向破坏验证”（故意断言红灯再恢复绿灯），杜绝虚假绿灯。
-
-
+8. **公共资产改动影响自判 (Impact Analysis Protocol)**：凡触碰 **Base 基类、全局拦截器/中间件、全局配置、公共 Util、通用 DTO/R<T> 响应结构** 时，必须先使用 `grep_search` 扫描所有受影响的上游调用文件与 API 路径，在输出卡片中列出受影响模块与全量回归 Checklist，杜绝全局静默破坏。
 
 ---
 
 ## 🤖 阶段二：AI 执行流程
 
 ### 第一步：读取上下文与启动任务
-1. 静默读取 `.ai/tier3_status.md`，锁定唯一的 `ACTIVE` 任务。若当前尚无任务在 `ACTIVE` 区，静默调用 `python .ai/scripts/board.py start Task-XXX` 启动首个 TODO 任务。
+1. 静默读取 `.ai/status.md`（或 `tier3_status.md`），锁定唯一的 `ACTIVE` 任务。若当前尚无任务在 `ACTIVE` 区，静默调用 `python .ai/scripts/board.py start Task-XXX` 启动首个 TODO 任务。
 2. 明确该 Task 的 **白话验收目标** 和 **受影响的目标文件**。
+3. **绑定 DLD 契约与语言规范**：自动激活 `@.agents/skills/coding-standards` Skill。检查是否存在模块 DLD 设计说明书；若触碰公共底层类，显式读取 `references/impact-analysis-checklist.md` 并执行依赖扫描；根据改动的文件类型（Java 或 Vue）按需加载对应的语言规范。
 
-### 第二步：增量编码
-1. 检查目标文件现有的代码结构。
-2. 以最小变动量（Minimal Code Change）实现当前 Task 所需的功能。
-3. 将修改后的代码直接写入对应的文件。
+### 第二步：测试用例先行 (Test-First/TDD) 与增量编码
+1. **生成测试用例与自动化测试脚本**：激活 `@.agents/skills/quality-verifier` Skill。根据 DLD 契约在编码前自动生成 `docs/test-cases/<module_name>-testcase.md`，并在 `scripts/tests/` 导出自动化碰撞脚本。
+2. **增量编码**：检查目标文件现有代码结构，以最小变动量（Minimal Code Change）实现当前 Task 功能并直接写入文件。若修改了公共类，需确保向前兼容（Overloading）。
+3. **自动化契约碰撞与回归测试**：代码写入后，运行生成的测试脚本，碰撞验证响应 HTTP 状态码与 JSON 数据契约，并对受影响模块进行回归抽查。
 
 ---
 
@@ -43,6 +43,11 @@
 #### 🛠️ 我改动了以下文件：
 - `src/app.js` (增加了功能逻辑)
 - `index.html` (增加了对应的 DOM 元素)
+
+*(若触碰公共资产，展示以下区块)*
+> ⚠️ **公共资产修改影响报告 (Impact Assessment)**：
+> - **受影响上游模块**：`UserController.java`, `OrderController.java`
+> - **回归测试建议**：请重点验证登录接口与订单列表查询接口。
 
 #### 📝 验证步骤 (Checklist)：
 1. 刷新你的浏览器或运行验证指令。

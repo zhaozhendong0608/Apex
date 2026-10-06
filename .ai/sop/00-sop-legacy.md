@@ -22,14 +22,17 @@ python3 .ai/scripts/arch.py deps
 ```
 
 ### 模式 B：黑盒线索解密与关系图谱构建 (输入 `0 路由` / `0 关键词` / `0 表名`)
-1. **深度穿透搜寻文件**：
-```bash
-python3 .ai/scripts/arch.py find "order"
-```
-2. **注册四维元数据并自动生成 Mermaid 关系图谱**：
-```bash
-python3 .ai/scripts/arch.py analyze "/order/create" "订单创建模块" "OrderCalc.vue,OrderService.java" "t_order,t_user" "POST /api/v1/order"
-```
+1. **自动激活逆向专家 Skill**：唤起 `@.agents/skills/legacy-archaeologist` 专家 Skill。
+2. **深度搜寻与代码切片**：
+   ```bash
+   python3 .ai/scripts/arch.py find "order"
+   python3 .agents/skills/legacy-archaeologist/scripts/slice_code.py <file_path>
+   ```
+3. **逆向导出 API 契约与行为锁死探针**：生成 `docs/legacy/legacy_hld_<module>.md` 及 `scripts/tests/test_legacy_<module>.py` 反向验证探针，固化老接口逻辑。
+4. **注册四维元数据并生成 Mermaid 关系图谱**：
+   ```bash
+   python3 .ai/scripts/arch.py analyze "/order/create" "订单创建模块" "OrderCalc.vue,OrderService.java" "t_order,t_user" "POST /api/v1/order"
+   ```
 
 ### 模式 C：探查菜单生成 (输入 `0 菜单`)
 扫描前 2 层文件夹，列出 3~5 个主要业务模块 A/B/C 菜单供用户选择。

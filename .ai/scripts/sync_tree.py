@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Apex 目录树与文档自动同步脚本 (sync_tree.py)
-动态提取 YAML Frontmatter (summary: / description:) 与 README 引言，自动生成带自解释注释的真实目录树。
-支持 --watch 原生事件监听模式与强力指纹轮询模式（支持重命名捕获）。
+Apex 目录树与 Skill 路由自动同步脚本 (sync_tree.py)
+1. 动态提取 YAML Frontmatter (summary / description) 自动生成带自解释注释的真实目录树。
+2. 动态扫描 `.agents/skills/` 下所有 SKILL.md，自动提取技能路由并写回 `.cursorrules`、`.windsurfrules` 与 `README.md`。
+3. 支持 --watch 原生事件监听模式与强力指纹轮询模式。
 """
 
 import os
@@ -60,29 +61,63 @@ def extract_meta_from_file(file_path):
     yaml_match = re.search(r"^---\s*\n(.*?)\n---", content, re.DOTALL)
     if yaml_match:
         yaml_text = yaml_match.group(1)
-        summary_match = re.search(r"^(?:summary|description):\s*(.+)$", yaml_text, re.MULTILINE)
-        if summary_match:
+        summary_match = re.search(r"^(?:summary|description|name):\s*(.+)$", yaml_text, re.MULTILINE)
+        desc_match = re.search(r"^description:\s*(.+)$", yaml_text, re.MULTILINE)
+        if desc_match:
+            return desc_match.group(1).strip('"\' ')
+        elif summary_match:
             return summary_match.group(1).strip('"\' ')
 
-    # 2. 尝试解析第 1 行 Heading 1 (# ... )
+    # 2. 尝试解析 Heading 1 (# ... )
     lines = [line.strip() for line in content.splitlines() if line.strip()]
     for line in lines[:5]:
         if line.startswith("# "):
             title = line.lstrip("# ").strip()
             clean_title = re.sub(r"^[\#\s\w\:\-─\🚀\🏁\📦\⚡\🏛️\🎯\💻\🐞\🛟\📖\🎨\🧩]+", "", title).strip()
-            if clean_title:
-                return clean_title
-            return title
-
-    # 3. 尝试解析第一个引用块 (> ...)
-    for line in lines[:8]:
-        if line.startswith("> "):
-            return line.lstrip("> ").strip()
+            return clean_title if clean_title else title
 
     return ""
 
+def scan_skills_registry():
+    """扫描 .agents/skills/ 下所有 SKILL.md，提取 Skill 路由元数据"""
+    skills_dir = os.path.join(".agents", "skills")
+    if not os.path.exists(skills_dir):
+        return []
+
+    skills_list = []
+    for item in sorted(os.listdir(skills_dir)):
+        skill_path = os.path.join(skills_dir, item)
+        skill_md = os.path.join(skill_path, "SKILL.md")
+        if os.path.isdir(skill_path) and os.path.exists(skill_md):
+            try:
+                with open(skill_md, "r", encoding="utf-8") as f:
+                    text = f.read()
+                name_match = re.search(r"^name:\s*(.+)$", text, re.MULTILINE)
+                desc_match = re.search(r"^description:\s*(.+)$", text, re.MULTILINE)
+                
+                skill_name = name_match.group(1).strip('"\' ') if name_match else item
+                skill_desc = desc_match.group(1).strip('"\' ') if desc_match else "未命名技能"
+                skills_list.append({
+                    "name": skill_name,
+                    "desc": skill_desc,
+                    "path": f".agents/skills/{item}/SKILL.md"
+                })
+            except Exception as e:
+                print(f"⚠️ 解析 Skill [{item}] 失败: {e}")
+
+    return skills_list
+
+def generate_skills_router_text(skills_list):
+    """将技能元数据列表格式化为 Markdown 路由条目"""
+    if not skills_list:
+        return "- （无可用 Skill 注册包）"
+    
+    lines = []
+    for s in skills_list:
+        lines.append(f"- **`{s['name']}`**：{s['desc']}")
+    return "\n".join(lines)
+
 def get_node_info(path):
-    """获取节点显示的 Icon, 名称与动态注释"""
     name = os.path.basename(path)
     is_dir = os.path.isdir(path)
     icon = EMOJI_MAP.get(name, "📁" if is_dir else "📄")
@@ -112,15 +147,13 @@ def get_node_info(path):
         elif name == "arch.py":
             desc = "🏛️ 老项目拓扑图谱分析脚本"
         elif name == "sync_tree.py":
-            desc = "🔄 目录树与 Markdown 文档自动同步脚本"
+            desc = "🔄 目录树与 Skill 路由自动同步脚本"
 
     return label, desc
 
 def generate_custom_tree(max_depth=3):
-    """基于规则抓取目录树，动态包含右侧齐整注释"""
     tree_items = []
     workspace_name = os.path.basename(os.getcwd())
-
     workspace_desc = "🚀 顶层工作区 (IDE 打开的根目录)"
     tree_items.append((f"{workspace_name}/", workspace_desc))
 
@@ -170,10 +203,9 @@ def generate_custom_tree(max_depth=3):
 
     return "\n".join(formatted_lines)
 
-def update_file_anchor(file_path, anchor_tag, new_content):
+def update_file_anchor(file_path, anchor_tag, new_content, is_codeblock=True):
     """替换目标 Markdown 文件中的锚点内容"""
     if not os.path.exists(file_path):
-        print(f"⚠️ 文件不存在: {file_path}")
         return False
 
     with open(file_path, "r", encoding="utf-8") as f:
@@ -187,32 +219,41 @@ def update_file_anchor(file_path, anchor_tag, new_content):
         re.DOTALL
     )
 
-    replacement = f"{start_pattern}\n```plaintext\n{new_content}\n```\n{end_pattern}"
+    if is_codeblock:
+        replacement = f"{start_pattern}\n```plaintext\n{new_content}\n```\n{end_pattern}"
+    else:
+        replacement = f"{start_pattern}\n{new_content}\n{end_pattern}"
 
     if pattern.search(content):
         updated_content = pattern.sub(replacement, content)
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(updated_content)
-        print(f"🟢 已成功刷新 [{file_path}] 的 {anchor_tag} 动态自解释目录树！")
+        print(f"🟢 已成功刷新 [{file_path}] 的 {anchor_tag} 动态锚点！")
         return True
     else:
-        print(f"⚠️ 在 [{file_path}] 中未找到锚点标记: {start_pattern}")
         return False
 
 def sync_all():
-    """刷新所有文档中的锚点"""
-    print("🔄 开始动态解析文件/YAML元数据并刷新目录树...")
+    """刷新所有文档中的树锚点与 Skills 路由表"""
+    print("🔄 开始动态扫描文件、YAML 元数据并同步目录树与 Skill 路由表...")
+    
+    # 1. 刷新目录树
     macro_tree = generate_custom_tree(max_depth=2)
     full_tree = generate_custom_tree(max_depth=4)
+    update_file_anchor("README.md", "AUTO-TREE-MACRO", macro_tree, is_codeblock=True)
+    update_file_anchor("WORKFLOW_GUIDE.md", "AUTO-TREE-FULL", full_tree, is_codeblock=True)
 
-    update_file_anchor("README.md", "AUTO-TREE-MACRO", macro_tree)
-    update_file_anchor("WORKFLOW_GUIDE.md", "AUTO-TREE-FULL", full_tree)
+    # 2. 刷新 Skills 路由表
+    skills_list = scan_skills_registry()
+    skills_text = generate_skills_router_text(skills_list)
+    
+    update_file_anchor(".cursorrules", "AUTO-SKILLS-MACRO", skills_text, is_codeblock=False)
+    update_file_anchor(".windsurfrules", "AUTO-SKILLS-MACRO", skills_text, is_codeblock=False)
+    update_file_anchor("README.md", "AUTO-SKILLS-MACRO", skills_text, is_codeblock=False)
 
 def get_workspace_fingerprint():
-    """计算当前工作区文件列表、文件名与修改时间的综合指纹（精准捕获新建、删除与重命名）"""
     state = []
     for root, dirs, files in os.walk("."):
-        # 过滤忽略项
         dirs[:] = [d for d in dirs if d not in IGNORE_DIRS and not d.startswith('.DS_Store')]
         if any(ign in root for ign in IGNORE_DIRS):
             continue
@@ -225,8 +266,7 @@ def get_workspace_fingerprint():
     return hash(tuple(state))
 
 def watch_mode():
-    """监听模式：兼容 Watchdog 与智能指纹轮询"""
-    print("👀 启动 --watch 文件监听模式 (按 Ctrl+C 退出)...")
+    print("👀 启动 --watch 自动化守护模式 (同步目录树与 Skill 路由)...")
     sync_all()
 
     try:
@@ -243,14 +283,14 @@ def watch_mode():
                 now = time.time()
                 if now - self.last_sync > 1.5:
                     self.last_sync = now
-                    print(f"\n⚡ 检测到文件/文件名变动 ({os.path.basename(event.src_path)})，自动刷新目录树...")
+                    print(f"\n⚡ 检测到文件/Skill变动 ({os.path.basename(event.src_path)})，自动同步...")
                     sync_all()
 
         event_handler = ChangeHandler()
         observer = Observer()
         observer.schedule(event_handler, path=".", recursive=True)
         observer.start()
-        print("✅ Watchdog 物理级事件监听器已就绪！")
+        print("✅ Watchdog 事件监听守护进程运行中...")
         try:
             while True:
                 time.sleep(1)
@@ -259,18 +299,18 @@ def watch_mode():
         observer.join()
 
     except ImportError:
-        print("💡 未安装 watchdog 库，已启用【全能状态指纹监听】（支持文件重命名、新建与修改实时捕获）...")
+        print("💡 未安装 watchdog 库，已启用【全能状态指纹轮询守护】...")
         last_fp = get_workspace_fingerprint()
         try:
             while True:
                 time.sleep(1.5)
                 current_fp = get_workspace_fingerprint()
                 if current_fp != last_fp:
-                    print("\n⚡ 检测到文件/文件名变动 (如重命名或新建)，自动刷新目录树...")
+                    print("\n⚡ 检测到文件/Skill变动，自动同步刷新...")
                     sync_all()
                     last_fp = current_fp
         except KeyboardInterrupt:
-            print("🛑 监听已停止。")
+            print("🛑 守护已停止。")
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--watch":

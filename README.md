@@ -37,11 +37,15 @@ Apex/                                 # 🚀 顶层工作区 (IDE 打开的根�
 ├── 🧠 .windsurfrules                  # 🧠 IDE 规则适配文件
 ├── 📖 README.md                       # 📖 项目门面与使用指南
 ├── 📖 WORKFLOW_GUIDE.md               # 📖 完整工作流与设计指南
-└── 💻 base_template/                  # [业务项目名称 / Project Name]
-    ├── 🧠 .cursorrules                # 🧠 AI 行为约束与数字路由表
-    ├── 🧠 .windsurfrules              # 🧠 IDE 规则适配文件
-    ├── 📖 README.md                   # 📖 项目门面与使用指南
-    └── 📁 docs/                       # 📁 本工程 PRD / 架构 / 设计文档
+├── 💻 base_template/                  # [业务项目名称 / Project Name]
+│   ├── 🧩 .agents/                    # 🧩 AI 专属技能包库
+│   ├── 🧠 .cursorrules                # 🧠 AI 行为约束与数字路由表
+│   ├── 🧠 .windsurfrules              # 🧠 IDE 规则适配文件
+│   ├── 📖 README.md                   # 📖 项目门面与使用指南
+│   └── 📁 docs/                       # 📁 本工程 PRD / 架构 / 设计文档
+├── 🛠️ scripts/                       # 🛠️ 自动化控制与分析脚本库
+│   └── 📁 tests/
+└── 📄 工作流问题待办.md                      # 📋 Apex 工作流问题诊断与优化待办清单 (Workflow Issue & Action Plan)
 ```
 <!-- AUTO-TREE-MACRO:END -->
 
@@ -58,6 +62,9 @@ Apex/                                 # 🚀 顶层工作区 (IDE 打开的根�
 | **`4`** 或 `验收` | `04-sop-review.md` | 白话目标终验 ➔ 静默标记 DONE ➔ 同步更新 docs/ ➔ 推荐下一 Task |
 | **`5`** 或 `归档` | `05-sop-archive.md` | 对话压缩 ➔ 追加写入 handover.md ➔ 可安全关闭会话 |
 | **`6`** 或 `恢复` | `06-sop-resume.md` | 新会话唤醒 ➔ 读取 status.md + handover.md ➔ 一键复活断点 |
+
+> 💡 **关于全套 6 大 Skill 技能包与每一步的物理输出产物 (Output Artifacts) 明细**，请参考 [WORKFLOW_GUIDE.md#8-工作流全阶段skill-绑定映射与输出产物字典](file:///Users/up_dong/Documents/java_workspace/Apex/WORKFLOW_GUIDE.md#8-工作流全阶段skill-绑定映射与输出产物字典-workflow--skill-output-spec)。
+
 
 ---
 
