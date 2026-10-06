@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Apex Vibe Coding 3.0 - 通用项目开发工作流 & Skill 图谱交互指南</title>
+    <!-- 引入 Mermaid.js 交互图表库 -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <style>
         :root {
             --primary: #3b82f6;
@@ -42,7 +44,7 @@
             overflow: hidden;
         }
 
-        /* 1. 顶部 Header 样式 (上) */
+        /* 1. 顶部 Header (上) */
         .app-header {
             height: var(--header-height);
             background: var(--bg-dark);
@@ -105,9 +107,7 @@
             user-select: none;
         }
 
-        .menu-section {
-            padding: 16px 12px 8px 12px;
-        }
+        .menu-section { padding: 16px 12px 8px 12px; }
 
         .menu-title {
             font-size: 11px;
@@ -166,16 +166,13 @@
             animation: fadeIn 0.3s ease-in-out;
         }
 
-        .content-panel.active {
-            display: block;
-        }
+        .content-panel.active { display: block; }
 
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(6px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* 5. 卡片与 UI 元素组件 */
         .panel-header {
             margin-bottom: 24px;
             border-bottom: 1px solid var(--border-color);
@@ -221,11 +218,7 @@
             border-radius: var(--radius-md);
             padding: 20px;
             box-shadow: var(--shadow-sm);
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-
-        .card:hover {
-            box-shadow: var(--shadow-md);
+            margin-bottom: 20px;
         }
 
         .card-header {
@@ -249,7 +242,7 @@
         .card-body {
             font-size: 13.5px;
             color: #334155;
-            line-height: 1.6;
+            line-height: 1.7;
         }
 
         .badge {
@@ -265,20 +258,93 @@
         .badge-danger { background: #fee2e2; color: #991b1b; }
         .badge-purple { background: #f3e8ff; color: #6b21a8; }
 
-        .code-block {
-            background: #0f172a;
-            color: #e2e8f0;
-            padding: 14px 18px;
-            border-radius: var(--radius-sm);
-            font-family: "Fira Code", Consolas, Monaco, monospace;
-            font-size: 13px;
-            line-height: 1.6;
-            overflow-x: auto;
-            margin: 10px 0;
-            border: 1px solid #1e293b;
+        /* 5. 支持缩放、拖拽与全屏查看的 Mermaid 容器样式 */
+        .mermaid-container {
+            position: relative;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: var(--radius-md);
+            margin: 14px 0;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
         }
 
-        .code-block .hl-cmd { color: #38bdf8; font-weight: bold; }
+        .mermaid-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 8px 14px;
+            font-size: 12px;
+            color: #64748b;
+            z-index: 10;
+        }
+
+        .toolbar-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tool-btn {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            color: #334155;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .tool-btn:hover {
+            background: #2563eb;
+            color: #ffffff;
+            border-color: #2563eb;
+            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+        }
+
+        .pan-tip {
+            font-size: 11px;
+            color: #94a3b8;
+        }
+
+        .mermaid-viewport {
+            width: 100%;
+            height: 380px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: #ffffff;
+            cursor: grab;
+            position: relative;
+        }
+
+        .mermaid-viewport:active {
+            cursor: grabbing;
+        }
+
+        .mermaid-viewport svg {
+            max-width: none !important;
+            transition: transform 0.05s linear;
+        }
+
+        .explain-box {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 14px 18px;
+            border-radius: 4px;
+            font-size: 13.5px;
+            color: #1e3a8a;
+            margin: 12px 0;
+            line-height: 1.6;
+        }
 
         .artifact-list {
             list-style: none;
@@ -298,20 +364,56 @@
             font-size: 13px;
         }
 
-        .artifact-item .icon {
-            font-size: 16px;
+        .artifact-item .icon { font-size: 16px; }
+        .artifact-item .name { font-weight: 600; color: #1e293b; font-family: monospace; }
+        .artifact-item .desc { color: #64748b; font-size: 12px; margin-left: auto; }
+
+        /* 全屏 Modal 查看图表 */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
         }
 
-        .artifact-item .name {
-            font-weight: 600;
-            color: #1e293b;
-            font-family: monospace;
+        .modal-overlay.active { display: flex; }
+
+        .modal-body {
+            background: #fff;
+            width: 90vw;
+            height: 85vh;
+            border-radius: var(--radius-md);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
         }
 
-        .artifact-item .desc {
-            color: #64748b;
-            font-size: 12px;
-            margin-left: auto;
+        .modal-header {
+            padding: 14px 20px;
+            background: #0f172a;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-header h3 { font-size: 16px; font-weight: 600; }
+        .modal-close { background: none; border: none; color: #cbd5e1; font-size: 20px; cursor: pointer; }
+        .modal-close:hover { color: #fff; }
+
+        .modal-viewport {
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8fafc;
+            cursor: grab;
         }
     </style>
 </head>
@@ -321,12 +423,12 @@
     <header class="app-header">
         <div class="header-logo">
             <span>⚡ Apex Vibe Coding 3.0 Standard</span>
-            <span class="header-badge">通用项目开发工作流 & Skill 图谱交互指南</span>
+            <span class="header-badge">通用项目开发工作流 & Skill 图谱白话可视化指南</span>
         </div>
         <div class="header-meta">
-            <span>技术栈: Vue 3 + Java Spring Boot</span>
+            <span>主要技术栈: Vue 3 + Java Spring Boot</span>
             <span>架构模式: 外层控制中枢 / 内层业务解耦</span>
-            <span>核心机制: 3层记忆金字塔 + 看门狗护栏</span>
+            <span>交互特性: 💡 支持鼠标拖拽平移、滚轮缩放与全屏放大</span>
         </div>
     </header>
 
@@ -374,7 +476,7 @@
                     <span class="code-tag">[5]</span>
                 </div>
                 <div class="menu-item" onclick="switchPanel('panel-sop-6', this)">
-                    <span>[6] 🛟 续航复活与断点一键恢复</span>
+                    <span>[6] 🛟 续航复活与断点恢复</span>
                     <span class="code-tag">[6]</span>
                 </div>
             </div>
@@ -382,7 +484,7 @@
             <div class="menu-section">
                 <div class="menu-title">🧩 AI 专属 Skill 技能包</div>
                 <div class="menu-item" onclick="switchPanel('panel-skills', this)">
-                    <span>📚 6 大 Skill 全景矩阵字典</span>
+                    <span>📚 6 大 Skill 协作拓扑图</span>
                     <span class="code-tag">Skills</span>
                 </div>
             </div>
@@ -395,62 +497,103 @@
             <div id="panel-overview" class="content-panel active">
                 <div class="panel-header">
                     <div class="panel-title-group">
-                        <h1 class="panel-title">🏛️ Apex 3.0 通用项目双层解耦架构与 3层记忆金字塔</h1>
-                        <span class="badge badge-primary">解耦架构中枢</span>
+                        <h1 class="panel-title">🏛️ 工作流总览与 3 层记忆金字塔 (全景白话解密)</h1>
+                        <span class="badge badge-primary">双层解耦架构</span>
                     </div>
-                    <p class="panel-subtitle">遵循“外层做工作流控制中枢 (.ai/ + .agents/)，内层做纯粹业务工程 (base_template/ 或 src/)”的极简开发范式，彻底攻克长对话上下文膨胀缺陷。</p>
+                    <p class="panel-subtitle">💡 <strong>白话一句话解释</strong>：把“管理工作流（外层中枢）”和“业务写代码（内层工程）”彻底分开。通过“名片卡 + 地图册 + 黑匣子”三层记忆，AI 永远不会越聊越傻或产生记忆混乱！</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">📊 物理产物流转与 SOP 数字节点全景 Mermaid 图</div>
+                        <span class="badge badge-success">可拖拽/缩放拓扑</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="mermaid-container">
+                            <div class="mermaid-toolbar">
+                                <span class="pan-tip">💡 支持鼠标拖拽平移 & 滚轮按需缩放</span>
+                                <div class="toolbar-group">
+                                    <button class="tool-btn" onclick="zoomMermaid(this, 1.25)">🔍 放大</button>
+                                    <button class="tool-btn" onclick="zoomMermaid(this, 0.8)">🔍 缩小</button>
+                                    <button class="tool-btn" onclick="resetMermaid(this)">🔄 重置</button>
+                                    <button class="tool-btn" onclick="openModalMermaid(this)">🖥️ 全屏查看</button>
+                                </div>
+                            </div>
+                            <div class="mermaid-viewport">
+                                <pre class="mermaid">
+graph TD
+    subgraph USER["👤 用户发极简数字指令"]
+        N0["[0] 破局老项目"]
+        N1["[1] 需求澄清"]
+        N1P["[1+] 大模块与原型"]
+        N2["[2] 单焦点编码"]
+        N3["[3]/[F] 报错排错"]
+        N4["[4] 目标验收"]
+        N5["[5] 下班归档"]
+        N6["[6] 续航复活"]
+    end
+
+    subgraph ENGINE["🧠 三层记忆中枢 (.ai/)"]
+        T1["⚡ Tier 1: 极简名片卡 (tier1_snapshot.md <30行)"]
+        T2["🧩 Tier 2: 业务大地图 (tier2_modules.md / legacy_arch.md)"]
+        T3S["📋 Tier 3: 任务看板 (tier3_status.md)"]
+        T3H["📦 Tier 3: 历史黑匣子 (tier3_handover.md)"]
+    end
+
+    subgraph ARTIFACTS["📄 确切物理产出物 (Artifacts)"]
+        A0["老代码 4D元数据地图 & 行为探针"]
+        A1["白话需求基线草案 (5大状态模型)"]
+        A1P["高保真 mockup.html & HLD/DLD 设计文档"]
+        A2["src/ 业务代码 & 第三方 API 联调日志"]
+        A3["小黄鸭诊断报告 & 微创修复代码"]
+        A4["白话 CheckList & 静态文档增量更新"]
+    end
+
+    N0 -->|生成| A0 -->|注册| T2
+    N1 -->|生成| A1 -->|注册Task| T3S
+    N1P -->|生成| A1P -->|注册大模块| T2
+    N2 -->|读取ACTIVE Task| T3S -->|产出| A2
+    N3 -->|小黄鸭定位| A3 -->|修复| A2
+    N4 -->|验收打钩| A4 -->|更新| T3S
+    N5 -->|提炼 ChaneLog| T3H -->|物理刷新| T1
+    N6 -->|0.5秒吃透| T1 & T3S
+                                </pre>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="grid-3">
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">⚡ 第一层：动态极简名片</div>
+                            <div class="card-title">⚡ 1. 极简名片卡 (Tier 1)</div>
                             <span class="badge badge-success">&lt; 30 行</span>
                         </div>
                         <div class="card-body">
-                            <p><strong>文件</strong>：<code>.ai/tier1_snapshot.md</code></p>
-                            <p>永远硬性物理锁定在 30 行以内（&lt;500 Token），包含项目概况、已稳固里程碑、当前唯一 ACTIVE 焦点及顶层铁律。新窗口恢复时 0.5 秒极速吃透！</p>
+                            <p><strong>通俗比喻</strong>：项目“名片卡”。</p>
+                            <p>硬性锁死在 30 行以内。第二天发 <code>6</code> 复活时，AI 优先且只看它，0.5 秒极速知道项目做到了哪一步！</p>
                         </div>
                     </div>
 
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">🧩 第二层：宏观业务大地图</div>
+                            <div class="card-title">🧩 2. 宏观大地图 (Tier 2)</div>
                             <span class="badge badge-warning">模块 & 拓扑</span>
                         </div>
                         <div class="card-body">
-                            <p><strong>文件</strong>：<code>.ai/tier2_modules.md</code> & <code>tier2_legacy_arch.md</code></p>
-                            <p>记录系统大模块矩阵索引、交互原型 (mockup.html) 与老代码 4D 元数据 (Route/File/API/Table) 关系图谱，避免“只见树木不见森林”。</p>
+                            <p><strong>通俗比喻</strong>：项目“地图册”。</p>
+                            <p>记录系统的各个大模块矩阵、前端 HTML 交互原型 (`mockup.html`) 和老代码路由/数据库表拓扑关系。</p>
                         </div>
                     </div>
 
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">📦 第三层：微观任务黑匣子</div>
-                            <span class="badge badge-purple">看板 & 历史</span>
+                            <div class="card-title">📦 3. 历史黑匣子 (Tier 3)</div>
+                            <span class="badge badge-purple">看板 & Changelog</span>
                         </div>
                         <div class="card-body">
-                            <p><strong>文件</strong>：<code>.ai/tier3_status.md</code> & <code>tier3_handover.md</code></p>
-                            <p>实时跟踪当前正在进行的 Task-XXX，下班发 <code>[5]</code> 时自动归档压缩历史 Changelog 到 handover.md，实现跨会话无损复活。</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">🔄 极简数字 SOP 操作映射链</div>
-                        <span class="badge badge-primary">一键响应</span>
-                    </div>
-                    <div class="card-body">
-                        <div class="code-block">
-<span class="hl-cmd">[0] 破局老项目</span> ➔ 扫描前3层树 ➔ 提取 4D元数据 ➔ 落盘 tier2_legacy_arch.md
-<span class="hl-cmd">[1] 需求规划</span> ➔ Grill对撞 ➔ 白话澄清 ➔ 生成 需求基线 ➔ 注册 Task
-<span class="hl-cmd">[1+] 大模块规划</span> ➔ 生成高保真 mockup.html 原型 ➔ 输出 HLD/DLD 8大章节文档
-<span class="hl-cmd">[2] 单焦点编码</span> ➔ 锁定 ACTIVE Task ➔ 开启看门狗 ➔ 严格第三方联调日志 ➔ 增量提交
-<span class="hl-cmd">[3]/[F] 报错排错</span> ➔ 小黄鸭探针 (日志抓取➔根因分析➔微创1~2行修复)
-<span class="hl-cmd">[4] 目标验收</span> ➔ TDD契约测试 ➔ 白话 Checklist 打钩 ➔ 同步更新 docs/ 静态文档
-<span class="hl-cmd">[5] 下班归档</span> ➔ 对话提炼落盘 ➔ 追加 tier3_handover.md ➔ 物理刷新 Tier1名片
-<span class="hl-cmd">[6] 续航复活</span> ➔ 开新窗口 ➔ 0.5s 读取 Tier1 极简名片卡 ➔ 直接发 [2] 继续写代码！
+                            <p><strong>通俗比喻</strong>：项目“打卡日志”。</p>
+                            <p>记录当前在做的 Task-XXX 以及历史过往日志。下班发 <code>5</code> 自动归档瘦身，防 Token 膨胀。</p>
                         </div>
                     </div>
                 </div>
@@ -460,37 +603,45 @@
             <div id="panel-sop-0" class="content-panel">
                 <div class="panel-header">
                     <div class="panel-title-group">
-                        <h1 class="panel-title">[0] 🏛️ 破局老项目 (Legacy Code Archaeology)</h1>
-                        <span class="badge badge-warning">老项目通用闭环</span>
+                        <h1 class="panel-title">[0] 🏛️ 破局老项目：老代码逆向考古 (Legacy Code)</h1>
+                        <span class="badge badge-warning">探雾式渐进</span>
                     </div>
-                    <p class="panel-subtitle">针对缺乏文档、逻辑庞杂的老项目，采用探雾式渐进接入，建立 4D 元数据地图并编写反向测试探针，锁死旧业务不改崩！</p>
+                    <p class="panel-subtitle">💡 <strong>白话一句话解释</strong>：面对几万行无文档的老代码，不要指望 AI 一次性读完。像医生做胃镜一样，顺着前端路由切入，只扫描那一条链路的代码，并写探针锁死老功能！</p>
                 </div>
 
-                <div class="grid-2">
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="card-title">🧩 强绑定 Skill</div>
-                            <span class="badge badge-purple">legacy-archaeologist</span>
-                        </div>
-                        <div class="card-body">
-                            <p><strong>技能名称</strong>：老项目逆向考古与代码解密专家</p>
-                            <p><strong>触发方式</strong>：输入 <code>0</code> 或 <code>0，顺着接口 /api/refund 找关联文件更新 legacy_arch.md</code></p>
-                            <p><strong>核心铁律</strong>：老项目绝对禁止一次性全量扫描或顺手大重构，必须遵循“鸟瞰骨架 ➔ 路由切片 ➔ 微创修改”！</p>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">📊 探雾式四阶段接入 Mermaid 流程图</div>
+                        <span class="badge badge-primary">Skill: legacy-archaeologist</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="mermaid-container">
+                            <div class="mermaid-toolbar">
+                                <span class="pan-tip">💡 支持鼠标拖拽平移 & 滚轮按需缩放</span>
+                                <div class="toolbar-group">
+                                    <button class="tool-btn" onclick="zoomMermaid(this, 1.25)">🔍 放大</button>
+                                    <button class="tool-btn" onclick="zoomMermaid(this, 0.8)">🔍 缩小</button>
+                                    <button class="tool-btn" onclick="resetMermaid(this)">🔄 重置</button>
+                                    <button class="tool-btn" onclick="openModalMermaid(this)">🖥️ 全屏查看</button>
+                                </div>
+                            </div>
+                            <div class="mermaid-viewport">
+                                <pre class="mermaid">
+flowchart LR
+    A["第一天发 [0]<br/>仅扫前3层目录与pom.xml"] --> B["建立地图<br/>tier2_legacy_arch.md"]
+    B --> C["路由切入逆向追踪<br/>发 0, 找 /api/refund"]
+    C --> D["单链路切片修改<br/>只调阅关联的3个文件"]
+    D --> E["写锁死探针 test_legacy_*.py<br/>确保老功能不改崩"]
+                                </pre>
+                            </div>
                         </div>
                     </div>
+                </div>
 
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="card-title">🛡️ 看门狗护栏</div>
-                        </div>
-                        <div class="card-body">
-                            <ul>
-                                <li>第一天接入仅扫描前 3 层目录树与 pom.xml/package.json，建完地图后再不发 <code>0</code>。</li>
-                                <li>单次看代码不得超过关联的 3 个切片文件，防止上下文超载。</li>
-                                <li>编写 <code>test_legacy_*.py</code> 探针锁死老业务返回值。</li>
-                            </ul>
-                        </div>
-                    </div>
+                <div class="explain-box">
+                    <strong>🗣️ 典型白话对话场景模拟：</strong><br/>
+                    用户：“<code>0，顺着退款接口 /api/refund 帮我找到前端到后端关联的文件，更新地图</code>”<br/>
+                    AI：“<code>好的！已为您剖析切片，只锁定 RefundController.java 和 RefundService.java 2个文件，建立拓扑图并已生成老业务行为锁死探针。</code>”
                 </div>
 
                 <div class="card">
@@ -502,7 +653,7 @@
                             <div class="artifact-item">
                                 <span class="icon">🗺️</span>
                                 <span class="name">.ai/tier2_legacy_arch.md</span>
-                                <span class="desc">老代码 4D 元数据地图（包含 路由/文件/API/表名 索引）</span>
+                                <span class="desc">老代码 4D 元数据地图（路由/文件/API/表名 索引表）</span>
                             </div>
                             <div class="artifact-item">
                                 <span class="icon">🕸️</span>
@@ -512,7 +663,7 @@
                             <div class="artifact-item">
                                 <span class="icon">🧪</span>
                                 <span class="name">scripts/tests/test_legacy_behavior.py</span>
-                                <span class="desc">老业务反向锁死测试探针</span>
+                                <span class="desc">老业务反向行为锁死测试探针</span>
                             </div>
                         </div>
                     </div>
@@ -523,37 +674,46 @@
             <div id="panel-sop-1" class="content-panel">
                 <div class="panel-header">
                     <div class="panel-title-group">
-                        <h1 class="panel-title">[1] 🎯 新需求规划与白话澄清</h1>
-                        <span class="badge badge-primary">需求对撞</span>
+                        <h1 class="panel-title">[1] 🎯 需求规划：白话澄清与选择题对撞</h1>
+                        <span class="badge badge-primary">挖掘隐藏需求</span>
                     </div>
-                    <p class="panel-subtitle">当客户或开发者给出模糊、口语化需求时，通过反向质询（Grill Protocol）挖掘隐性需求，快速收敛需求基线。</p>
+                    <p class="panel-subtitle">💡 <strong>白话一句话解释</strong>：客户经常只给“一句话需求”（例如“做个权限管理”）。AI 像老产品经理一样，内部展开推演，只抛出带有默认推荐的 A/B/C 选择题让你勾选，彻底清查模糊点！</p>
                 </div>
 
-                <div class="grid-2">
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="card-title">🧩 强绑定 Skill</div>
-                            <span class="badge badge-primary">requirement-discovery</span>
-                        </div>
-                        <div class="card-body">
-                            <p><strong>技能名称</strong>：AI 主导的需求发现与白话澄清专家</p>
-                            <p><strong>触发方式</strong>：输入 <code>1</code> 或直接发送口语化需求（如：“帮我加个用户权限功能”）</p>
-                            <p><strong>核心动作</strong>：展开 8-13 维隐性推演，每轮抛出 1 个带 A/B/C 默认推荐选项的白话选择题进行对撞。</p>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">📊 需求对撞与基线收敛 Mermaid 流程图</div>
+                        <span class="badge badge-primary">Skill: requirement-discovery</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="mermaid-container">
+                            <div class="mermaid-toolbar">
+                                <span class="pan-tip">💡 支持鼠标拖拽平移 & 滚轮按需缩放</span>
+                                <div class="toolbar-group">
+                                    <button class="tool-btn" onclick="zoomMermaid(this, 1.25)">🔍 放大</button>
+                                    <button class="tool-btn" onclick="zoomMermaid(this, 0.8)">🔍 缩小</button>
+                                    <button class="tool-btn" onclick="resetMermaid(this)">🔄 重置</button>
+                                    <button class="tool-btn" onclick="openModalMermaid(this)">🖥️ 全屏查看</button>
+                                </div>
+                            </div>
+                            <div class="mermaid-viewport">
+                                <pre class="mermaid">
+flowchart TD
+    In["用户输入一句话口语需求"] --> AI["AI 内部展开 8-13 维推演<br/>(权限/数据/上下游/异常)"]
+    AI --> Q["暴露最高价值白话选择题<br/>带 A/B/C 默认推荐选项"]
+    Q --> UserChoice["用户点选或回答决策"]
+    UserChoice --> Base["收敛出 5 大状态模型需求基线"]
+    Base --> TaskReg["自动调用 board.py add<br/>拆解为 Task-001, Task-002"]
+                                </pre>
+                            </div>
                         </div>
                     </div>
+                </div>
 
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="card-title">📋 5 大需求状态模型</div>
-                        </div>
-                        <div class="card-body">
-                            <p><span class="badge badge-success">已确认</span> 明确边界事实</p>
-                            <p><span class="badge badge-primary">AI推断</span> 行业常规默认规则</p>
-                            <p><span class="badge badge-warning">暂定</span> 待对撞验证的方案</p>
-                            <p><span class="badge badge-danger">待确认</span> 需要用户决策事项</p>
-                            <p><span class="badge badge-purple">潜在需求</span> 未来二期扩展点</p>
-                        </div>
-                    </div>
+                <div class="explain-box">
+                    <strong>🗣️ 典型白话对话场景模拟：</strong><br/>
+                    用户：“<code>1，我想给系统加个用户角色权限管理</code>”<br/>
+                    AI：“<code>明白！为了不影响现有的业务，请做个单选决策：<br/>👉 选项 A(推荐)：采用标准的 RBAC 权限（用户-角色-菜单），简单易用且满足 95% 场景。<br/>👉 选项 B：采用数据级细粒度权限（比如某部门经理只能看本部门数据）。<br/>请回复 A 或 B，我将为您收敛需求基线。</code>”
                 </div>
 
                 <div class="card">
@@ -565,12 +725,12 @@
                             <div class="artifact-item">
                                 <span class="icon">📝</span>
                                 <span class="name">结构化需求基线草案 (Requirements Baseline)</span>
-                                <span class="desc">包含 5 大状态模型的白话需求清单</span>
+                                <span class="desc">包含“已确认/AI推断/暂定/待确认/潜在需求”5大模型清单</span>
                             </div>
                             <div class="artifact-item">
                                 <span class="icon">📋</span>
-                                <span class="name">.ai/tier3_status.md (Task 注册)</span>
-                                <span class="desc">自动调用 board.py add 将拆解出的需求转化为 [Task-XXX]</span>
+                                <span class="name">.ai/tier3_status.md (自动注册 Task)</span>
+                                <span class="desc">自动落盘 [Task-001]、[Task-002] 待办条目</span>
                             </div>
                         </div>
                     </div>
@@ -581,37 +741,47 @@
             <div id="panel-sop-1plus" class="content-panel">
                 <div class="panel-header">
                     <div class="panel-title-group">
-                        <h1 class="panel-title">[1+] 📦 大模块规划与原型/设计说明书</h1>
-                        <span class="badge badge-success">物理原型与 DLD 契约</span>
+                        <h1 class="panel-title">[1+] 📦 大模块规划：交互原型与 DLD 设计说明书</h1>
+                        <span class="badge badge-success">物理交互与契约</span>
                     </div>
-                    <p class="panel-subtitle">生成继承统一 HTML 外壳的高保真线框原型，并对齐钧天科技 V1.0 企业级标准，生成 HLD/DLD 8大章节设计说明书。</p>
+                    <p class="panel-subtitle">💡 <strong>白话一句话解释</strong>：先看“图”再写代码！生成可在浏览器直接点按的 HTML 页面原型（`mockup.html`），并自动写好数据库建表 SQL 和 API 接口契约说明书。</p>
                 </div>
 
-                <div class="grid-2">
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="card-title">🧩 强绑定 Skill</div>
-                            <span class="badge badge-success">archetype-architect & design-spec-architect</span>
-                        </div>
-                        <div class="card-body">
-                            <p><strong>技能名称</strong>：原型架构梳理专家 + 概要与详细设计说明书专家</p>
-                            <p><strong>触发方式</strong>：发送 <code>1+ 模块名</code>（如 <code>1+ 权限管理模块</code>）</p>
-                            <p><strong>UI 布局锁死规约</strong>：原型必须继承 <code>base-shell-template.html</code> 外壳，统一 Header + Sidebar 布局！</p>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">📊 原型继承与 DLD 说明书生成 Mermaid 流程图</div>
+                        <span class="badge badge-success">Skills: archetype-architect & design-spec-architect</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="mermaid-container">
+                            <div class="mermaid-toolbar">
+                                <span class="pan-tip">💡 支持鼠标拖拽平移 & 滚轮按需缩放</span>
+                                <div class="toolbar-group">
+                                    <button class="tool-btn" onclick="zoomMermaid(this, 1.25)">🔍 放大</button>
+                                    <button class="tool-btn" onclick="zoomMermaid(this, 0.8)">🔍 缩小</button>
+                                    <button class="tool-btn" onclick="resetMermaid(this)">🔄 重置</button>
+                                    <button class="tool-btn" onclick="openModalMermaid(this)">🖥️ 全屏查看</button>
+                                </div>
+                            </div>
+                            <div class="mermaid-viewport">
+                                <pre class="mermaid">
+flowchart TD
+    Cmd["用户输入: 1+ 模块名 (如 1+ 权限管理)"] --> Proto["archetype-architect 技能"]
+    Proto --> Shell["强制继承 base-shell-template.html 外壳<br/>(统一 Header + Sidebar 布局)"]
+    Shell --> HTML["生成高保真交互原型<br/>docs/modules/auth/mockup.html"]
+    HTML --> Spec["design-spec-architect 技能"]
+    Spec --> HLD["输出 8大章节 HLD/DLD 说明书<br/>docs/01~04.md"]
+    Spec --> SQL["生成 DDL 建表 SQL<br/>docs/db/service.sql"]
+                                </pre>
+                            </div>
                         </div>
                     </div>
+                </div>
 
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="card-title">📐 8 大章节企业设计标准</div>
-                        </div>
-                        <div class="card-body">
-                            <p>1. 模块业务全景与逻辑流程</p>
-                            <p>2. 系统分层架构与依赖矩阵</p>
-                            <p>3. 数据库 ER 关系与 DDL 字段规约</p>
-                            <p>4. API 接口契约 (Restful & JSON Response)</p>
-                            <p>5. 异常流与降级容错设计</p>
-                        </div>
-                    </div>
+                <div class="explain-box">
+                    <strong>🗣️ 典型白话对话场景模拟：</strong><br/>
+                    用户：“<code>1+ 订单退款模块</code>”<br/>
+                    AI：“<code>已为您成功生成！<br/>1. 高保真原型已落盘至 docs/modules/order/mockup.html（继承了系统的统一布局外壳）。<br/>2. 详细设计说明书与数据库 SQL 脚本已更新至 docs/03-database-design.md 和 docs/db/service.sql！</code>”
                 </div>
 
                 <div class="card">
@@ -623,64 +793,81 @@
                             <div class="artifact-item">
                                 <span class="icon">🎨</span>
                                 <span class="name">docs/modules/&lt;module&gt;/mockup.html</span>
-                                <span class="desc">高保真可交互 HTML 页面原型（继承 Base Shell 结构）</span>
+                                <span class="desc">高保真可交互 HTML 原型（统一 App 外壳）</span>
                             </div>
                             <div class="artifact-item">
                                 <span class="icon">📄</span>
                                 <span class="name">docs/modules/&lt;module&gt;/prd-v1.0.md</span>
-                                <span class="desc">包含 Mermaid 泳道/时序图的模块 PRD</span>
+                                <span class="desc">带有 Mermaid 时序图/泳道图的模块级 PRD</span>
                             </div>
                             <div class="artifact-item">
                                 <span class="icon">🏛️</span>
                                 <span class="name">docs/01-requirements.md ~ 04-api-design.md</span>
-                                <span class="desc">系统架构图、数据库设计与 API 接口契约说明书</span>
+                                <span class="desc">对齐企业标准的系统架构与 API 设计说明书</span>
                             </div>
                             <div class="artifact-item">
                                 <span class="icon">🗄️</span>
                                 <span class="name">docs/db/service.sql / docs/db/migrations/</span>
-                                <span class="desc">DDL 建表 SQL 与增量版本 Migration 脚本</span>
+                                <span class="desc">数据库 DDL 建表脚本与增量 Migration SQL</span>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- ==================== Panel 4: [2] 单焦点契约编码 ==================== -->
+            <!-- ==================== Panel 4: [2] 单焦点编码 ==================== -->
             <div id="panel-sop-2" class="content-panel">
                 <div class="panel-header">
                     <div class="panel-title-group">
-                        <h1 class="panel-title">[2] 💻 单焦点契约编码 (Contract-Driven Coding)</h1>
-                        <span class="badge badge-primary">看门狗护栏</span>
+                        <h1 class="panel-title">[2] 💻 单焦点编码：看门狗护栏防腐</h1>
+                        <span class="badge badge-primary">契约强绑定</span>
                     </div>
-                    <p class="panel-subtitle">锁定 status.md 中唯一的 ACTIVE Task，按需加载 Java/Vue 语言规约，在强看门狗护栏下高质高效输出代码。</p>
+                    <p class="panel-subtitle">💡 <strong>白话一句话解释</strong>：做完规划后，敲击数字 `2` 进入写代码模式。看门狗护栏会死死盯着 AI：单次只准动 3 个文件、必须打真实的入参/出参日志、严禁自己伪造硬编码假数据掩盖接口错误！</p>
                 </div>
 
-                <div class="grid-2">
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="card-title">🧩 强绑定 Skill</div>
-                            <span class="badge badge-primary">coding-standards</span>
-                        </div>
-                        <div class="card-body">
-                            <p><strong>技能名称</strong>：统一代码规范与 DLD 契约强绑定专家</p>
-                            <p><strong>触发方式</strong>：输入 <code>2</code></p>
-                            <p><strong>语言参考库加载</strong>：按需加载 <code>references/java-convention.md</code>（Controller-Service-DAO 三层架构 + R&lt;T&gt; 响应）与 <code>references/vue-convention.md</code>（Composition API &lt;script setup&gt; + Pinia）。</p>
-                        </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">📊 看门狗护栏与契约编码 Mermaid 时序图</div>
+                        <span class="badge badge-primary">Skill: coding-standards</span>
                     </div>
+                    <div class="card-body">
+                        <div class="mermaid-container">
+                            <div class="mermaid-toolbar">
+                                <span class="pan-tip">💡 支持鼠标拖拽平移 & 滚轮按需缩放</span>
+                                <div class="toolbar-group">
+                                    <button class="tool-btn" onclick="zoomMermaid(this, 1.25)">🔍 放大</button>
+                                    <button class="tool-btn" onclick="zoomMermaid(this, 0.8)">🔍 缩小</button>
+                                    <button class="tool-btn" onclick="resetMermaid(this)">🔄 重置</button>
+                                    <button class="tool-btn" onclick="openModalMermaid(this)">🖥️ 全屏查看</button>
+                                </div>
+                            </div>
+                            <div class="mermaid-viewport">
+                                <pre class="mermaid">
+sequenceDiagram
+    autonumber
+    actor User as 用户
+    participant AI as AI Coding Agent
+    participant Board as status.md 看板
+    participant Code as 源码 src/ (Java/Vue)
 
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="card-title">🛡️ 编码看门狗 4 大铁律</div>
-                        </div>
-                        <div class="card-body">
-                            <ul>
-                                <li><strong>单次修改范围</strong>：修改文件 ≤ 3 个，零未经过评估的新依赖。</li>
-                                <li><strong>真实联调日志</strong>：必须且只能在关键节点打印带【请求入参 Input】与【响应返参 Response】的联调日志。</li>
-                                <li><strong>严禁假 Mock</strong>：当接口报错或断联时，严禁自主写保底 Mock 假数据掩盖问题！</li>
-                                <li><strong>Solid 核心保护</strong>：数据库 Schema、全局拦截器改动高亮预警。</li>
-                            </ul>
+    User->>AI: 发送指令 [2]
+    AI->>Board: 读取当前唯一 ACTIVE 的 Task-XXX
+    AI->>AI: 按需加载 Java 统一响应与 Vue3 规约
+    AI->>Code: 增量编写源码 (修改文件 ≤ 3个)
+    AI->>Code: 打入第三方联调日志 (记录 Request/Response)
+    AI-->>User: 提交完成，给出白话自测步骤 Checklist
+                                </pre>
+                            </div>
                         </div>
                     </div>
+                </div>
+
+                <div class="explain-box">
+                    <strong>🛡️ 看门狗护栏 4 大通俗铁律：</strong><br/>
+                    1. <strong>微创手术</strong>：单次最多改动 3 个文件，严禁乱加新的第三方依赖包。<br/>
+                    2. <strong>真联调日志</strong>：关键业务节点必须打印清晰的【请求入参 Input】与【返参 Payload】日志。<br/>
+                    3. <strong>绝对禁止假 Mock</strong>：第三方 API 调不通时，严禁 AI 写死的保底假数据掩盖问题！<br/>
+                    4. <strong>安全预警</strong>：改动数据库 Schema 或全局配置时主动弹出警告。
                 </div>
 
                 <div class="card">
@@ -692,55 +879,72 @@
                             <div class="artifact-item">
                                 <span class="icon">💻</span>
                                 <span class="name">src/ (业务工程源码)</span>
-                                <span class="desc">Java (Controller/Service/Entity/Mapper) 与 Vue3 组件代码</span>
+                                <span class="desc">Java (Controller/Service/Entity/Mapper) 与 Vue3 组件</span>
                             </div>
                             <div class="artifact-item">
                                 <span class="icon">🔌</span>
                                 <span class="name">第三方 API 联调日志</span>
-                                <span class="desc">控制台/Logbook 中打印的真实报文日志</span>
+                                <span class="desc">Logbook / 控制台中打印的完整 Request/Response 报文</span>
                             </div>
                             <div class="artifact-item">
                                 <span class="icon">📋</span>
                                 <span class="name">.ai/tier3_status.md (状态变更)</span>
-                                <span class="desc">任务被标记为 ACTIVE 状态</span>
+                                <span class="desc">自动更新当前任务为 ACTIVE 激活状态</span>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- ==================== Panel 5: [3]/[F] 报错排错与极速修补 ==================== -->
+            <!-- ==================== Panel 5: [3]/[F] 报错排错与微创修补 ==================== -->
             <div id="panel-sop-3" class="content-panel">
                 <div class="panel-header">
                     <div class="panel-title-group">
-                        <h1 class="panel-title">[3] / [F] 🐞 报错排错与极速修补</h1>
-                        <span class="badge badge-danger">小黄鸭探针</span>
+                        <h1 class="panel-title">[3] / [F] 🐞 报错排错：小黄鸭探针与极速修补</h1>
+                        <span class="badge badge-danger">精准微创排错</span>
                     </div>
-                    <p class="panel-subtitle">遇到编译或运行报错时，激活小黄鸭探针精准排错；简单 1 行代码修补可走 [F] 极速通道免状态机行政成本直修。</p>
+                    <p class="panel-subtitle">💡 <strong>白话一句话解释</strong>：遇到报错不要慌！发 `3` 带上日志，小黄鸭探针会做“抓日志 ➔ 找根因 ➔ 最小修补”；如果是拼错字母、错位这种小毛病，直接发 `F` 极速直修，0 行政阻尼！</p>
                 </div>
 
-                <div class="grid-2">
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="card-title">🧩 强绑定 Skill</div>
-                            <span class="badge badge-danger">quality-verifier</span>
-                        </div>
-                        <div class="card-body">
-                            <p><strong>技能名称</strong>：质量验证与小黄鸭排错专家</p>
-                            <p><strong>触发方式</strong>：发送 <code>3</code> (附日志/截图) 或 <code>F</code> (极速通道)</p>
-                            <p><strong>小黄鸭 3 步探针</strong>：抓取完整日志 ➔ 根因分析诊断 ➔ 最小切口微创修复。</p>
-                        </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">📊 小黄鸭探针排错与 [F] 极速路由 Mermaid 流程图</div>
+                        <span class="badge badge-danger">Skill: quality-verifier</span>
                     </div>
+                    <div class="card-body">
+                        <div class="mermaid-container">
+                            <div class="mermaid-toolbar">
+                                <span class="pan-tip">💡 支持鼠标拖拽平移 & 滚轮按需缩放</span>
+                                <div class="toolbar-group">
+                                    <button class="tool-btn" onclick="zoomMermaid(this, 1.25)">🔍 放大</button>
+                                    <button class="tool-btn" onclick="zoomMermaid(this, 0.8)">🔍 缩小</button>
+                                    <button class="tool-btn" onclick="resetMermaid(this)">🔄 重置</button>
+                                    <button class="tool-btn" onclick="openModalMermaid(this)">🖥️ 全屏查看</button>
+                                </div>
+                            </div>
+                            <div class="mermaid-viewport">
+                                <pre class="mermaid">
+flowchart TD
+    Err["运行/编译发生报错或页面不对"] --> Decision{"改动大小判断"}
+    Decision -->|正常报错| S3["发送 [3] + 报错日志/截图"]
+    Decision -->|极小修补| SF["发送 [F] 极速直修通道"]
 
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="card-title">⚡ [F] 极速修补通道</div>
-                        </div>
-                        <div class="card-body">
-                            <p>专门解决样式错位、打错字母、单行报错等微小改动。</p>
-                            <p><strong>优势</strong>：免去 `board.py` 的行政状态流转，直修代码并静默刷新 `tier1_snapshot.md` 名片卡，0 阻尼体验！</p>
+    S3 --> Duck1["1. 抓取完整异常日志链"]
+    Duck1 --> Duck2["2. 小黄鸭根因分析诊断"]
+    Duck2 --> Duck3["3. 最小切口方案 (只动错的那 1 行)"]
+
+    SF --> DirectFix["跳过看板审批直修代码"]
+    DirectFix --> SilentRefresh["静默刷新 tier1_snapshot.md 名片卡"]
+                                </pre>
+                            </div>
                         </div>
                     </div>
+                </div>
+
+                <div class="explain-box">
+                    <strong>🗣️ 典型白话对话场景模拟：</strong><br/>
+                    用户：“<code>3，后端报 NullPointerException 错误日志如下...</code>”<br/>
+                    AI：“<code>🦆 小黄鸭探针定位完毕！<br/>1. 根因：UserService.java 第 42 行在处理 null 响应时漏掉了空指针判断。<br/>2. 方案：已为您精准修复该 1 行代码，无额外扩散副作用！</code>”
                 </div>
 
                 <div class="card">
@@ -757,7 +961,7 @@
                             <div class="artifact-item">
                                 <span class="icon">🔧</span>
                                 <span class="name">微创修补代码</span>
-                                <span class="desc">仅修改导致报错的 1~2 行代码，绝无连锁副作用</span>
+                                <span class="desc">仅修复引发 BUG 的单行/单文件代码</span>
                             </div>
                         </div>
                     </div>
@@ -768,31 +972,38 @@
             <div id="panel-sop-4" class="content-panel">
                 <div class="panel-header">
                     <div class="panel-title-group">
-                        <h1 class="panel-title">[4] 🏁 目标验收与文档联动</h1>
+                        <h1 class="panel-title">[4] 🏁 目标验收与静态文档联动</h1>
                         <span class="badge badge-success">TDD 契约碰撞</span>
                     </div>
-                    <p class="panel-subtitle">执行 TDD 契约碰撞测试与白话 Checklist 终验，标记 Task 完成并静默同步更新 static docs/ 静态架构文档。</p>
+                    <p class="panel-subtitle">💡 <strong>白话一句话解释</strong>：功能写好且测试满意后，发送 `4` 验收。AI 会做 API 契约碰撞测试，在看板上打钩，并自动把变动更新回 `docs/` 文档里，保证文档永远最新！</p>
                 </div>
 
-                <div class="grid-2">
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="card-title">🧩 强绑定 Skill</div>
-                            <span class="badge badge-success">quality-verifier</span>
-                        </div>
-                        <div class="card-body">
-                            <p><strong>技能名称</strong>：质量验证与测试验收专家</p>
-                            <p><strong>触发方式</strong>：发送 <code>4</code></p>
-                            <p><strong>核心职责</strong>：验证接口响应格式与 DLD 契约 100% 吻合，并提供用户可白话操作的验证 Checklist。</p>
-                        </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">📊 验收与文档反哺 Mermaid 流程图</div>
+                        <span class="badge badge-success">Skill: quality-verifier</span>
                     </div>
-
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="card-title">🔄 静态文档反哺防漂移</div>
-                        </div>
-                        <div class="card-body">
-                            <p>代码验收通过后，AI 自动扫描开发过程中对 API/数据库表结构的变更，自动增量反哺更新 `docs/03-database-design.md` 和 `docs/04-api-design.md`，杜绝文档过时！</p>
+                    <div class="card-body">
+                        <div class="mermaid-container">
+                            <div class="mermaid-toolbar">
+                                <span class="pan-tip">💡 支持鼠标拖拽平移 & 滚轮按需缩放</span>
+                                <div class="toolbar-group">
+                                    <button class="tool-btn" onclick="zoomMermaid(this, 1.25)">🔍 放大</button>
+                                    <button class="tool-btn" onclick="zoomMermaid(this, 0.8)">🔍 缩小</button>
+                                    <button class="tool-btn" onclick="resetMermaid(this)">🔄 重置</button>
+                                    <button class="tool-btn" onclick="openModalMermaid(this)">🖥️ 全屏查看</button>
+                                </div>
+                            </div>
+                            <div class="mermaid-viewport">
+                                <pre class="mermaid">
+flowchart LR
+    Cmd["用户输入: [4] 验收打钩"] --> Test["TDD 契约碰撞测试<br/>(验证 200 OK 与 JSON 格式)"]
+    Test --> Check["生成白话自测 Checklist"]
+    Check --> MarkDone["board.py complete<br/>(看板标记 DONE 🟢)"]
+    MarkDone --> SyncDoc["静态文档反哺<br/>(增量更新 docs/03-04.md)"]
+    SyncDoc --> Next["自动推荐下一个待办 Task"]
+                                </pre>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -806,7 +1017,7 @@
                             <div class="artifact-item">
                                 <span class="icon">🟢</span>
                                 <span class="name">白话验证 Checklist & 契约测试报告</span>
-                                <span class="desc">包含 200 OK 连通性与数据字段比对结果</span>
+                                <span class="desc">连通性测试与数据字段比对报告</span>
                             </div>
                             <div class="artifact-item">
                                 <span class="icon">📚</span>
@@ -816,7 +1027,7 @@
                             <div class="artifact-item">
                                 <span class="icon">📋</span>
                                 <span class="name">.ai/tier3_status.md (标记 DONE)</span>
-                                <span class="desc">任务打钩完成，自动推荐下一个待办 Task</span>
+                                <span class="desc">看板任务标记打钩，推进推荐下一个 Task</span>
                             </div>
                         </div>
                     </div>
@@ -827,30 +1038,38 @@
             <div id="panel-sop-5" class="content-panel">
                 <div class="panel-header">
                     <div class="panel-title-group">
-                        <h1 class="panel-title">[5] 📦 下班归档与长效黑匣子</h1>
-                        <span class="badge badge-purple">上下文瘦身</span>
+                        <h1 class="panel-title">[5] 📦 下班归档：上下文瘦身与黑匣子</h1>
+                        <span class="badge badge-purple">物理记忆提炼</span>
                     </div>
-                    <p class="panel-subtitle">下班或切换大任务前发送 5，将对话产生的全套改动提炼压缩落盘，更新极简名片卡并释放 Token 空间。</p>
+                    <p class="panel-subtitle">💡 <strong>白话一句话解释</strong>：下班或者切换大任务前，输入数字 `5`！AI 会把今天聊了几万字的长对话提炼压缩成几行关键总结，存入黑匣子并更新名片，随时可以关闭窗口！</p>
                 </div>
 
-                <div class="grid-2">
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="card-title">⚙️ 工作流引擎</div>
-                            <span class="badge badge-purple">05-sop-archive</span>
-                        </div>
-                        <div class="card-body">
-                            <p><strong>触发方式</strong>：发送 <code>5</code></p>
-                            <p><strong>核心动作</strong>：自动读取当前 Session 增量修改，压缩提取关键决策与任务 Log，落盘存入黑匣子。</p>
-                        </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">📊 对话提炼与黑匣子归档 Mermaid 流程图</div>
+                        <span class="badge badge-purple">SOP Engine: 05-sop-archive</span>
                     </div>
-
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="card-title">💡 为什么需要归档？</div>
-                        </div>
-                        <div class="card-body">
-                            <p>大模型长对话会导致上下文膨胀与注意力衰减（BUG-003）。及时发 <code>5</code> 归档可以将数万 Token 的对话历史物理凝练为几行确切记忆。</p>
+                    <div class="card-body">
+                        <div class="mermaid-container">
+                            <div class="mermaid-toolbar">
+                                <span class="pan-tip">💡 支持鼠标拖拽平移 & 滚轮按需缩放</span>
+                                <div class="toolbar-group">
+                                    <button class="tool-btn" onclick="zoomMermaid(this, 1.25)">🔍 放大</button>
+                                    <button class="tool-btn" onclick="zoomMermaid(this, 0.8)">🔍 缩小</button>
+                                    <button class="tool-btn" onclick="resetMermaid(this)">🔄 重置</button>
+                                    <button class="tool-btn" onclick="openModalMermaid(this)">🖥️ 全屏查看</button>
+                                </div>
+                            </div>
+                            <div class="mermaid-viewport">
+                                <pre class="mermaid">
+flowchart TD
+    Cmd["下班发送指令 [5]"] --> Scan["读取当前 Session 全套代码与对话增量"]
+    Scan --> Compress["提炼关键 Changelog 与技术决策"]
+    Compress --> Append["追加备份至历史黑匣子<br/>.ai/tier3_handover.md"]
+    Append --> RefreshT1["物理刷新极简名片卡<br/>.ai/tier1_snapshot.md (<30行)"]
+    RefreshT1 --> Close["放心关闭 IDE / 开启新窗口！"]
+                                </pre>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -880,30 +1099,37 @@
             <div id="panel-sop-6" class="content-panel">
                 <div class="panel-header">
                     <div class="panel-title-group">
-                        <h1 class="panel-title">[6] 🛟 续航复活与断点一键恢复</h1>
-                        <span class="badge badge-success">0.5s 极速吃透</span>
+                        <h1 class="panel-title">[6] 🛟 续航复活：0.5s 极速断点一键恢复</h1>
+                        <span class="badge badge-success">0.5 秒吃透</span>
                     </div>
-                    <p class="panel-subtitle">第二天或重新开启新窗口时输入 6，AI 优先且仅读取 &lt;30 行极简名片卡，0.5 秒一键恢复上下文断点记忆！</p>
+                    <p class="panel-subtitle">💡 <strong>白话一句话解释</strong>：第二天开新窗口，只需发一个数字 `6`！AI 不会傻傻地读几万字历史记录，而是 0.5 秒读完名片卡，立刻复活并告诉你：“昨天停在 Task-002，发 2 接着干！”</p>
                 </div>
 
-                <div class="grid-2">
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="card-title">⚙️ 工作流引擎</div>
-                            <span class="badge badge-success">06-sop-resume</span>
-                        </div>
-                        <div class="card-body">
-                            <p><strong>触发方式</strong>：新窗口发送 <code>6</code></p>
-                            <p><strong>核心动作</strong>：AI 拒绝全量读取历史长文本，仅查阅 `tier1_snapshot.md` 名片卡，0.5s 内告知用户项目最新状态与 ACTIVE 焦点，并提示发送 `2` 继续编码！</p>
-                        </div>
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">📊 断点复活与极速吃透 Mermaid 流程图</div>
+                        <span class="badge badge-success">SOP Engine: 06-sop-resume</span>
                     </div>
-
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="card-title">🚀 极速响应体验</div>
-                        </div>
-                        <div class="card-body">
-                            <p>消除以往必须重新向 AI 解释项目上下文的繁重负担，实现如同游戏断点存档般的“即开即用”一键复活体验。</p>
+                    <div class="card-body">
+                        <div class="mermaid-container">
+                            <div class="mermaid-toolbar">
+                                <span class="pan-tip">💡 支持鼠标拖拽平移 & 滚轮按需缩放</span>
+                                <div class="toolbar-group">
+                                    <button class="tool-btn" onclick="zoomMermaid(this, 1.25)">🔍 放大</button>
+                                    <button class="tool-btn" onclick="zoomMermaid(this, 0.8)">🔍 缩小</button>
+                                    <button class="tool-btn" onclick="resetMermaid(this)">🔄 重置</button>
+                                    <button class="tool-btn" onclick="openModalMermaid(this)">🖥️ 全屏查看</button>
+                                </div>
+                            </div>
+                            <div class="mermaid-viewport">
+                                <pre class="mermaid">
+flowchart LR
+    NewWin["开新窗口输入: [6]"] --> ReadT1["AI 优先且仅读取 tier1_snapshot.md<br/>(<30行极简名片卡)"]
+    ReadT1 --> FastParse["0.5 秒吃透项目现状与 ACTIVE 焦点"]
+    FastParse --> Prompt["抛出断点提示卡: 锁定 Task-XXX"]
+    Prompt --> Action["提示用户: 回复 [2] 继续写代码！"]
+                                </pre>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -924,14 +1150,53 @@
                 </div>
             </div>
 
-            <!-- ==================== Panel 9: 6大Skill全景矩阵 ==================== -->
+            <!-- ==================== Panel 9: 6大Skill协作拓扑 ==================== -->
             <div id="panel-skills" class="content-panel">
                 <div class="panel-header">
                     <div class="panel-title-group">
-                        <h1 class="panel-title">📚 全套 6 大 Skill 技能包全景字典与矩阵</h1>
+                        <h1 class="panel-title">📚 全套 6 大 Skill 技能包协作拓扑图谱</h1>
                         <span class="badge badge-primary">Skill System</span>
                     </div>
-                    <p class="panel-subtitle">汇总 Apex 框架内置的 6 大 AI 专属 Skill 技能包，明晰职责分工、触发条件与确定性物理产出物。</p>
+                    <p class="panel-subtitle">💡 <strong>白话一句话解释</strong>：Skill 就是给 AI 戴上的“专家帽子”。需要澄清需求时戴上产品经理帽子，写代码时戴上架构师帽子，排错时戴上小黄鸭医生帽子。</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">📊 6 大 Skill 互相协作网络 Mermaid 关系图</div>
+                        <span class="badge badge-primary">Skill Matrix</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="mermaid-container">
+                            <div class="mermaid-toolbar">
+                                <span class="pan-tip">💡 支持鼠标拖拽平移 & 滚轮按需缩放</span>
+                                <div class="toolbar-group">
+                                    <button class="tool-btn" onclick="zoomMermaid(this, 1.25)">🔍 放大</button>
+                                    <button class="tool-btn" onclick="zoomMermaid(this, 0.8)">🔍 缩小</button>
+                                    <button class="tool-btn" onclick="resetMermaid(this)">🔄 重置</button>
+                                    <button class="tool-btn" onclick="openModalMermaid(this)">🖥️ 全屏查看</button>
+                                </div>
+                            </div>
+                            <div class="mermaid-viewport">
+                                <pre class="mermaid">
+graph LR
+    S0["🏛️ legacy-archaeologist<br/>(老项目逆向考古专家)"]
+    S1["🔍 requirement-discovery<br/>(需求白话澄清专家)"]
+    S2["🏛️ archetype-architect<br/>(原型架构梳理专家)"]
+    S3["📐 design-spec-architect<br/>(设计说明书专家)"]
+    S4["💻 coding-standards<br/>(代码规范与契约专家)"]
+    S5["🧪 quality-verifier<br/>(质量验证与小黄鸭排错)"]
+
+    S0 -->|输出老代码地图| S1
+    S1 -->|澄清需求基线| S2
+    S2 -->|生成交互原型| S3
+    S3 -->|输出 DLD 契约| S4
+    S4 -->|编写业务代码| S5
+    S5 -->|发现 BUG 小黄鸭排错| S4
+    S5 -->|验收打钩同步文档| S3
+                                </pre>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="grid-2">
@@ -941,9 +1206,8 @@
                             <span class="badge badge-primary">需求发现</span>
                         </div>
                         <div class="card-body">
-                            <p><strong>职责</strong>：AI 主导澄清口语化模糊需求，展开 8-13 维推演。</p>
-                            <p><strong>触发条件</strong>：一句话需求或执行 <code>[1]</code> 阶段。</p>
-                            <p><strong>核心产出</strong>：结构化需求基线草案、白话对撞决策列表。</p>
+                            <p><strong>白话职责</strong>：澄清口语需求，抛出 A/B/C 选择题。</p>
+                            <p><strong>核心产出</strong>：需求基线草案 (5大状态模型)。</p>
                         </div>
                     </div>
 
@@ -953,9 +1217,8 @@
                             <span class="badge badge-success">原型架构</span>
                         </div>
                         <div class="card-body">
-                            <p><strong>职责</strong>：解析静态原型，继承 Base Shell 强制布局生成交互 HTML。</p>
-                            <p><strong>触发条件</strong>：发送 HTML 原型或执行 <code>[1+]</code> 阶段。</p>
-                            <p><strong>核心产出</strong>：<code>mockup.html</code> 高保真交互原型、模块 PRD。</p>
+                            <p><strong>白话职责</strong>：生成可点击的 HTML 交互原型页面。</p>
+                            <p><strong>核心产出</strong>：`mockup.html` 原型、模块 PRD。</p>
                         </div>
                     </div>
 
@@ -965,9 +1228,8 @@
                             <span class="badge badge-warning">设计说明书</span>
                         </div>
                         <div class="card-body">
-                            <p><strong>职责</strong>：对齐钧天科技 V1.0 标准，输出 HLD/DLD 8大章节。</p>
-                            <p><strong>触发条件</strong>：需求 Sign-off 或结构变动。</p>
-                            <p><strong>核心产出</strong>：<code>docs/01~04.md</code>、DDL SQL 脚本。</p>
+                            <p><strong>白话职责</strong>：撰写 HLD/DLD 设计文档与数据库 SQL。</p>
+                            <p><strong>核心产出</strong>：`docs/01~04.md`、建表 SQL。</p>
                         </div>
                     </div>
 
@@ -977,9 +1239,8 @@
                             <span class="badge badge-primary">代码规范</span>
                         </div>
                         <div class="card-body">
-                            <p><strong>职责</strong>：绑定 DLD 契约，加载 Java/Vue 规约，开启看门狗。</p>
-                            <p><strong>触发条件</strong>：执行 <code>[2]</code> 单焦点编码阶段。</p>
-                            <p><strong>核心产出</strong>：业务源码 (`src/`)、第三方 API 联调日志。</p>
+                            <p><strong>白话职责</strong>：开启看门狗，按规范写 Java 和 Vue 代码。</p>
+                            <p><strong>核心产出</strong>：`src/` 业务源码、第三方联调日志。</p>
                         </div>
                     </div>
 
@@ -989,9 +1250,8 @@
                             <span class="badge badge-danger">质量与排错</span>
                         </div>
                         <div class="card-body">
-                            <p><strong>职责</strong>：小黄鸭探针定位 Bug、TDD 契约碰撞测试、白话终验。</p>
-                            <p><strong>触发条件</strong>：执行 <code>[3]</code> 排错、<code>[F]</code> 极速通道或 <code>[4]</code> 验收。</p>
-                            <p><strong>核心产出</strong>：小黄鸭根因报告、微创修补代码、白话 Checklist。</p>
+                            <p><strong>白话职责</strong>：小黄鸭探针微创排错，契约碰撞测试。</p>
+                            <p><strong>核心产出</strong>：小黄鸭报告、微创修补代码。</p>
                         </div>
                     </div>
 
@@ -1001,9 +1261,8 @@
                             <span class="badge badge-purple">老项目考古</span>
                         </div>
                         <div class="card-body">
-                            <p><strong>职责</strong>：逆向扫描路由切片、提取 4D 元数据、写行为锁死探针。</p>
-                            <p><strong>触发条件</strong>：执行 <code>[0]</code> 破局老项目阶段。</p>
-                            <p><strong>核心产出</strong>：<code>tier2_legacy_arch.md</code>、拓扑图谱、测试探针。</p>
+                            <p><strong>白话职责</strong>：剖析老代码路由切片，写行为锁死探针。</p>
+                            <p><strong>核心产出</strong>：`legacy_arch.md`、行为锁死探针。</p>
                         </div>
                     </div>
                 </div>
@@ -1012,26 +1271,225 @@
         </main>
     </div>
 
-    <!-- 交互切换 JavaScript 脚本 -->
+    <!-- 全屏放大查看弹窗 Modal -->
+    <div id="mermaidModal" class="modal-overlay" onclick="closeModalOnOverlay(event)">
+        <div class="modal-body">
+            <div class="modal-header">
+                <h3>🖥️ 全屏高清 Mermaid 架构图查看器 (支持按住拖拽与滚轮缩放)</h3>
+                <button class="modal-close" onclick="closeMermaidModal()">✕</button>
+            </div>
+            <div class="modal-viewport" id="modalViewport">
+                <!-- 动态克隆渲染 SVG -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 交互与 异步安全的 Mermaid + Pan-Zoom 拖拽缩放 JavaScript 脚本 -->
     <script>
-        function switchPanel(panelId, element) {
-            // 1. 隐藏所有 Panel
+        const panZoomMap = new Map();
+        let renderCounter = 0;
+
+        document.addEventListener("DOMContentLoaded", async function () {
+            // 1. 初始化 Mermaid，配置 startOnLoad: false, securityLevel: 'loose'
+            mermaid.initialize({
+                startOnLoad: false,
+                theme: 'default',
+                securityLevel: 'loose',
+                flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' }
+            });
+
+            // 2. 仅异步渲染当前可见 (active) 的 Panel
+            const activePanel = document.querySelector('.content-panel.active');
+            if (activePanel) {
+                await renderPanelMermaid(activePanel);
+            }
+        });
+
+        // 切换 Panel 面板
+        async function switchPanel(panelId, element) {
             const panels = document.querySelectorAll('.content-panel');
             panels.forEach(panel => panel.classList.remove('active'));
 
-            // 2. 移除所有 Sidebar Menu 的 active 类
             const menuItems = document.querySelectorAll('.menu-item');
             menuItems.forEach(item => item.classList.remove('active'));
 
-            // 3. 激活选中的 Panel
             const targetPanel = document.getElementById(panelId);
             if (targetPanel) {
                 targetPanel.classList.add('active');
+                // 异步安全渲染该 Panel 下的 Mermaid 节点
+                await renderPanelMermaid(targetPanel);
             }
 
-            // 4. 高亮当前选中的 Menu 项
             if (element) {
                 element.classList.add('active');
+            }
+        }
+
+        // 异步安全 Mermaid 渲染器（按需渲染 + 防崩溃拦截）
+        async function renderPanelMermaid(panelElement) {
+            if (!panelElement) return;
+            const containers = panelElement.querySelectorAll('.mermaid-container');
+
+            for (const container of containers) {
+                const node = container.querySelector('.mermaid');
+                if (!node) continue;
+
+                // 备份源码
+                if (!node.dataset.src) {
+                    node.dataset.src = node.textContent.trim();
+                }
+
+                // 如果已经成功渲染了 svg，直接绑定 PanZoom 即可
+                if (node.querySelector('svg')) {
+                    initPanZoomForContainer(container);
+                    continue;
+                }
+
+                // 异步调用 mermaid.render 渲染节点
+                const id = 'mermaid-svg-' + (++renderCounter);
+                const code = node.dataset.src;
+
+                try {
+                    const { svg } = await mermaid.render(id, code);
+                    node.innerHTML = svg;
+                    initPanZoomForContainer(container);
+                } catch (err) {
+                    console.warn("Mermaid 节点渲染容错捕获:", err);
+                    node.innerHTML = `<div style="color:#ef4444; font-size:12.5px; padding:12px; background:#fef2f2; border-radius:6px;">⚠️ 架构图渲染防崩溃容错（代码兼容性），请配合上下文文字步骤阅读。</div>`;
+                }
+            }
+        }
+
+        // 为单节点绑定 Pan & Zoom (拖拽与滚轮)
+        function initPanZoomForContainer(container) {
+            const viewport = container.querySelector('.mermaid-viewport');
+            const svg = viewport ? viewport.querySelector('svg') : null;
+            if (!svg || panZoomMap.has(container)) return;
+
+            const state = {
+                scale: 1,
+                pointX: 0,
+                pointY: 0,
+                isDragging: false,
+                startX: 0,
+                startY: 0
+            };
+            panZoomMap.set(container, state);
+
+            function applyTransform() {
+                svg.style.transform = `translate(${state.pointX}px, ${state.pointY}px) scale(${state.scale})`;
+                svg.style.transformOrigin = 'center center';
+            }
+
+            viewport.addEventListener('mousedown', (e) => {
+                state.isDragging = true;
+                state.startX = e.clientX - state.pointX;
+                state.startY = e.clientY - state.pointY;
+                viewport.style.cursor = 'grabbing';
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!state.isDragging) return;
+                state.pointX = e.clientX - state.startX;
+                state.pointY = e.clientY - state.startY;
+                applyTransform();
+            });
+
+            window.addEventListener('mouseup', () => {
+                if (state.isDragging) {
+                    state.isDragging = false;
+                    viewport.style.cursor = 'grab';
+                }
+            });
+
+            viewport.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const delta = e.deltaY < 0 ? 1.15 : 0.85;
+                state.scale = Math.min(Math.max(0.4, state.scale * delta), 4);
+                applyTransform();
+            }, { passive: false });
+        }
+
+        // 按钮放大/缩小
+        function zoomMermaid(btn, factor) {
+            const container = btn.closest('.mermaid-container');
+            const state = panZoomMap.get(container);
+            const svg = container ? container.querySelector('.mermaid-viewport svg') : null;
+            if (state && svg) {
+                state.scale = Math.min(Math.max(0.4, state.scale * factor), 4);
+                svg.style.transform = `translate(${state.pointX}px, ${state.pointY}px) scale(${state.scale})`;
+            }
+        }
+
+        // 按钮重置
+        function resetMermaid(btn) {
+            const container = btn.closest('.mermaid-container');
+            const state = panZoomMap.get(container);
+            const svg = container ? container.querySelector('.mermaid-viewport svg') : null;
+            if (state && svg) {
+                state.scale = 1;
+                state.pointX = 0;
+                state.pointY = 0;
+                svg.style.transform = `translate(0px, 0px) scale(1)`;
+            }
+        }
+
+        // 全屏弹窗查看
+        function openModalMermaid(btn) {
+            const container = btn.closest('.mermaid-container');
+            const svg = container ? container.querySelector('.mermaid-viewport svg') : null;
+            const modalViewport = document.getElementById('modalViewport');
+            if (svg && modalViewport) {
+                modalViewport.innerHTML = '';
+                const clonedSvg = svg.cloneNode(true);
+                clonedSvg.style.transform = 'translate(0px, 0px) scale(1.4)';
+                clonedSvg.style.transformOrigin = 'center center';
+                modalViewport.appendChild(clonedSvg);
+
+                document.getElementById('mermaidModal').classList.add('active');
+
+                let mState = { scale: 1.4, pointX: 0, pointY: 0, isDragging: false, startX: 0, startY: 0 };
+                function applyMTransform() {
+                    clonedSvg.style.transform = `translate(${mState.pointX}px, ${mState.pointY}px) scale(${mState.scale})`;
+                }
+
+                modalViewport.onmousedown = (e) => {
+                    mState.isDragging = true;
+                    mState.startX = e.clientX - mState.pointX;
+                    mState.startY = e.clientY - mState.pointY;
+                    modalViewport.style.cursor = 'grabbing';
+                };
+
+                window.onmousemove = (e) => {
+                    if (!mState.isDragging) return;
+                    mState.pointX = e.clientX - mState.startX;
+                    mState.pointY = e.clientY - mState.startY;
+                    applyMTransform();
+                };
+
+                window.onmouseup = () => {
+                    if (mState.isDragging) {
+                        mState.isDragging = false;
+                        modalViewport.style.cursor = 'grab';
+                    }
+                };
+
+                modalViewport.onwheel = (e) => {
+                    e.preventDefault();
+                    const delta = e.deltaY < 0 ? 1.15 : 0.85;
+                    mState.scale = Math.min(Math.max(0.5, mState.scale * delta), 6);
+                    applyMTransform();
+                };
+            }
+        }
+
+        function closeMermaidModal() {
+            document.getElementById('mermaidModal').classList.remove('active');
+        }
+
+        function closeModalOnOverlay(e) {
+            if (e.target.id === 'mermaidModal') {
+                closeMermaidModal();
             }
         }
     </script>
