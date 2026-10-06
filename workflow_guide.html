@@ -258,7 +258,7 @@
         .badge-danger { background: #fee2e2; color: #991b1b; }
         .badge-purple { background: #f3e8ff; color: #6b21a8; }
 
-        /* 5. 支持缩放、拖拽与全屏查看的 Mermaid 容器样式 */
+        /* 5. Mermaid 容器样式 */
         .mermaid-container {
             position: relative;
             background: #ffffff;
@@ -281,11 +281,7 @@
             z-index: 10;
         }
 
-        .toolbar-group {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
+        .toolbar-group { display: flex; align-items: center; gap: 6px; }
 
         .tool-btn {
             background: #ffffff;
@@ -297,22 +293,15 @@
             cursor: pointer;
             font-weight: 500;
             transition: all 0.15s ease;
-            display: flex;
-            align-items: center;
-            gap: 4px;
         }
 
         .tool-btn:hover {
             background: #2563eb;
             color: #ffffff;
             border-color: #2563eb;
-            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
         }
 
-        .pan-tip {
-            font-size: 11px;
-            color: #94a3b8;
-        }
+        .pan-tip { font-size: 11px; color: #94a3b8; }
 
         .mermaid-viewport {
             width: 100%;
@@ -326,14 +315,7 @@
             position: relative;
         }
 
-        .mermaid-viewport:active {
-            cursor: grabbing;
-        }
-
-        .mermaid-viewport svg {
-            max-width: none !important;
-            transition: transform 0.05s linear;
-        }
+        .mermaid-viewport:active { cursor: grabbing; }
 
         .explain-box {
             background: #eff6ff;
@@ -346,11 +328,7 @@
             line-height: 1.6;
         }
 
-        .artifact-list {
-            list-style: none;
-            padding: 0;
-            margin: 8px 0;
-        }
+        .artifact-list { list-style: none; padding: 0; margin: 8px 0; }
 
         .artifact-item {
             display: flex;
@@ -367,6 +345,126 @@
         .artifact-item .icon { font-size: 16px; }
         .artifact-item .name { font-weight: 600; color: #1e293b; font-family: monospace; }
         .artifact-item .desc { color: #64748b; font-size: 12px; margin-left: auto; }
+
+        /* 6. 仿聊天对话卡片 */
+        .demo-step-card {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .demo-step-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 14px;
+            border-bottom: 1px solid #f1f5f9;
+            padding-bottom: 10px;
+        }
+
+        .demo-step-num {
+            background: var(--primary-gradient);
+            color: #fff;
+            font-weight: 700;
+            font-size: 12px;
+            padding: 3px 10px;
+            border-radius: 20px;
+        }
+
+        .demo-step-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .chat-flow {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: var(--radius-md);
+            padding: 16px;
+        }
+
+        .chat-msg { display: flex; gap: 12px; }
+
+        .chat-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 15px;
+            flex-shrink: 0;
+        }
+
+        .chat-msg.user .chat-avatar { background: #3b82f6; color: #fff; }
+        .chat-msg.ai .chat-avatar { background: #8b5cf6; color: #fff; }
+
+        .chat-content {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 13.5px;
+            line-height: 1.6;
+            max-width: 88%;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+
+        .chat-msg.user .chat-content {
+            background: #eff6ff;
+            border-color: #93c5fd;
+            color: #1e3a8a;
+        }
+
+        .chat-msg.ai .chat-content {
+            background: #ffffff;
+            border-color: #e2e8f0;
+            color: #0f172a;
+        }
+
+        .chat-output-box {
+            margin-top: 10px;
+            padding: 10px 14px;
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 12.5px;
+        }
+
+        .chat-output-title {
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* 7. 手册表格 */
+        .manual-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin: 14px 0;
+            background: #fff;
+        }
+
+        .manual-table th, .manual-table td {
+            border: 1px solid var(--border-color);
+            padding: 10px 14px;
+            text-align: left;
+        }
+
+        .manual-table th { background: #f1f5f9; color: #334155; font-weight: 600; }
+        .manual-table tr:nth-child(even) { background: #f8fafc; }
 
         /* 全屏 Modal 查看图表 */
         .modal-overlay {
@@ -390,7 +488,6 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
         }
 
         .modal-header {
@@ -404,7 +501,6 @@
 
         .modal-header h3 { font-size: 16px; font-weight: 600; }
         .modal-close { background: none; border: none; color: #cbd5e1; font-size: 20px; cursor: pointer; }
-        .modal-close:hover { color: #fff; }
 
         .modal-viewport {
             flex: 1;
@@ -427,8 +523,7 @@
         </div>
         <div class="header-meta">
             <span>主要技术栈: Vue 3 + Java Spring Boot</span>
-            <span>架构模式: 外层控制中枢 / 内层业务解耦</span>
-            <span>交互特性: 💡 支持鼠标拖拽平移、滚轮缩放与全屏放大</span>
+            <span>核心包含: 包含代码开发规约 + 2大维度实战 Demo + 节点物理产出物全量手册</span>
         </div>
     </header>
 
@@ -482,7 +577,19 @@
             </div>
 
             <div class="menu-section">
-                <div class="menu-title">🧩 AI 专属 Skill 技能包</div>
+                <div class="menu-title">💬 实战 Demo 与全量手册</div>
+                <div class="menu-item" onclick="switchPanel('panel-demo-new', this)">
+                    <span>💡 Demo 1: 从0到1新模块开发</span>
+                    <span class="code-tag">New Demo</span>
+                </div>
+                <div class="menu-item" onclick="switchPanel('panel-demo-legacy', this)">
+                    <span>🏛️ Demo 2: 修改/维护老模块代码</span>
+                    <span class="code-tag">Legacy Demo</span>
+                </div>
+                <div class="menu-item" onclick="switchPanel('panel-manual-nodes', this)">
+                    <span>📖 节点与产物全量对照手册</span>
+                    <span class="code-tag">Manual</span>
+                </div>
                 <div class="menu-item" onclick="switchPanel('panel-skills', this)">
                     <span>📚 6 大 Skill 协作拓扑图</span>
                     <span class="code-tag">Skills</span>
@@ -541,12 +648,12 @@ graph TD
     end
 
     subgraph ARTIFACTS["📄 确切物理产出物 (Artifacts)"]
-        A0["老代码 4D元数据地图 & 行为探针"]
+        A0["老代码 4D元数据地图与行为探针"]
         A1["白话需求基线草案 (5大状态模型)"]
-        A1P["高保真 mockup.html & HLD/DLD 设计文档"]
-        A2["src/ 业务代码 & 第三方 API 联调日志"]
-        A3["小黄鸭诊断报告 & 微创修复代码"]
-        A4["白话 CheckList & 静态文档增量更新"]
+        A1P["高保真 mockup.html 与 HLD/DLD 设计文档"]
+        A2["src/ 业务代码与第三方 API 联调日志"]
+        A3["小黄鸭诊断报告与微创修复代码"]
+        A4["白话 CheckList 与静态文档增量更新"]
     end
 
     N0 -->|生成| A0 -->|注册| T2
@@ -582,7 +689,7 @@ graph TD
                         </div>
                         <div class="card-body">
                             <p><strong>通俗比喻</strong>：项目“地图册”。</p>
-                            <p>记录系统的各个大模块矩阵、前端 HTML 交互原型 (`mockup.html`) 和老代码路由/数据库表拓扑关系。</p>
+                            <p>记录系统的各个大模块矩阵、前端 HTML 交互原型 (<code>mockup.html</code>) 和老代码路由/数据库表拓扑关系。</p>
                         </div>
                     </div>
 
@@ -653,7 +760,7 @@ flowchart LR
                             <div class="artifact-item">
                                 <span class="icon">🗺️</span>
                                 <span class="name">.ai/tier2_legacy_arch.md</span>
-                                <span class="desc">老代码 4D 元数据地图（路由/文件/API/表名 索引表）</span>
+                                <span class="desc">老代码 4D 元数据地图（包含 路由/文件/API/表名 索引）</span>
                             </div>
                             <div class="artifact-item">
                                 <span class="icon">🕸️</span>
@@ -744,7 +851,7 @@ flowchart TD
                         <h1 class="panel-title">[1+] 📦 大模块规划：交互原型与 DLD 设计说明书</h1>
                         <span class="badge badge-success">物理交互与契约</span>
                     </div>
-                    <p class="panel-subtitle">💡 <strong>白话一句话解释</strong>：先看“图”再写代码！生成可在浏览器直接点按的 HTML 页面原型（`mockup.html`），并自动写好数据库建表 SQL 和 API 接口契约说明书。</p>
+                    <p class="panel-subtitle">💡 <strong>白话一句话解释</strong>：先看“图”再写代码！生成可在浏览器直接点按的 HTML 页面原型（<code>mockup.html</code>），并自动写好数据库建表 SQL 和 API 接口契约说明书。</p>
                 </div>
 
                 <div class="card">
@@ -819,10 +926,10 @@ flowchart TD
             <div id="panel-sop-2" class="content-panel">
                 <div class="panel-header">
                     <div class="panel-title-group">
-                        <h1 class="panel-title">[2] 💻 单焦点编码：看门狗护栏防腐</h1>
+                        <h1 class="panel-title">[2] 💻 单焦点编码：看门狗护栏与代码规约</h1>
                         <span class="badge badge-primary">契约强绑定</span>
                     </div>
-                    <p class="panel-subtitle">💡 <strong>白话一句话解释</strong>：做完规划后，敲击数字 `2` 进入写代码模式。看门狗护栏会死死盯着 AI：单次只准动 3 个文件、必须打真实的入参/出参日志、严禁自己伪造硬编码假数据掩盖接口错误！</p>
+                    <p class="panel-subtitle">💡 <strong>白话一句话解释</strong>：做完规划后，敲击数字 <code>2</code> 进入写代码模式。看门狗护栏会死死盯着 AI：必须按 <strong>Java (Spring Boot 3) 规约</strong> 和 <strong>Vue 3 (Composition API) 规约</strong> 编写源码，单次只准动 3 个文件、必须打真实的入参/出参日志！</p>
                 </div>
 
                 <div class="card">
@@ -852,7 +959,7 @@ sequenceDiagram
 
     User->>AI: 发送指令 [2]
     AI->>Board: 读取当前唯一 ACTIVE 的 Task-XXX
-    AI->>AI: 按需加载 Java 统一响应与 Vue3 规约
+    AI->>AI: 强加载 Java (Controller-Service-DAO) 与 Vue3 规约
     AI->>Code: 增量编写源码 (修改文件 ≤ 3个)
     AI->>Code: 打入第三方联调日志 (记录 Request/Response)
     AI-->>User: 提交完成，给出白话自测步骤 Checklist
@@ -863,11 +970,11 @@ sequenceDiagram
                 </div>
 
                 <div class="explain-box">
-                    <strong>🛡️ 看门狗护栏 4 大通俗铁律：</strong><br/>
-                    1. <strong>微创手术</strong>：单次最多改动 3 个文件，严禁乱加新的第三方依赖包。<br/>
-                    2. <strong>真联调日志</strong>：关键业务节点必须打印清晰的【请求入参 Input】与【返参 Payload】日志。<br/>
-                    3. <strong>绝对禁止假 Mock</strong>：第三方 API 调不通时，严禁 AI 写死的保底假数据掩盖问题！<br/>
-                    4. <strong>安全预警</strong>：改动数据库 Schema 或全局配置时主动弹出警告。
+                    <strong>🛡️ 编码规约与看门狗 4 大通俗铁律：</strong><br/>
+                    1. <strong>Java & Vue 强规约</strong>：Java 统一返回 <code>Result&lt;T&gt;</code> 并由全局异常拦截 <code>BizException</code>；Vue 3 统一使用 <code>&lt;script setup&gt;</code> + Pinia + 拆离 <code>api/*.js</code>。<br/>
+                    2. <strong>微创手术</strong>：单次最多改动 3 个文件，严禁乱加新的第三方依赖包。<br/>
+                    3. <strong>真联调日志</strong>：关键业务节点必须打印清晰的【请求入参 Input】与【返参 Payload】日志。<br/>
+                    4. <strong>绝对禁止假 Mock</strong>：第三方 API 调不通时，严禁 AI 写死的保底假数据掩盖问题！
                 </div>
 
                 <div class="card">
@@ -903,7 +1010,7 @@ sequenceDiagram
                         <h1 class="panel-title">[3] / [F] 🐞 报错排错：小黄鸭探针与极速修补</h1>
                         <span class="badge badge-danger">精准微创排错</span>
                     </div>
-                    <p class="panel-subtitle">💡 <strong>白话一句话解释</strong>：遇到报错不要慌！发 `3` 带上日志，小黄鸭探针会做“抓日志 ➔ 找根因 ➔ 最小修补”；如果是拼错字母、错位这种小毛病，直接发 `F` 极速直修，0 行政阻尼！</p>
+                    <p class="panel-subtitle">💡 <strong>白话一句话解释</strong>：遇到报错不要慌！发 <code>3</code> 带上日志，小黄鸭探针会做“抓日志 ➔ 找根因 ➔ 最小修补”；如果是拼错字母、错位这种小毛病，直接发 <code>F</code> 极速直修，0 行政阻尼！</p>
                 </div>
 
                 <div class="card">
@@ -975,7 +1082,7 @@ flowchart TD
                         <h1 class="panel-title">[4] 🏁 目标验收与静态文档联动</h1>
                         <span class="badge badge-success">TDD 契约碰撞</span>
                     </div>
-                    <p class="panel-subtitle">💡 <strong>白话一句话解释</strong>：功能写好且测试满意后，发送 `4` 验收。AI 会做 API 契约碰撞测试，在看板上打钩，并自动把变动更新回 `docs/` 文档里，保证文档永远最新！</p>
+                    <p class="panel-subtitle">💡 <strong>白话一句话解释</strong>：功能写好且测试满意后，发送 <code>4</code> 验收。AI 会做 API 契约碰撞测试，在看板上打钩，并自动把变动更新回 <code>docs/</code> 文档里，保证文档永远最新！</p>
                 </div>
 
                 <div class="card">
@@ -1041,7 +1148,7 @@ flowchart LR
                         <h1 class="panel-title">[5] 📦 下班归档：上下文瘦身与黑匣子</h1>
                         <span class="badge badge-purple">物理记忆提炼</span>
                     </div>
-                    <p class="panel-subtitle">💡 <strong>白话一句话解释</strong>：下班或者切换大任务前，输入数字 `5`！AI 会把今天聊了几万字的长对话提炼压缩成几行关键总结，存入黑匣子并更新名片，随时可以关闭窗口！</p>
+                    <p class="panel-subtitle">💡 <strong>白话一句话解释</strong>：下班或者切换大任务前，输入数字 <code>5</code>！AI 会把今天聊了几万字的长对话提炼压缩成几行关键总结，存入黑匣子并更新名片，随时可以关闭窗口！</p>
                 </div>
 
                 <div class="card">
@@ -1102,7 +1209,7 @@ flowchart TD
                         <h1 class="panel-title">[6] 🛟 续航复活：0.5s 极速断点一键恢复</h1>
                         <span class="badge badge-success">0.5 秒吃透</span>
                     </div>
-                    <p class="panel-subtitle">💡 <strong>白话一句话解释</strong>：第二天开新窗口，只需发一个数字 `6`！AI 不会傻傻地读几万字历史记录，而是 0.5 秒读完名片卡，立刻复活并告诉你：“昨天停在 Task-002，发 2 接着干！”</p>
+                    <p class="panel-subtitle">💡 <strong>白话一句话解释</strong>：第二天开新窗口，只需发一个数字 <code>6</code>！AI 不会傻傻地读几万字历史记录，而是 0.5 秒读完名片卡，立刻复活并告诉你：“昨天停在 Task-002，发 2 接着干！”</p>
                 </div>
 
                 <div class="card">
@@ -1150,7 +1257,496 @@ flowchart LR
                 </div>
             </div>
 
-            <!-- ==================== Panel 9: 6大Skill协作拓扑 ==================== -->
+            <!-- ==================== Panel Demo 1: 从0到1新建模块实战 Demo ==================== -->
+            <div id="panel-demo-new" class="content-panel">
+                <div class="panel-header">
+                    <div class="panel-title-group">
+                        <h1 class="panel-title">💡 实战 Demo 1：从 0 到 1 新建功能模块全过程 (小白与 AI 对话)</h1>
+                        <span class="badge badge-success">从零开发完整路线</span>
+                    </div>
+                    <p class="panel-subtitle">以“新增用户角色与权限管理模块”为例，展示小白用户如何仅通过敲击数字，一步步指挥 AI 完成需求澄清、原型与设计说明书生成、代码编写（显性遵循 Java/Vue 规约）、排错与归档复活！</p>
+                </div>
+
+                <!-- 场景 Step 1 -->
+                <div class="demo-step-card">
+                    <div class="demo-step-header">
+                        <span class="demo-step-num">Step 1</span>
+                        <span class="demo-step-title">[1] 需求澄清：发送一句话需求，做选择题对撞</span>
+                    </div>
+                    <div class="chat-flow">
+                        <div class="chat-msg user">
+                            <div class="chat-avatar">👤</div>
+                            <div class="chat-content">
+                                <strong>用户小白：</strong><br/>
+                                <code>1，我想给系统加个用户角色权限管理</code>
+                            </div>
+                        </div>
+                        <div class="chat-msg ai">
+                            <div class="chat-avatar">🤖</div>
+                            <div class="chat-content">
+                                <strong>AI 助手 (requirement-discovery 技能激活)：</strong><br/>
+                                明白！已为您展开权限业务推演。请做个单选决策：<br/>
+                                👉 <strong>选项 A (推荐)</strong>：标准的 RBAC 权限（用户 ➔ 角色 ➔ 菜单权限），开箱即用。<br/>
+                                👉 <strong>选项 B</strong>：数据级细粒度权限（按部门/区域划分数据隔离）。<br/>
+                                请回复 A 或 B，我将为您收敛需求基线。
+                            </div>
+                        </div>
+                        <div class="chat-msg user">
+                            <div class="chat-avatar">👤</div>
+                            <div class="chat-content">
+                                <strong>用户小白：</strong><br/>
+                                <code>选 A</code>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chat-output-box">
+                        <div class="chat-output-title">📄 本步骤确定性落盘产出物：</div>
+                        • 生成需求基线草案 <code>docs/01-requirements.md</code><br/>
+                        • 自动调用 <code>board.py add</code> 注册 <code>[Task-001] [S1-Bone] 权限数据库与接口骨架</code> 到看板 <code>.ai/tier3_status.md</code>
+                    </div>
+                </div>
+
+                <!-- 场景 Step 2 -->
+                <div class="demo-step-card">
+                    <div class="demo-step-header">
+                        <span class="demo-step-num">Step 2</span>
+                        <span class="demo-step-title">[1+] 大模块规划：生成交互原型与 DLD 说明书</span>
+                    </div>
+                    <div class="chat-flow">
+                        <div class="chat-msg user">
+                            <div class="chat-avatar">👤</div>
+                            <div class="chat-content">
+                                <strong>用户小白：</strong><br/>
+                                <code>1+ 权限管理模块</code>
+                            </div>
+                        </div>
+                        <div class="chat-msg ai">
+                            <div class="chat-avatar">🤖</div>
+                            <div class="chat-content">
+                                <strong>AI 助手 (archetype-architect & design-spec-architect 激活)：</strong><br/>
+                                成功为您规划完成！已输出以下确切资产：<br/>
+                                1. 🖥️ <strong>高保真交互原型</strong>：已生成 <code>docs/modules/auth/mockup.html</code>（继承了系统的 Header+Sidebar 统一外壳，可在浏览器直接点击试用）。<br/>
+                                2. 📐 <strong>DLD 8大章节说明书</strong>：已更新至 <code>docs/03-database-design.md</code> 与 <code>docs/04-api-design.md</code>。<br/>
+                                3. 🗄️ <strong>DDL 建表 SQL</strong>：脚本已追加到 <code>docs/db/service.sql</code>。
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chat-output-box">
+                        <div class="chat-output-title">📄 本步骤确定性落盘产出物：</div>
+                        • <code>docs/modules/auth/mockup.html</code> (HTML 原型)<br/>
+                        • <code>docs/03-database-design.md</code> & <code>docs/04-api-design.md</code> (HLD/DLD 说明书)<br/>
+                        • <code>docs/db/service.sql</code> (建表 SQL 脚本)
+                    </div>
+                </div>
+
+                <!-- 场景 Step 3 (显性体现开发规约) -->
+                <div class="demo-step-card">
+                    <div class="demo-step-header">
+                        <span class="demo-step-num">Step 3</span>
+                        <span class="demo-step-title">[2] 单焦点编码：强加载 Java / Vue3 开发规约写源码</span>
+                    </div>
+                    <div class="chat-flow">
+                        <div class="chat-msg user">
+                            <div class="chat-avatar">👤</div>
+                            <div class="chat-content">
+                                <strong>用户小白：</strong><br/>
+                                <code>2</code>
+                            </div>
+                        </div>
+                        <div class="chat-msg ai">
+                            <div class="chat-avatar">🤖</div>
+                            <div class="chat-content">
+                                <strong>AI 助手 (coding-standards 技能激活，强加载 Java/Vue3 代码规约)：</strong><br/>
+                                已锁定看板唯一 ACTIVE 任务 <code>[Task-001] 权限数据库与接口骨架</code>：<br/>
+                                📜 <strong>已显性应用的代码规约项</strong>：<br/>
+                                1. ☕ <strong>Java 规约 (java-convention.md)</strong>：后端 <code>AuthController.java</code> 采用 Controller-Service-DAO 三层架构，强约束返参为 <code>Result&lt;UserVO&gt;</code>，并使用全局 <code>@RestControllerAdvice</code> 捕获 <code>BizException</code>；继承 <code>BaseEntity</code> 自动填充创建时间。<br/>
+                                2. 🟢 <strong>Vue 3 规约 (vue-convention.md)</strong>：前端组件 <code>UserList.vue</code> 采用 <code>&lt;script setup&gt;</code> 组合式 API；网络请求抽离在 <code>api/auth.js</code> 走 Pinia 状态管理。<br/>
+                                3. 📐 <strong>DLD 契约绑定 (dld-binding-checklist.md)</strong>：路由路径与数据库字段名与 <code>docs/04-api-design.md</code> 逐字强绑定！<br/>
+                                4. 🔌 <strong>第三方联调日志</strong>：已打入完整 Input 入参和 Response 返参日志。
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chat-output-box">
+                        <div class="chat-output-title">📄 本步骤确定性落盘产出物：</div>
+                        • <code>src/main/java/.../AuthController.java</code> 等 Java 规范源码<br/>
+                        • <code>src/views/auth/UserList.vue</code> Vue3 规范组件源码<br/>
+                        • 控制台联调日志与 <code>.ai/tier3_status.md</code> 任务标记为 ACTIVE
+                    </div>
+                </div>
+
+                <!-- 场景 Step 4 -->
+                <div class="demo-step-card">
+                    <div class="demo-step-header">
+                        <span class="demo-step-num">Step 4</span>
+                        <span class="demo-step-title">[3] 报错排错：小黄鸭探针微创修复 1 行代码</span>
+                    </div>
+                    <div class="chat-flow">
+                        <div class="chat-msg user">
+                            <div class="chat-avatar">👤</div>
+                            <div class="chat-content">
+                                <strong>用户小白：</strong><br/>
+                                <code>3，添加用户时报错：java.lang.NullPointerException at AuthServiceImpl.java:38</code>
+                            </div>
+                        </div>
+                        <div class="chat-msg ai">
+                            <div class="chat-avatar">🤖</div>
+                            <div class="chat-content">
+                                <strong>AI 助手 (quality-verifier 小黄鸭探针激活)：</strong><br/>
+                                🦆 <strong>小黄鸭诊断完毕</strong>：<br/>
+                                1. <strong>根因分析</strong>：<code>AuthServiceImpl.java:38</code> 在给新用户绑定默认角色时，未判断默认角色 ID 是否为 null。<br/>
+                                2. <strong>微创修复</strong>：已为您在第 38 行追加 <code>Objects.requireNonNull</code> 校验，仅修补该 1 行代码，无其他蔓延副作用。请重新测试！
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chat-output-box">
+                        <div class="chat-output-title">📄 本步骤确定性落盘产出物：</div>
+                        • 小黄鸭根因分析诊断报告<br/>
+                        • <code>AuthServiceImpl.java</code> 第 38 行微创修复代码
+                    </div>
+                </div>
+
+                <!-- 场景 Step 5 -->
+                <div class="demo-step-card">
+                    <div class="demo-step-header">
+                        <span class="demo-step-num">Step 5</span>
+                        <span class="demo-step-title">[4] 目标验收：TDD 契约碰撞，看板打钩 DONE</span>
+                    </div>
+                    <div class="chat-flow">
+                        <div class="chat-msg user">
+                            <div class="chat-avatar">👤</div>
+                            <div class="chat-content">
+                                <strong>用户小白：</strong><br/>
+                                <code>4</code>
+                            </div>
+                        </div>
+                        <div class="chat-msg ai">
+                            <div class="chat-avatar">🤖</div>
+                            <div class="chat-content">
+                                <strong>AI 助手 (quality-verifier 验收激活)：</strong><br/>
+                                🟢 <strong>TDD 契约碰撞测试通过</strong>：接口 200 OK 连通，返参格式与 DLD 契约 100% 吻合！<br/>
+                                1. 已在看板 <code>.ai/tier3_status.md</code> 标记 <code>[Task-001]</code> 为 DONE 完成！<br/>
+                                2. 已同步将开发变更增量反哺更新至静态文档 <code>docs/04-api-design.md</code>。<br/>
+                                3. 推荐下一个 Task：<code>[Task-002] 角色菜单分配界面渲染</code>！
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chat-output-box">
+                        <div class="chat-output-title">📄 本步骤确定性落盘产出物：</div>
+                        • <code>.ai/tier3_status.md</code> 看板标记 [Task-001] 为 DONE 🟢<br/>
+                        • 静态文档 <code>docs/04-api-design.md</code> 增量同步更新
+                    </div>
+                </div>
+
+                <!-- 场景 Step 6 & 7 -->
+                <div class="demo-step-card">
+                    <div class="demo-step-header">
+                        <span class="demo-step-num">Step 6 & 7</span>
+                        <span class="demo-step-title">[5] 下班归档 ➔ [6] 第二天复活断点恢复</span>
+                    </div>
+                    <div class="chat-flow">
+                        <div class="chat-msg user">
+                            <div class="chat-avatar">👤</div>
+                            <div class="chat-content">
+                                <strong>用户小白 (下班前)：</strong><br/>
+                                <code>5</code>
+                            </div>
+                        </div>
+                        <div class="chat-msg ai">
+                            <div class="chat-avatar">🤖</div>
+                            <div class="chat-content">
+                                <strong>AI 助手 (05-sop-archive 激活)：</strong><br/>
+                                📦 已为您将今天的代码修改与技术决策压缩提炼！<br/>
+                                1. 追加 Changelog 到黑匣子 <code>.ai/tier3_handover.md</code>。<br/>
+                                2. 物理刷新名片卡 <code>.ai/tier1_snapshot.md</code>（仅 18 行）。您可以放心关闭 IDE 了！
+                            </div>
+                        </div>
+                        <div class="chat-msg user">
+                            <div class="chat-avatar">👤</div>
+                            <div class="chat-content">
+                                <strong>用户小白 (第二天开新窗口)：</strong><br/>
+                                <code>6</code>
+                            </div>
+                        </div>
+                        <div class="chat-msg ai">
+                            <div class="chat-avatar">🤖</div>
+                            <div class="chat-content">
+                                <strong>AI 助手 (06-sop-resume 激活)：</strong><br/>
+                                🛟 <strong>0.5 秒极速吃透复活</strong>！<br/>
+                                项目最新状态：已完成权限模块 Task-001 建表与接口。<br/>
+                                当前 ACTIVE 焦点：<code>[Task-002] 角色菜单分配界面渲染</code>。<br/>
+                                💡 请回复 <code>2</code> 继续编写代码！
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chat-output-box">
+                        <div class="chat-output-title">📄 本步骤确定性落盘产出物：</div>
+                        • <code>.ai/tier3_handover.md</code> (追加历史黑匣子)<br/>
+                        • <code>.ai/tier1_snapshot.md</code> (物理刷新 <30 行极简名片)
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== Panel Demo 2: 修改老模块代码实战 Demo ==================== -->
+            <div id="panel-demo-legacy" class="content-panel">
+                <div class="panel-header">
+                    <div class="panel-title-group">
+                        <h1 class="panel-title">🏛️ 实战 Demo 2：修改/维护既有老功能模块 (老代码破局)</h1>
+                        <span class="badge badge-warning">老项目安全修改</span>
+                    </div>
+                    <p class="panel-subtitle">以“修改既有系统的订单退款接口，追加退款原因字段”为例，展示如何通过逆向考古建立地图与行为锁死探针，在防腐护栏下安全修改老代码而不改崩既有功能！</p>
+                </div>
+
+                <!-- 场景 Step 1 -->
+                <div class="demo-step-card">
+                    <div class="demo-step-header">
+                        <span class="demo-step-num">Step 1</span>
+                        <span class="demo-step-title">[0] 逆向考古：顺着路由切入，建地图与锁死探针</span>
+                    </div>
+                    <div class="chat-flow">
+                        <div class="chat-msg user">
+                            <div class="chat-avatar">👤</div>
+                            <div class="chat-content">
+                                <strong>用户小白：</strong><br/>
+                                <code>0，顺着退款接口 /api/refund 帮我找到前端到后端关联的文件，更新地图</code>
+                            </div>
+                        </div>
+                        <div class="chat-msg ai">
+                            <div class="chat-avatar">🤖</div>
+                            <div class="chat-content">
+                                <strong>AI 助手 (legacy-archaeologist 技能激活)：</strong><br/>
+                                🏛️ 已顺着路由切片为您探雾剖析完毕：<br/>
+                                1. <strong>定位链路切片</strong>：仅锁定前端 <code>src/views/order/RefundModal.vue</code> 与后端 <code>RefundController.java</code>、<code>RefundService.java</code> 3个文件。<br/>
+                                2. <strong>落盘 4D 地图</strong>：元数据索引已更新入 <code>.ai/tier2_legacy_arch.md</code>。<br/>
+                                3. <strong>编写锁死探针</strong>：已自动生成 <code>scripts/tests/test_legacy_refund.py</code>，跑通老接口行为断言，确保改动不改崩既有退款逻辑！
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chat-output-box">
+                        <div class="chat-output-title">📄 本步骤确定性落盘产出物：</div>
+                        • <code>.ai/tier2_legacy_arch.md</code> (老代码 4D 元数据切片地图)<br/>
+                        • <code>docs/06-legacy-graph-analysis.md</code> (Mermaid 拓扑图)<br/>
+                        • <code>scripts/tests/test_legacy_refund.py</code> (老业务行为锁死探针)
+                    </div>
+                </div>
+
+                <!-- 场景 Step 2 & 3 -->
+                <div class="demo-step-card">
+                    <div class="demo-step-header">
+                        <span class="demo-step-num">Step 2 & 3</span>
+                        <span class="demo-step-title">[1] 白话微创拆 Task ➔ [2] 单链路防腐修改代码</span>
+                    </div>
+                    <div class="chat-flow">
+                        <div class="chat-msg user">
+                            <div class="chat-avatar">👤</div>
+                            <div class="chat-content">
+                                <strong>用户小白：</strong><br/>
+                                <code>1，退款接口需要追加一个选填的退款原因 refundReason 字段</code>
+                            </div>
+                        </div>
+                        <div class="chat-msg ai">
+                            <div class="chat-avatar">🤖</div>
+                            <div class="chat-content">
+                                <strong>AI 助手 (requirement-discovery 激活)：</strong><br/>
+                                已为您做微创拆解！注册 <code>[Task-003] [S2-Muscle] 退款接口追加 refundReason 字段</code>。<br/>
+                                💡 请回复 <code>2</code> 开始防腐修改。
+                            </div>
+                        </div>
+                        <div class="chat-msg user">
+                            <div class="chat-avatar">👤</div>
+                            <div class="chat-content">
+                                <strong>用户小白：</strong><br/>
+                                <code>2</code>
+                            </div>
+                        </div>
+                        <div class="chat-msg ai">
+                            <div class="chat-avatar">🤖</div>
+                            <div class="chat-content">
+                                <strong>AI 助手 (coding-standards 防腐护栏与 Migration 规约开启)：</strong><br/>
+                                💻 防腐修改完成（严禁顺手重构无关老代码）：<br/>
+                                1. <strong>Migration 演进规约</strong>：表 <code>t_order_refund</code> 追加字段使用增量 SQL <code>docs/db/migrations/V1.1__add_refund_reason.sql</code> 进行管理。<br/>
+                                2. 在 <code>RefundController.java</code> 和 <code>RefundModal.vue</code> 增量追加该字段，并打印完整入参/出参联调日志。
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chat-output-box">
+                        <div class="chat-output-title">📄 本步骤确定性落盘产出物：</div>
+                        • 增量 SQL 脚本 <code>docs/db/migrations/V1.1__add_refund_reason.sql</code><br/>
+                        • 源码增量修改 <code>RefundController.java</code> & <code>RefundModal.vue</code>
+                    </div>
+                </div>
+
+                <!-- 场景 Step 4 & 5 -->
+                <div class="demo-step-card">
+                    <div class="demo-step-header">
+                        <span class="demo-step-num">Step 4 & 5</span>
+                        <span class="demo-step-title">[F] 极速修补按钮 ➔ [4] 运行锁死探针与验收</span>
+                    </div>
+                    <div class="chat-flow">
+                        <div class="chat-msg user">
+                            <div class="chat-avatar">👤</div>
+                            <div class="chat-content">
+                                <strong>用户小白：</strong><br/>
+                                <code>F，前端退款原因输入框边距微调 4px</code>
+                            </div>
+                        </div>
+                        <div class="chat-msg ai">
+                            <div class="chat-avatar">🤖</div>
+                            <div class="chat-content">
+                                <strong>AI 助手 ([F] 极速通道)：</strong><br/>
+                                ⚡ 免看板状态流转！已直修 <code>RefundModal.vue</code> CSS 样式，并静默刷新名片卡！
+                            </div>
+                        </div>
+                        <div class="chat-msg user">
+                            <div class="chat-avatar">👤</div>
+                            <div class="chat-content">
+                                <strong>用户小白：</strong><br/>
+                                <code>4</code>
+                            </div>
+                        </div>
+                        <div class="chat-msg ai">
+                            <div class="chat-avatar">🤖</div>
+                            <div class="chat-content">
+                                <strong>AI 助手 (quality-verifier 探针测试)：</strong><br/>
+                                🟢 运行 <code>test_legacy_refund.py</code> 老业务锁死探针：老功能 100% 通过！新字段连通性测试通过！<br/>
+                                看板已标记 DONE，架构文档与老代码地图已更新！
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chat-output-box">
+                        <div class="chat-output-title">📄 本步骤确定性落盘产出物：</div>
+                        • 运行通过的老业务行为锁死探针测试报告<br/>
+                        • 看板标记 DONE 并更新 <code>.ai/tier2_legacy_arch.md</code> 地图
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== Panel Manual: 节点与物理产物对照手册 ==================== -->
+            <div id="panel-manual-nodes" class="content-panel">
+                <div class="panel-header">
+                    <div class="panel-title-group">
+                        <h1 class="panel-title">📖 SOP 数字节点与确切物理产出物全量对照手册</h1>
+                        <span class="badge badge-primary">User Operating Manual</span>
+                    </div>
+                    <p class="panel-subtitle">每一位开发者和 AI 协同时的确切“契约卡”。明确规定了每个数字指令节点、强绑定 Skill 以及 100% 对应的物理文件落盘路径。</p>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">📊 数字 SOP 节点与确切物理产出物全量矩阵表</div>
+                        <span class="badge badge-success">物理契约字典</span>
+                    </div>
+                    <div class="card-body">
+                        <table class="manual-table">
+                            <thead>
+                                <tr>
+                                    <th>数字指令 / SOP 节点</th>
+                                    <th>触发场景与口语指令示例</th>
+                                    <th>强绑定的专属 Skill</th>
+                                    <th>📜 强加载的代码规约 (Conventions)</th>
+                                    <th>确切物理产出物 (Output Artifacts)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>[0] 破局老项目</strong></td>
+                                    <td><code>0</code> 或 <code>0, 找接口 /api/user</code></td>
+                                    <td><code>legacy-archaeologist</code></td>
+                                    <td>老项目探雾剖析切片规约</td>
+                                    <td>
+                                        • <code>.ai/tier2_legacy_arch.md</code> (元数据地图)<br/>
+                                        • <code>docs/06-legacy-graph-analysis.md</code> (拓扑图)<br/>
+                                        • <code>test_legacy_*.py</code> (行为锁死探针)
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>[1] 需求规划</strong></td>
+                                    <td><code>1</code> 或 <code>1, 我想加个权限功能</code></td>
+                                    <td><code>requirement-discovery</code></td>
+                                    <td>5 大需求状态收敛规约</td>
+                                    <td>
+                                        • 结构化需求基线草案 (5大状态模型)<br/>
+                                        • <code>.ai/tier3_status.md</code> (自动注册 Task)
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>[1+] 大模块规划</strong></td>
+                                    <td><code>1+ 权限管理模块</code></td>
+                                    <td><code>archetype-architect</code><br/><code>design-spec-architect</code></td>
+                                    <td>Base Shell 外壳继承 & DB Migration 规约</td>
+                                    <td>
+                                        • <code>docs/modules/&lt;mod&gt;/mockup.html</code> (原型)<br/>
+                                        • <code>docs/01~04.md</code> (系统架构/数据库/API设计)<br/>
+                                        • <code>docs/db/service.sql</code> (建表 SQL)
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>[2] 单焦点编码</strong></td>
+                                    <td><code>2</code></td>
+                                    <td><code>coding-standards</code></td>
+                                    <td>• <code>java-convention.md</code> (Spring Boot 3)<br/>• <code>vue-convention.md</code> (Vue 3)<br/>• <code>dld-binding-checklist.md</code> (契约强绑定)</td>
+                                    <td>
+                                        • <code>src/</code> 业务源码 (Controller/Vue3组件)<br/>
+                                        • 第三方 API 联调日志 (带 Request/Response)<br/>
+                                        • <code>.ai/tier3_status.md</code> (标记 ACTIVE)
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>[3] 报错排错</strong></td>
+                                    <td><code>3, 报 NullPointerException</code></td>
+                                    <td><code>quality-verifier</code></td>
+                                    <td>小黄鸭 3 步探针与秘钥脱敏规约</td>
+                                    <td>
+                                        • 小黄鸭根因分析诊断报告<br/>
+                                        • 微创修补代码 (仅动错的那 1 行)
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>[F] 极速修补</strong></td>
+                                    <td><code>F, 边距微调 4px</code></td>
+                                    <td><code>quality-verifier</code></td>
+                                    <td>极速通道护栏</td>
+                                    <td>
+                                        • 直修源码<br/>
+                                        • <code>.ai/tier1_snapshot.md</code> (静默刷新名片)
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>[4] 目标验收</strong></td>
+                                    <td><code>4</code></td>
+                                    <td><code>quality-verifier</code></td>
+                                    <td>TDD 契约碰撞与静态文档反哺规约</td>
+                                    <td>
+                                        • 白话验证 Checklist & 契约测试报告<br/>
+                                        • <code>docs/</code> 静态文档增量更新<br/>
+                                        • <code>.ai/tier3_status.md</code> (标记 DONE 🟢)
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>[5] 下班归档</strong></td>
+                                    <td><code>5</code></td>
+                                    <td>SOP 归档引擎</td>
+                                    <td>Changelog 物理瘦身规约</td>
+                                    <td>
+                                        • <code>.ai/tier3_handover.md</code> (追加黑匣子)<br/>
+                                        • <code>.ai/tier1_snapshot.md</code> (更新 <30行名片)
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>[6] 续航复活</strong></td>
+                                    <td><code>6</code></td>
+                                    <td>SOP 恢复引擎</td>
+                                    <td>上下文 0.5s 复活规约</td>
+                                    <td>
+                                        • 会话断点复活提示卡 (告知发 2 继续)
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 9 (Skills) 保持不变 -->
             <div id="panel-skills" class="content-panel">
                 <div class="panel-header">
                     <div class="panel-title-group">
@@ -1218,7 +1814,7 @@ graph LR
                         </div>
                         <div class="card-body">
                             <p><strong>白话职责</strong>：生成可点击的 HTML 交互原型页面。</p>
-                            <p><strong>核心产出</strong>：`mockup.html` 原型、模块 PRD。</p>
+                            <p><strong>核心产出</strong>：<code>mockup.html</code> 原型、模块 PRD。</p>
                         </div>
                     </div>
 
@@ -1229,7 +1825,7 @@ graph LR
                         </div>
                         <div class="card-body">
                             <p><strong>白话职责</strong>：撰写 HLD/DLD 设计文档与数据库 SQL。</p>
-                            <p><strong>核心产出</strong>：`docs/01~04.md`、建表 SQL。</p>
+                            <p><strong>核心产出</strong>：<code>docs/01~04.md</code>、建表 SQL。</p>
                         </div>
                     </div>
 
@@ -1240,7 +1836,7 @@ graph LR
                         </div>
                         <div class="card-body">
                             <p><strong>白话职责</strong>：开启看门狗，按规范写 Java 和 Vue 代码。</p>
-                            <p><strong>核心产出</strong>：`src/` 业务源码、第三方联调日志。</p>
+                            <p><strong>核心产出</strong>：<code>src/</code> 业务源码、第三方联调日志。</p>
                         </div>
                     </div>
 
@@ -1262,7 +1858,7 @@ graph LR
                         </div>
                         <div class="card-body">
                             <p><strong>白话职责</strong>：剖析老代码路由切片，写行为锁死探针。</p>
-                            <p><strong>核心产出</strong>：`legacy_arch.md`、行为锁死探针。</p>
+                            <p><strong>核心产出</strong>：<code>legacy_arch.md</code>、行为锁死探针。</p>
                         </div>
                     </div>
                 </div>
@@ -1271,26 +1867,23 @@ graph LR
         </main>
     </div>
 
-    <!-- 全屏放大查看弹窗 Modal -->
+    <!-- 全屏 Modal -->
     <div id="mermaidModal" class="modal-overlay" onclick="closeModalOnOverlay(event)">
         <div class="modal-body">
             <div class="modal-header">
-                <h3>🖥️ 全屏高清 Mermaid 架构图查看器 (支持按住拖拽与滚轮缩放)</h3>
+                <h3>🖥️ 全屏高清 Mermaid 架构图查看器</h3>
                 <button class="modal-close" onclick="closeMermaidModal()">✕</button>
             </div>
-            <div class="modal-viewport" id="modalViewport">
-                <!-- 动态克隆渲染 SVG -->
-            </div>
+            <div class="modal-viewport" id="modalViewport"></div>
         </div>
     </div>
 
-    <!-- 交互与 异步安全的 Mermaid + Pan-Zoom 拖拽缩放 JavaScript 脚本 -->
+    <!-- 交互脚本 -->
     <script>
         const panZoomMap = new Map();
         let renderCounter = 0;
 
         document.addEventListener("DOMContentLoaded", async function () {
-            // 1. 初始化 Mermaid，配置 startOnLoad: false, securityLevel: 'loose'
             mermaid.initialize({
                 startOnLoad: false,
                 theme: 'default',
@@ -1298,14 +1891,12 @@ graph LR
                 flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' }
             });
 
-            // 2. 仅异步渲染当前可见 (active) 的 Panel
             const activePanel = document.querySelector('.content-panel.active');
             if (activePanel) {
                 await renderPanelMermaid(activePanel);
             }
         });
 
-        // 切换 Panel 面板
         async function switchPanel(panelId, element) {
             const panels = document.querySelectorAll('.content-panel');
             panels.forEach(panel => panel.classList.remove('active'));
@@ -1316,7 +1907,6 @@ graph LR
             const targetPanel = document.getElementById(panelId);
             if (targetPanel) {
                 targetPanel.classList.add('active');
-                // 异步安全渲染该 Panel 下的 Mermaid 节点
                 await renderPanelMermaid(targetPanel);
             }
 
@@ -1324,8 +1914,8 @@ graph LR
                 element.classList.add('active');
             }
         }
+        window.switchPanel = switchPanel;
 
-        // 异步安全 Mermaid 渲染器（按需渲染 + 防崩溃拦截）
         async function renderPanelMermaid(panelElement) {
             if (!panelElement) return;
             const containers = panelElement.querySelectorAll('.mermaid-container');
@@ -1334,18 +1924,15 @@ graph LR
                 const node = container.querySelector('.mermaid');
                 if (!node) continue;
 
-                // 备份源码
                 if (!node.dataset.src) {
                     node.dataset.src = node.textContent.trim();
                 }
 
-                // 如果已经成功渲染了 svg，直接绑定 PanZoom 即可
                 if (node.querySelector('svg')) {
                     initPanZoomForContainer(container);
                     continue;
                 }
 
-                // 异步调用 mermaid.render 渲染节点
                 const id = 'mermaid-svg-' + (++renderCounter);
                 const code = node.dataset.src;
 
@@ -1354,26 +1941,18 @@ graph LR
                     node.innerHTML = svg;
                     initPanZoomForContainer(container);
                 } catch (err) {
-                    console.warn("Mermaid 节点渲染容错捕获:", err);
-                    node.innerHTML = `<div style="color:#ef4444; font-size:12.5px; padding:12px; background:#fef2f2; border-radius:6px;">⚠️ 架构图渲染防崩溃容错（代码兼容性），请配合上下文文字步骤阅读。</div>`;
+                    console.warn("Mermaid 节点渲染捕获:", err);
+                    node.innerHTML = `<div style="color:#ef4444; font-size:12.5px; padding:12px; background:#fef2f2; border-radius:6px;">⚠️ 架构图渲染容错，请配合上下文文字步骤阅读。</div>`;
                 }
             }
         }
 
-        // 为单节点绑定 Pan & Zoom (拖拽与滚轮)
         function initPanZoomForContainer(container) {
             const viewport = container.querySelector('.mermaid-viewport');
             const svg = viewport ? viewport.querySelector('svg') : null;
             if (!svg || panZoomMap.has(container)) return;
 
-            const state = {
-                scale: 1,
-                pointX: 0,
-                pointY: 0,
-                isDragging: false,
-                startX: 0,
-                startY: 0
-            };
+            const state = { scale: 1, pointX: 0, pointY: 0, isDragging: false, startX: 0, startY: 0 };
             panZoomMap.set(container, state);
 
             function applyTransform() {
@@ -1410,7 +1989,6 @@ graph LR
             }, { passive: false });
         }
 
-        // 按钮放大/缩小
         function zoomMermaid(btn, factor) {
             const container = btn.closest('.mermaid-container');
             const state = panZoomMap.get(container);
@@ -1420,21 +1998,19 @@ graph LR
                 svg.style.transform = `translate(${state.pointX}px, ${state.pointY}px) scale(${state.scale})`;
             }
         }
+        window.zoomMermaid = zoomMermaid;
 
-        // 按钮重置
         function resetMermaid(btn) {
             const container = btn.closest('.mermaid-container');
             const state = panZoomMap.get(container);
             const svg = container ? container.querySelector('.mermaid-viewport svg') : null;
             if (state && svg) {
-                state.scale = 1;
-                state.pointX = 0;
-                state.pointY = 0;
+                state.scale = 1; state.pointX = 0; state.pointY = 0;
                 svg.style.transform = `translate(0px, 0px) scale(1)`;
             }
         }
+        window.resetMermaid = resetMermaid;
 
-        // 全屏弹窗查看
         function openModalMermaid(btn) {
             const container = btn.closest('.mermaid-container');
             const svg = container ? container.querySelector('.mermaid-viewport svg') : null;
@@ -1482,16 +2058,19 @@ graph LR
                 };
             }
         }
+        window.openModalMermaid = openModalMermaid;
 
         function closeMermaidModal() {
             document.getElementById('mermaidModal').classList.remove('active');
         }
+        window.closeMermaidModal = closeMermaidModal;
 
         function closeModalOnOverlay(e) {
             if (e.target.id === 'mermaidModal') {
                 closeMermaidModal();
             }
         }
+        window.closeModalOnOverlay = closeModalOnOverlay;
     </script>
 </body>
 </html>
