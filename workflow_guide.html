@@ -1310,7 +1310,7 @@ flowchart LR
                 <div class="demo-step-card">
                     <div class="demo-step-header">
                         <span class="demo-step-num">Step 2</span>
-                        <span class="demo-step-title">[1+] 大模块规划：生成交互原型与 DLD 说明书</span>
+                        <span class="demo-step-title">[1+] 大模块规划：生成原型、DLD 说明书与 TDD 测试用例</span>
                     </div>
                     <div class="chat-flow">
                         <div class="chat-msg user">
@@ -1323,11 +1323,12 @@ flowchart LR
                         <div class="chat-msg ai">
                             <div class="chat-avatar">🤖</div>
                             <div class="chat-content">
-                                <strong>AI 助手 (archetype-architect & design-spec-architect 激活)：</strong><br/>
+                                <strong>AI 助手 (archetype-architect, design-spec-architect & quality-verifier 激活)：</strong><br/>
                                 成功为您规划完成！已输出以下确切资产：<br/>
-                                1. 🖥️ <strong>高保真交互原型</strong>：已生成 <code>docs/modules/auth/mockup.html</code>（继承了系统的 Header+Sidebar 统一外壳，可在浏览器直接点击试用）。<br/>
+                                1. 🖥️ <strong>高保真交互原型</strong>：已生成 <code>docs/modules/auth/mockup.html</code>（继承系统的 Header+Sidebar 统一外壳，可在浏览器直接点击试用）。<br/>
                                 2. 📐 <strong>DLD 8大章节说明书</strong>：已更新至 <code>docs/03-database-design.md</code> 与 <code>docs/04-api-design.md</code>。<br/>
-                                3. 🗄️ <strong>DDL 建表 SQL</strong>：脚本已追加到 <code>docs/db/service.sql</code>。
+                                3. 🗄️ <strong>DDL 建表 SQL</strong>：脚本已追加到 <code>docs/db/service.sql</code>。<br/>
+                                4. 🧪 <strong>TDD 测试用例与脚本先行</strong>：已根据 DLD 契约自动生成测试用例文档 <code>docs/test-cases/auth-testcase.md</code> 与 Python 契约测试脚本 <code>scripts/tests/test_auth.py</code>！
                             </div>
                         </div>
                     </div>
@@ -1335,7 +1336,9 @@ flowchart LR
                         <div class="chat-output-title">📄 本步骤确定性落盘产出物：</div>
                         • <code>docs/modules/auth/mockup.html</code> (HTML 原型)<br/>
                         • <code>docs/03-database-design.md</code> & <code>docs/04-api-design.md</code> (HLD/DLD 说明书)<br/>
-                        • <code>docs/db/service.sql</code> (建表 SQL 脚本)
+                        • <code>docs/db/service.sql</code> (建表 SQL 脚本)<br/>
+                        • <code>docs/test-cases/auth-testcase.md</code> (TDD 测试用例文档)<br/>
+                        • <code>scripts/tests/test_auth.py</code> (Python 契约自动化测试脚本)
                     </div>
                 </div>
 
@@ -1343,7 +1346,7 @@ flowchart LR
                 <div class="demo-step-card">
                     <div class="demo-step-header">
                         <span class="demo-step-num">Step 3</span>
-                        <span class="demo-step-title">[2] 单焦点编码：强加载 Java / Vue3 开发规约写源码</span>
+                        <span class="demo-step-title">[2] 单焦点编码：强加载 Java / Vue3 开发规约与 TDD 契约写源码</span>
                     </div>
                     <div class="chat-flow">
                         <div class="chat-msg user">
@@ -1356,13 +1359,14 @@ flowchart LR
                         <div class="chat-msg ai">
                             <div class="chat-avatar">🤖</div>
                             <div class="chat-content">
-                                <strong>AI 助手 (coding-standards 技能激活，强加载 Java/Vue3 代码规约)：</strong><br/>
+                                <strong>AI 助手 (coding-standards 技能激活，强加载 Java/Vue3 代码规约与 TDD 契约)：</strong><br/>
                                 已锁定看板唯一 ACTIVE 任务 <code>[Task-001] 权限数据库与接口骨架</code>：<br/>
                                 📜 <strong>已显性应用的代码规约项</strong>：<br/>
                                 1. ☕ <strong>Java 规约 (java-convention.md)</strong>：后端 <code>AuthController.java</code> 采用 Controller-Service-DAO 三层架构，强约束返参为 <code>Result&lt;UserVO&gt;</code>，并使用全局 <code>@RestControllerAdvice</code> 捕获 <code>BizException</code>；继承 <code>BaseEntity</code> 自动填充创建时间。<br/>
                                 2. 🟢 <strong>Vue 3 规约 (vue-convention.md)</strong>：前端组件 <code>UserList.vue</code> 采用 <code>&lt;script setup&gt;</code> 组合式 API；网络请求抽离在 <code>api/auth.js</code> 走 Pinia 状态管理。<br/>
                                 3. 📐 <strong>DLD 契约绑定 (dld-binding-checklist.md)</strong>：路由路径与数据库字段名与 <code>docs/04-api-design.md</code> 逐字强绑定！<br/>
-                                4. 🔌 <strong>第三方联调日志</strong>：已打入完整 Input 入参和 Response 返参日志。
+                                4. 🔌 <strong>第三方联调日志</strong>：已打入完整 Input 入参和 Response 返参日志。<br/>
+                                5. 🧪 <strong>TDD 测试先行 (Test-First)</strong>：强约束代码编写严格对齐事先生成的 <code>docs/test-cases/auth-testcase.md</code> 边界测试断言。
                             </div>
                         </div>
                     </div>
@@ -1423,7 +1427,7 @@ flowchart LR
                             <div class="chat-avatar">🤖</div>
                             <div class="chat-content">
                                 <strong>AI 助手 (quality-verifier 验收激活)：</strong><br/>
-                                🟢 <strong>TDD 契约碰撞测试通过</strong>：接口 200 OK 连通，返参格式与 DLD 契约 100% 吻合！<br/>
+                                🟢 <strong>TDD 契约碰撞测试通过</strong>：自动运行事先生成的 <code>scripts/tests/test_auth.py</code> 脚本完成碰撞，接口 200 OK 连通，返参格式与 DLD 契约 100% 吻合 (5/5 PASSED)！<br/>
                                 1. 已在看板 <code>.ai/tier3_status.md</code> 标记 <code>[Task-001]</code> 为 DONE 完成！<br/>
                                 2. 已同步将开发变更增量反哺更新至静态文档 <code>docs/04-api-design.md</code>。<br/>
                                 3. 推荐下一个 Task：<code>[Task-002] 角色菜单分配界面渲染</code>！
@@ -1432,6 +1436,7 @@ flowchart LR
                     </div>
                     <div class="chat-output-box">
                         <div class="chat-output-title">📄 本步骤确定性落盘产出物：</div>
+                        • <code>scripts/tests/test_auth.py</code> 自动化测试通过报告 (5/5 PASSED) 🟢<br/>
                         • <code>.ai/tier3_status.md</code> 看板标记 [Task-001] 为 DONE 🟢<br/>
                         • 静态文档 <code>docs/04-api-design.md</code> 增量同步更新
                     </div>
