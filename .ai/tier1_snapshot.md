@@ -12,13 +12,13 @@
 ---
 
 ## 🏆 2. 已稳固里程碑 (MAX 3 行)
-- **[Milestone-1.2]** SysPlatform Vue3+Vite+Element Plus 前端工程与登录/开户/角色 UI 页面 (Task-103) 构建验收全量归档 🟢
-- **[Milestone-1.3]** SysPlatform 后端 Java 全量真实归档 (Task-104) 补齐启动类、全量消灭 Mock 假数据、连接 MySQL 8.0 及 Lombok 1.18.38 规范化 🟢
+- **[Milestone-1.3]** SysPlatform 全栈后端/前端真实代码全量构建归档 (Task-104) 🟢
+- **[Milestone-1.4]** 升级扩展全套 Skill 技能体系（新建 `code-quality-reviewer` 与 `poc-tech-prototype`）并落地防迷路导航卡片协议与 HTML 自动同步 🟢
 
 ---
 
 ## 🎯 3. 当前活跃状态 (ACTIVE Focus)
-- **[Task-NONE]** SysPlatform 基础平台前后端（Java 3.2.4 + Vue 3）全量真实生产级代码已成功归档，等待规划新业务子模块
+- **[Task-NONE]** 技能体系与防迷路导航指示牌已落盘归档，准备规划新一轮业务模块需求 (可通过发 1 启动)
 
 ---
 

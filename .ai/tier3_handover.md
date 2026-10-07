@@ -35,3 +35,10 @@
 
 ## 📦 归档交接 [2026-10-07 18:26:31]
 🧹 完成 SysPlatform 全会话上下文清理，导出 docs/handovers/handover-20261007-sys_platform.md 交接文档与 postmortem-springboot3-mybatis-plus.md 踩坑卡片
+
+---
+
+## 📦 归档交接 [2026-10-07 21:21:58]
+* 🎯 完成工作流与技能矩阵升级: 创建 code-quality-reviewer 与 poc-tech-prototype 技能包，落地防迷路导航卡片协议，升级 sync_tree.py 自动更新 workflow_guide.html
+* 🛠️ 本次改动核心文件: .agents/skills/code-quality-reviewer/, .agents/skills/poc-tech-prototype/, .ai/scripts/sync_tree.py, .cursorrules, .windsurfrules, workflow_guide.html
+* 💡 关键决策: 扩展技能体系，支持按需跳过技术PoC及多轮讨论尾部附带防迷路指示卡
