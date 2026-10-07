@@ -11,15 +11,16 @@
 
 ```mermaid
 mindmap
-  root((项目全景需求 MAP))
-    auth[🔐 认证与权限模块]
-      prd_auth_01["📄 [PRD-AUTH-01] 账号密码登录与 JWT 签发"]
-      prd_auth_02["📄 [PRD-AUTH-02] 微信扫码快捷登录"]
-    order[🛒 订单交易模块]
-      prd_ord_01["📄 [PRD-ORD-01] 订单创建与第三方支付"]
-      prd_ord_02["📄 [PRD-ORD-02] 退款与售后申请"]
-    analytics[📊 数据统计模块]
-      prd_ana_01["📄 [PRD-ANA-01] 运营数据看板"]
+  root((通用后台管理平台 SysPlatform))
+    auth[🔐 认证与注册模块]
+      prd_sys_01["📄 [PRD-SYS-01] 账号注册、登录认证与 Token 签发"]
+    user_role[👤 用户与权限模块]
+      prd_sys_02["📄 [PRD-SYS-02] 用户管理与账号状态管控"]
+      prd_sys_03["📄 [PRD-SYS-03] RBAC 角色权限与动态菜单分配"]
+    system_menu[⚙️ 系统与菜单模块]
+      prd_sys_04["📄 [PRD-SYS-04] 动态菜单树与按钮级控制"]
+    notify[🔔 消息通知模块]
+      prd_sys_05["📄 [PRD-SYS-05] 站内消息通知与公告发布"]
 ```
 
 ---
@@ -28,9 +29,10 @@ mindmap
 
 | 业务模块名称 | 模块目录 | 核心 PRD 关联文件 | 关联需求 ID | 当前开发状态 | 责任 PM |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **🔐 认证与权限** | `docs/modules/auth/` | 📄 [prd-auth-v1.md](file:///Users/up_dong/Documents/赵振东私有/AI编程重点资料/base_template/docs/modules/auth/prd-auth-v1.md) | `FR-01` | `- [/]` 进行中 | 张产品 |
-| **🛒 订单交易** | `docs/modules/order/` | 📄 [prd-order-v1.md](file:///Users/up_dong/Documents/赵振东私有/AI编程重点资料/base_template/docs/modules/order/prd-order-v1.md) | `FR-02` | `- [ ]` 待开发 | 李产品 |
-| **📊 数据统计** | `docs/modules/analytics/`| 📄 `prd-analytics-v1.md` | `FR-03` | `- [ ]` 待开发 | 王产品 |
+| **🔐 认证与注册** | `docs/modules/sys_auth/` | 📄 `prd-sys-auth-v1.md` | `FR-SYS-01` | `- [/]` 规划中 | AI 产品专家 |
+| **👤 用户与权限** | `docs/modules/sys_user/` | 📄 `prd-sys-user-v1.md` | `FR-SYS-02` | `- [ ]` 待规划 | AI 产品专家 |
+| **⚙️ 菜单与系统** | `docs/modules/sys_menu/` | 📄 `prd-sys-menu-v1.md` | `FR-SYS-03` | `- [ ]` 待规划 | AI 产品专家 |
+| **🔔 消息通知** | `docs/modules/sys_notify/`| 📄 `prd-sys-notify-v1.md` | `FR-SYS-04` | `- [ ]` 待规划 | AI 产品专家 |
 
 ---
 
@@ -38,8 +40,10 @@ mindmap
 
 > 💡 **需求状态说明**：`- [ ]` 待规划/待开发 | `- [/]` 进行中 | `- [x]` 已验收归档
 
-- [/] **FR-01 [模块: auth]**：账号密码登录与 JWT Token 签发 ➔ 对应 [prd-auth-v1.md](file:///Users/up_dong/Documents/赵振东私有/AI编程重点资料/base_template/docs/modules/auth/prd-auth-v1.md)
-- [ ] **FR-02 [模块: order]**：订单提交与第三方支付接入 ➔ 对应 [prd-order-v1.md](file:///Users/up_dong/Documents/赵振东私有/AI编程重点资料/base_template/docs/modules/order/prd-order-v1.md)
+- [x] **FR-SYS-01 [模块: sys_auth]**：账号注册、登录认证与权限拦截 ➔ 对应 `docs/modules/sys_auth/prd-sys-auth-v1.md` (前后端全量归档)
+- [x] **FR-SYS-02 [模块: sys_user]**：用户管理与 RBAC 角色分配 ➔ 对应 `docs/modules/sys_user/prd-sys-user-v1.md` (前后端全量归档)
+- [ ] **FR-SYS-03 [模块: sys_menu]**：动态菜单树与权限拦截 ➔ 对应 `docs/modules/sys_menu/prd-sys-menu-v1.md`
+- [ ] **FR-SYS-04 [模块: sys_notify]**：站内消息通知与公告 ➔ 对应 `docs/modules/sys_notify/prd-sys-notify-v1.md`
 
 ---
 

@@ -10,5 +10,6 @@
 | 模块标识 (ID) | 模块中文名称 | 开发状态 | 详细 PRD 文档路径 | 核心业务职责描述 |
 | :--- | :--- | :--- | :--- | :--- |
 | `auth` | 认证与权限 | 🟢 已上线 | [prd-auth-v1.md](docs/modules/auth/prd-auth-v1.md) | 用户登录、JWT 签发、权限控制 |
+| `sys_platform` | 通用管理平台 | 🟡 规划中 | [prd-sys-platform-v1.0.md](base_template/docs/modules/sys_platform/prd-sys-platform-v1.0.md) | 管理员开户、用户管理、RBAC 权限、动态菜单与站内通知 |
 | `demo` | DEMO 样例模块 | 🟢 已上线 | [prd-demo-v1.md](docs/modules/demo/prd-demo-v1.md) | 业务样例示范与模版结构展示 |
 

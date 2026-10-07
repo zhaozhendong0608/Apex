@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="apple-blue">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>通用后台管理平台 (SysPlatform) - 高端多主题原型</title>
+    <style>
+        /* ==========================================================================
+           1. Apple Style & Premium Color Palettes (高端多主题 Design Tokens)
+           ========================================================================== */
+        
+        /* 🍎 默认主题：Apple 经典科技蓝 (Apple Tech Blue) */
+        :root, [data-theme="apple-blue"] {
+            --primary-color: #0066cc;
+            --primary-hover: #0052a3;
+            --primary-light: #e6f0fa;
+            --bg-body: #f5f5f7;
+            --bg-card: #ffffff;
+            --bg-sidebar: #ffffff;
+            --text-main: #1d1d1f;
+            --text-muted: #86868b;
+            --border-color: rgba(0, 0, 0, 0.08);
+            --border-hover: rgba(0, 0, 0, 0.16);
+            --shadow-subtle: 0 2px 12px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+            --shadow-modal: 0 20px 40px rgba(0, 0, 0, 0.12);
+            --radius-base: 12px;
+            --radius-sm: 8px;
+            --sidebar-width: 240px;
+            --header-height: 60px;
+        }
+
+        /* 🌲 医疗/生态/环保：翡翠绿 (Emerald Eco) */
+        [data-theme="emerald-green"] {
+            --primary-color: #059669;
+            --primary-hover: #047857;
+            --primary-light: #ecfdf5;
+            --bg-body: #f0fdf4;
+            --bg-card: #ffffff;
+            --bg-sidebar: #ffffff;
+            --text-main: #064e3b;
+            --text-muted: #475569;
+            --border-color: rgba(5, 150, 105, 0.12);
+            --border-hover: rgba(5, 150, 105, 0.25);
+            --shadow-subtle: 0 2px 12px rgba(5, 150, 105, 0.05);
+            --shadow-modal: 0 20px 40px rgba(4, 120, 87, 0.15);
+        }
+
+        /* 🔴 工业/政企/能量：高奢朱砂红 (Crimson Industrial) */
+        [data-theme="crimson-red"] {
+            --primary-color: #dc2626;
+            --primary-hover: #b91c1c;
+            --primary-light: #fef2f2;
+            --bg-body: #fafafa;
+            --bg-card: #ffffff;
+            --bg-sidebar: #ffffff;
+            --text-main: #18181b;
+            --text-muted: #71717a;
+            --border-color: rgba(220, 38, 38, 0.12);
+            --border-hover: rgba(220, 38, 38, 0.25);
+            --shadow-subtle: 0 2px 12px rgba(220, 38, 38, 0.05);
+            --shadow-modal: 0 20px 40px rgba(185, 28, 28, 0.15);
+        }
+
+        /* 💜 SaaS/AI/数字艺术：皇家星空紫 (Royal Violet) */
+        [data-theme="royal-violet"] {
+            --primary-color: #7c3aed;
+            --primary-hover: #6d28d9;
+            --primary-light: #f5f3ff;
+            --bg-body: #faf5ff;
+            --bg-card: #ffffff;
+            --bg-sidebar: #ffffff;
+            --text-main: #2e1065;
+            --text-muted: #6b7280;
+            --border-color: rgba(124, 58, 237, 0.12);
+            --border-hover: rgba(124, 58, 237, 0.25);
+            --shadow-subtle: 0 2px 12px rgba(124, 58, 237, 0.05);
+            --shadow-modal: 0 20px 40px rgba(109, 40, 217, 0.15);
+        }
+
+        /* 🌌 高端极光暗黑模式 (Aurora Dark Mode) */
+        [data-theme="aurora-dark"] {
+            --primary-color: #38bdf8;
+            --primary-hover: #0284c7;
+            --primary-light: rgba(56, 189, 248, 0.15);
+            --bg-body: #0b0f17;
+            --bg-card: #151c2c;
+            --bg-sidebar: #111726;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-hover: rgba(255, 255, 255, 0.18);
+            --shadow-subtle: 0 4px 20px rgba(0, 0, 0, 0.3);
+            --shadow-modal: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+        }
+
+        /* ==========================================================================
+           2. Global Typography & Reset (苹果级排版与视效)
+           ========================================================================== */
+        * { box-sizing: border-box; margin: 0; padding: 0; transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease; }
+        
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-body); 
+            color: var(--text-main); 
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* 1. Header 顶部导航 (Glassmorphism 毛玻璃效果) */
+        .app-header { 
+            height: var(--header-height); 
+            background: var(--bg-card); 
+            border-bottom: 1px solid var(--border-color); 
+            display: flex; 
+            align-items: center; 
+            justify-content: space-between; 
+            padding: 0 28px; 
+            z-index: 10;
+            box-shadow: var(--shadow-subtle);
+        }
+        .app-header .brand { 
+            font-size: 19px; 
+            font-weight: 700; 
+            color: var(--text-main); 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            letter-spacing: -0.3px;
+        }
+        .brand-icon {
+            width: 28px;
+            height: 28px;
+            background: var(--primary-color);
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .app-header .header-actions { display: flex; align-items: center; gap: 20px; font-size: 14px; color: var(--text-muted); }
+
+        /* 主题切换 Dropdown 快捷组件 */
+        .theme-selector-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--bg-body);
+            padding: 4px 10px;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+        }
+        .theme-label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+        .theme-select {
+            background: transparent;
+            border: none;
+            color: var(--text-main);
+            font-size: 13px;
+            font-weight: 600;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .notify-badge { position: relative; cursor: pointer; padding: 8px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .notify-badge:hover { background: var(--primary-light); }
+        .notify-dot { position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; background: #ef4444; border-radius: 50%; border: 2px solid var(--bg-card); }
+
+        /* 2. App 下半主体 */
+        .app-body { flex: 1; display: flex; overflow: hidden; }
+
+        /* 3. 左侧 Sidebar 侧边栏 */
+        .app-sidebar { 
+            width: var(--sidebar-width); 
+            background: var(--bg-sidebar); 
+            border-right: 1px solid var(--border-color); 
+            padding: 20px 14px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 6px; 
+        }
+        .menu-category { 
+            font-size: 11px; 
+            font-weight: 700; 
+            text-transform: uppercase; 
+            color: var(--text-muted); 
+            margin: 14px 10px 6px 10px; 
+            letter-spacing: 0.8px; 
+        }
+        .sidebar-item { 
+            padding: 11px 14px; 
+            border-radius: var(--radius-sm); 
+            color: var(--text-main); 
+            font-size: 14px; 
+            font-weight: 500;
+            text-decoration: none; 
+            display: flex; 
+            align-items: center; 
+            gap: 12px; 
+            cursor: pointer; 
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); 
+        }
+        .sidebar-item:hover { 
+            background-color: var(--bg-body); 
+            transform: translateX(2px);
+        }
+        .sidebar-item.active { 
+            background-color: var(--primary-light); 
+            color: var(--primary-color); 
+            font-weight: 600; 
+        }
+
+        /* 4. 主 Main 区域 */
+        .app-main { flex: 1; padding: 28px 36px; overflow-y: auto; display: flex; flex-direction: column; gap: 24px; }
+        .page-header { display: flex; align-items: center; justify-content: space-between; }
+        .page-title { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+
+        /* 通用 Table & UI 卡片 */
+        .card { 
+            background: var(--bg-card); 
+            border: 1px solid var(--border-color); 
+            border-radius: var(--radius-base); 
+            padding: 24px; 
+            box-shadow: var(--shadow-subtle); 
+        }
+        .card:hover {
+            border-color: var(--border-hover);
+        }
+
+        .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; gap: 12px; }
+        .search-group { display: flex; align-items: center; gap: 10px; }
+        .input-text { 
+            padding: 9px 14px; 
+            border: 1px solid var(--border-color); 
+            border-radius: var(--radius-sm); 
+            font-size: 14px; 
+            background: var(--bg-body);
+            color: var(--text-main);
+            outline: none; 
+            width: 220px; 
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .input-text:focus { 
+            border-color: var(--primary-color); 
+            box-shadow: 0 0 0 3px var(--primary-light);
+        }
+        
+        .btn { 
+            padding: 9px 18px; 
+            border-radius: var(--radius-sm); 
+            border: none; 
+            background: var(--primary-color); 
+            color: #ffffff; 
+            font-size: 14px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 6px; 
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        }
+        .btn:hover { 
+            background: var(--primary-hover); 
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        .btn-secondary { 
+            background: var(--bg-body); 
+            color: var(--text-main); 
+            border: 1px solid var(--border-color); 
+            box-shadow: none;
+        }
+        .btn-secondary:hover { 
+            background: var(--border-color); 
+            transform: none;
+        }
+        .btn-sm { padding: 5px 12px; font-size: 12px; border-radius: 6px; }
+
+        /* 高级数据表格样式 (Apple Style Clean Table) */
+        .table-wrap { overflow-x: auto; border-radius: var(--radius-sm); }
+        .data-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
+        .data-table th { background: var(--bg-body); padding: 14px 16px; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border-color); font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .data-table td { padding: 16px; border-bottom: 1px solid var(--border-color); color: var(--text-main); }
+        .data-table tr:last-child td { border-bottom: none; }
+        .data-table tr:hover { background: var(--primary-light); }
+
+        /* 状态 Tag 徽章 */
+        .tag { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+        .tag-success { background: #dcfce7; color: #15803d; }
+        .tag-danger { background: #fee2e2; color: #b91c1c; }
+        .tag-info { background: var(--primary-light); color: var(--primary-color); }
+
+        /* 视图面板 */
+        .view-panel { display: none; }
+        .view-panel.active { display: flex; flex-direction: column; gap: 24px; animation: fadeIn 0.3s ease; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 高级模态弹窗 */
+        .modal-overlay { 
+            position: fixed; 
+            top: 0; left: 0; 
+            width: 100vw; height: 100vh; 
+            background: rgba(0, 0, 0, 0.45); 
+            display: none; 
+            align-items: center; 
+            justify-content: center; 
+            z-index: 100; 
+            backdrop-filter: blur(8px); 
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-box { 
+            background: var(--bg-card); 
+            width: 520px; 
+            border-radius: var(--radius-base); 
+            padding: 28px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 20px; 
+            box-shadow: var(--shadow-modal); 
+            border: 1px solid var(--border-color);
+            animation: modalPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes modalPop {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .form-item { display: flex; flex-direction: column; gap: 8px; }
+        .form-label { font-size: 13px; font-weight: 600; color: var(--text-main); }
+        .form-select { padding: 9px 14px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 14px; background: var(--bg-body); color: var(--text-main); outline: none; }
+    </style>
+</head>
+<body>
+
+    <!-- 1. Header 顶部导航 (含多主题一键切换器) -->
+    <header class="app-header">
+        <div class="brand">
+            <div class="brand-icon">⚡</div>
+            <span>SysPlatform 通用管理平台</span>
+        </div>
+
+        <div class="header-actions">
+            <!-- 🎨 主题与领域颜色切换器 -->
+            <div class="theme-selector-wrap">
+                <span class="theme-label">🎨 风格主题:</span>
+                <select class="theme-select" onchange="changeTheme(this.value)">
+                    <option value="apple-blue">🍎 苹果极简科技蓝 (默认)</option>
+                    <option value="emerald-green">🌲 医疗/生态翡翠绿</option>
+                    <option value="crimson-red">🔴 工业/政企朱砂红</option>
+                    <option value="royal-violet">💜 SaaS/AI 尊享紫</option>
+                    <option value="aurora-dark">🌌 高端极光夜间模式</option>
+                </select>
+            </div>
+
+            <div class="notify-badge" onclick="switchView('view-notify', document.getElementById('menu-notify'))" title="消息通知">
+                🔔 <span class="notify-dot"></span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span>👤 <strong>超级管理员</strong> (admin)</span>
+            </div>
+            <button class="btn btn-secondary btn-sm" onclick="alert('已安全退出登录');">退出</button>
+        </div>
+    </header>
+
+    <div class="app-body">
+        <!-- 2. 左侧 Sidebar 侧边栏导航 -->
+        <aside class="app-sidebar">
+            <div class="menu-category">系统核心管理</div>
+            <div class="sidebar-item active" id="menu-user" onclick="switchView('view-user', this)">👤 用户管理</div>
+            <div class="sidebar-item" id="menu-role" onclick="switchView('view-role', this)">🛡️ 角色与权限</div>
+            <div class="sidebar-item" id="menu-menu" onclick="switchView('view-menu', this)">⚙️ 动态菜单树</div>
+            
+            <div class="menu-category">消息与通知</div>
+            <div class="sidebar-item" id="menu-notify" onclick="switchView('view-notify', this)">🔔 消息公告</div>
+        </aside>
+
+        <!-- 3. 主内容渲染区域 -->
+        <main class="app-main">
+            
+            <!-- 面板 1：用户管理 -->
+            <div class="view-panel active" id="view-user">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">用户管理</h1>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">已锁定【管理员统一开户模式】，不支持前台自由注册</p>
+                    </div>
+                    <button class="btn" onclick="openModal('userModal')">+ 创建新账号</button>
+                </div>
+                
+                <div class="card">
+                    <div class="toolbar">
+                        <div class="search-group">
+                            <input type="text" class="input-text" placeholder="搜索用户名 / 手机号...">
+                            <button class="btn btn-secondary">查询</button>
+                        </div>
+                        <span style="font-size: 12px; color: var(--text-muted); font-weight: 500;">显示 1 至 3 条，共 3 条记录</span>
+                    </div>
+
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>用户 ID</th>
+                                    <th>用户名</th>
+                                    <th>真实姓名</th>
+                                    <th>所属角色</th>
+                                    <th>联系手机</th>
+                                    <th>账号状态</th>
+                                    <th>操作选项</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>1001</strong></td>
+                                    <td><code>admin</code></td>
+                                    <td>超级管理员</td>
+                                    <td><span class="tag tag-info">超级管理员</span></td>
+                                    <td>13800138000</td>
+                                    <td><span class="tag tag-success">● 正常</span></td>
+                                    <td><button class="btn btn-secondary btn-sm" disabled style="opacity: 0.5;">内置账号</button></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>1002</strong></td>
+                                    <td><code>zhangsan</code></td>
+                                    <td>张三</td>
+                                    <td><span class="tag tag-info">研发工程师</span></td>
+                                    <td>13911223344</td>
+                                    <td><span class="tag tag-success">● 正常</span></td>
+                                    <td>
+                                        <button class="btn btn-secondary btn-sm" onclick="alert('账号状态已切换为禁用');">禁用</button>
+                                        <button class="btn btn-secondary btn-sm" onclick="alert('密码已成功重置为初始密码: 123456');">重置密码</button>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>1003</strong></td>
+                                    <td><code>lisi</code></td>
+                                    <td>李四</td>
+                                    <td><span class="tag tag-info">运营专员</span></td>
+                                    <td>13766554433</td>
+                                    <td><span class="tag tag-danger">● 已禁用</span></td>
+                                    <td>
+                                        <button class="btn btn-secondary btn-sm" onclick="alert('账号状态已切换为启用');">启用</button>
+                                        <button class="btn btn-secondary btn-sm" onclick="alert('密码已成功重置为初始密码: 123456');">重置密码</button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 面板 2：角色与权限 -->
+            <div class="view-panel" id="view-role">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">RBAC 角色与权限策略</h1>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">配置角色组，并勾选绑定菜单及按钮级权限操作</p>
+                    </div>
+                    <button class="btn" onclick="openModal('roleModal')">+ 新增角色</button>
+                </div>
+
+                <div class="card">
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>角色编码</th>
+                                    <th>角色名称</th>
+                                    <th>分配菜单数</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>admin</code></td>
+                                    <td>超级管理员</td>
+                                    <td>全量菜单权限</td>
+                                    <td><span class="tag tag-success">● 启用</span></td>
+                                    <td><button class="btn btn-secondary btn-sm" disabled style="opacity: 0.5;">系统预置</button></td>
+                                </tr>
+                                <tr>
+                                    <td><code>developer</code></td>
+                                    <td>研发工程师</td>
+                                    <td>12 项核心菜单</td>
+                                    <td><span class="tag tag-success">● 启用</span></td>
+                                    <td><button class="btn btn-secondary btn-sm" onclick="openModal('roleModal');">编辑授权策略</button></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 面板 3：动态菜单树 -->
+            <div class="view-panel" id="view-menu">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">动态菜单与按钮级控制</h1>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">维护前端路由菜单树与页面内部按钮 Action 权限编码</p>
+                    </div>
+                    <button class="btn" onclick="alert('新增菜单目录');">+ 新增根菜单</button>
+                </div>
+
+                <div class="card">
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>菜单结构层级</th>
+                                    <th>节点类型</th>
+                                    <th>路由路径 (Path)</th>
+                                    <th>权限编码 (Permission)</th>
+                                    <th>前端组件路径</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>⚙️ 系统管理</strong></td>
+                                    <td><span class="tag tag-info">目录</span></td>
+                                    <td>`/system`</td>
+                                    <td>-</td>
+                                    <td>`Layout`</td>
+                                </tr>
+                                <tr>
+                                    <td>&nbsp;&nbsp;&nbsp;&nbsp;├─ 👤 用户管理</td>
+                                    <td><span class="tag tag-success">菜单</span></td>
+                                    <td>`/system/user`</td>
+                                    <td>`sys:user:list`</td>
+                                    <td>`system/user/index`</td>
+                                </tr>
+                                <tr>
+                                    <td>&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;&nbsp;└─ ➕ 创建账号按钮</td>
+                                    <td><span class="tag">按钮 Action</span></td>
+                                    <td>-</td>
+                                    <td><code>sys:user:add</code></td>
+                                    <td>-</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 面板 4：消息通知 -->
+            <div class="view-panel" id="view-notify">
+                <div class="page-header">
+                    <div>
+                        <h1 class="page-title">消息通知与系统公告</h1>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">全员站内广播通知与公告推送</p>
+                    </div>
+                    <button class="btn" onclick="alert('发布公告成功！');">+ 发布新公告</button>
+                </div>
+
+                <div class="card">
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>通知标题</th>
+                                    <th>类型</th>
+                                    <th>发布时间</th>
+                                    <th>发布状态</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>📢 欢迎体验通用管理平台 SysPlatform 高端多主题原型体系</td>
+                                    <td><span class="tag tag-info">系统公告</span></td>
+                                    <td>2026-10-07 15:30</td>
+                                    <td><span class="tag tag-success">● 已发布</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- 弹窗：创建用户 Modal -->
+    <div class="modal-overlay" id="userModal">
+        <div class="modal-box">
+            <h3 style="font-size: 18px; font-weight: 700;">新建系统用户 (管理员手动开户)</h3>
+            <div class="form-item">
+                <label class="form-label">登录用户名 *</label>
+                <input type="text" class="input-text" style="width: 100%;" placeholder="请输入用户名 (例: zhangsan)">
+            </div>
+            <div class="form-item">
+                <label class="form-label">真实姓名 *</label>
+                <input type="text" class="input-text" style="width: 100%;" placeholder="请输入姓名">
+            </div>
+            <div class="form-item">
+                <label class="form-label">分配角色权限 *</label>
+                <select class="form-select">
+                    <option>研发工程师</option>
+                    <option>运营专员</option>
+                </select>
+            </div>
+            <div class="form-item">
+                <label class="form-label">初始登录密码 *</label>
+                <input type="password" class="input-text" style="width: 100%;" value="123456">
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px;">
+                <button class="btn btn-secondary" onclick="closeModal('userModal')">取消</button>
+                <button class="btn" onclick="alert('用户创建成功！默认初始密码为 123456'); closeModal('userModal');">保存并开户</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 弹窗：编辑角色 Modal -->
+    <div class="modal-overlay" id="roleModal">
+        <div class="modal-box">
+            <h3 style="font-size: 18px; font-weight: 700;">编辑角色与授权策略</h3>
+            <div class="form-item">
+                <label class="form-label">角色名称</label>
+                <input type="text" class="input-text" style="width: 100%;" value="研发工程师">
+            </div>
+            <div class="form-item">
+                <label class="form-label">菜单与按钮级授权</label>
+                <div style="border: 1px solid var(--border-color); padding: 14px; border-radius: var(--radius-sm); background: var(--bg-body); font-size: 13px; display: flex; flex-direction: column; gap: 8px;">
+                    <label><input type="checkbox" checked> 👤 用户管理 (列表/重置密码)</label>
+                    <label><input type="checkbox" checked> 🛡️ 角色与权限</label>
+                    <label><input type="checkbox"> ⚙️ 动态菜单树</label>
+                    <label><input type="checkbox" checked> 🔔 消息公告</label>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px;">
+                <button class="btn btn-secondary" onclick="closeModal('roleModal')">取消</button>
+                <button class="btn" onclick="alert('角色权限与按钮策略更新成功'); closeModal('roleModal');">保存策略</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 1. 主题实时切换
+        function changeTheme(themeName) {
+            document.documentElement.setAttribute('data-theme', themeName);
+            localStorage.setItem('apex_sys_theme', themeName);
+        }
+
+        // 2. 页面初始化加载保存的主题
+        (function initTheme() {
+            const savedTheme = localStorage.getItem('apex_sys_theme');
+            if (savedTheme) {
+                document.documentElement.setAttribute('data-theme', savedTheme);
+                const themeSelect = document.querySelector('.theme-select');
+                if (themeSelect) themeSelect.value = savedTheme;
+            }
+        })();
+
+        // 3. 视图切屏逻辑
+        function switchView(viewId, el) {
+            document.querySelectorAll('.view-panel').forEach(panel => panel.classList.remove('active'));
+            document.querySelectorAll('.sidebar-item').forEach(item => item.classList.remove('active'));
+
+            document.getElementById(viewId).classList.add('active');
+            if(el) {
+                el.classList.add('active');
+            }
+        }
+
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('active');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+    </script>
+</body>
+</html>
