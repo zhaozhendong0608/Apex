@@ -677,8 +677,10 @@ graph TD
                             <span class="badge badge-success">&lt; 30 行</span>
                         </div>
                         <div class="card-body">
-                            <p><strong>通俗比喻</strong>：项目“名片卡”。</p>
-                            <p>硬性锁死在 30 行以内。第二天发 <code>6</code> 复活时，AI 优先且只看它，0.5 秒极速知道项目做到了哪一步！</p>
+                            <p><strong>文件</strong>：<code>.ai/tier1_snapshot.md</code></p>
+                            <p><strong>写入时机</strong>：下班发 <code>5</code> 归档或阶段验收 <code>4</code> 时。</p>
+                            <p><strong>谁来写入</strong>：AI 整理更新（物理死锁 &lt;30 行）。</p>
+                            <p><strong>核心作用</strong>：明天发 <code>6</code> 复活时，AI 优先且只看它，0.5 秒极速吃透项目！</p>
                         </div>
                     </div>
 
@@ -688,19 +690,85 @@ graph TD
                             <span class="badge badge-warning">模块 & 拓扑</span>
                         </div>
                         <div class="card-body">
-                            <p><strong>通俗比喻</strong>：项目“地图册”。</p>
-                            <p>记录系统的各个大模块矩阵、前端 HTML 交互原型 (<code>mockup.html</code>) 和老代码路由/数据库表拓扑关系。</p>
+                            <p><strong>文件</strong>：<code>tier2_modules.md</code> / <code>tier2_legacy_arch.md</code></p>
+                            <p><strong>写入时机</strong>：发 <code>0</code> 破局老代码 / 发 <code>1+</code> 建新大模块时。</p>
+                            <p><strong>谁来写入</strong>：<code>arch.py</code> 脚本 / AI 登记注册。</p>
+                            <p><strong>核心作用</strong>：记录模块矩阵、HTML 原型 (<code>mockup.html</code>) 及旧代码拓扑。</p>
                         </div>
                     </div>
 
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">📦 3. 历史黑匣子 (Tier 3)</div>
+                            <div class="card-title">📦 3. 任务与黑匣子 (Tier 3)</div>
                             <span class="badge badge-purple">看板 & Changelog</span>
                         </div>
                         <div class="card-body">
-                            <p><strong>通俗比喻</strong>：项目“打卡日志”。</p>
-                            <p>记录当前在做的 Task-XXX 以及历史过往日志。下班发 <code>5</code> 自动归档瘦身，防 Token 膨胀。</p>
+                            <p><strong>文件</strong>：<code>tier3_status.md</code> (热) / <code>tier3_handover.md</code> (冷)</p>
+                            <p><strong>写入时机</strong>：日常发 <code>1</code>/<code>2</code> 更新看板；发 <code>5</code> 归档历史。</p>
+                            <p><strong>谁来写入</strong>：<code>board.py</code> 脚本实时增删 / 下班追加 Changelog。</p>
+                            <p><strong>核心作用</strong>：区分“当前在做的 Task”与“历史过往日志”，防 Token 膨胀。</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 💡 5 大 Tier 文件完整写入生命周期全景图与表格 -->
+                <div class="card" style="margin-top: 20px;">
+                    <div class="card-header">
+                        <div class="card-title">🗓️ 三层记忆金字塔：5 大 Tier 文件写入生命周期全景矩阵 (When & Who to Write)</div>
+                        <span class="badge badge-primary">SOP 生命周期防爆规范</span>
+                    </div>
+                    <div class="card-body">
+                        <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 16px;">为什么项目里有 5 个 Tier 文件？因为不同文件有各自严格的“写入时机”与“谁来写入”，实现了【热数据看板】与【冷数据黑匣子】的彻底解耦！</p>
+                        
+                        <div style="overflow-x: auto;">
+                            <table class="data-table" style="width:100%; border-collapse: collapse; font-size: 13px;">
+                                <thead>
+                                    <tr style="background: var(--bg-dark); color: #fff; text-align: left;">
+                                        <th style="padding: 10px 12px;">文件名称 (Filename)</th>
+                                        <th style="padding: 10px 12px;">所属金字塔层级</th>
+                                        <th style="padding: 10px 12px;">写入触发节点 (什么时候写？)</th>
+                                        <th style="padding: 10px 12px;">写入执行主体 (Who Writes)</th>
+                                        <th style="padding: 10px 12px;">写入核心内容 (写什么？)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr style="border-bottom: 1px solid var(--border-color);">
+                                        <td style="padding: 10px 12px;"><code>tier1_snapshot.md</code></td>
+                                        <td style="padding: 10px 12px;"><span class="badge badge-success">第一层 (极简)</span></td>
+                                        <td style="padding: 10px 12px;">下班发 <code>5</code> 归档 / 阶段验收 <code>4</code> 时</td>
+                                        <td style="padding: 10px 12px;">AI 整理更新</td>
+                                        <td style="padding: 10px 12px;">硬死锁 &lt;30 行。记载项目唯一 ACTIVE 焦点与最新稳定 Milestone，供复活 <code>6</code> 吃透。</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid var(--border-color);">
+                                        <td style="padding: 10px 12px;"><code>tier2_legacy_arch.md</code></td>
+                                        <td style="padding: 10px 12px;"><span class="badge badge-warning">第二层 (老拓扑)</span></td>
+                                        <td style="padding: 10px 12px;">发 <code>0</code> 破局老代码时</td>
+                                        <td style="padding: 10px 12px;"><code>arch.py</code> 脚本自自动扫描</td>
+                                        <td style="padding: 10px 12px;">扫描既有代码切片、Controller/Service 路由及 DB 数据表拓扑，生成 4D 图谱。</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid var(--border-color);">
+                                        <td style="padding: 10px 12px;"><code>tier2_modules.md</code></td>
+                                        <td style="padding: 10px 12px;"><span class="badge badge-warning">第二层 (新大图)</span></td>
+                                        <td style="padding: 10px 12px;">发 <code>1+</code> 新建大模块时</td>
+                                        <td style="padding: 10px 12px;">AI 自动登记注册</td>
+                                        <td style="padding: 10px 12px;">登记新大模块（如 <code>sys_platform</code>）的 ID、PRD 路径、<code>mockup.html</code> 原型及职责。</td>
+                                    </tr>
+                                    <tr style="border-bottom: 1px solid var(--border-color);">
+                                        <td style="padding: 10px 12px;"><code>tier3_status.md</code></td>
+                                        <td style="padding: 10px 12px;"><span class="badge badge-purple">第三层 (热看板)</span></td>
+                                        <td style="padding: 10px 12px;">拆任务 <code>1</code> / 写代码 <code>2</code> / 验收 <code>4</code> 时</td>
+                                        <td style="padding: 10px 12px;"><code>board.py</code> 脚本增删</td>
+                                        <td style="padding: 10px 12px;">实时管理当前在做的 <code>ACTIVE</code> 焦点 Task、待办 <code>TODO</code> 队列与完成 <code>DONE</code> 列表。</td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 10px 12px;"><code>tier3_handover.md</code></td>
+                                        <td style="padding: 10px 12px;"><span class="badge badge-purple">第三层 (冷黑匣)</span></td>
+                                        <td style="padding: 10px 12px;">仅在下班发 <code>5</code> 归档打卡时追加</td>
+                                        <td style="padding: 10px 12px;">AI 自动追加备份</td>
+                                        <td style="padding: 10px 12px;">追加备份本次 Session 所有已完成 Task 的 Changelog、改动文件清单与技术决议。</td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
