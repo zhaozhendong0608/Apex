@@ -100,12 +100,74 @@ def scan_skills_registry():
                 skills_list.append({
                     "name": skill_name,
                     "desc": skill_desc,
+                    "folder": item,
                     "path": f".agents/skills/{item}/SKILL.md"
                 })
             except Exception as e:
                 print(f"⚠️ 解析 Skill [{item}] 失败: {e}")
 
     return skills_list
+
+KNOWN_SKILLS_META = {
+    "requirement-discovery": {
+        "title": "🔍 requirement-discovery",
+        "badge": "badge-primary",
+        "badge_text": "需求发现",
+        "duty": "澄清口语需求，抛出 A/B/C 选择题。",
+        "output": "需求基线草案 (5大状态模型)。",
+    },
+    "archetype-architect": {
+        "title": "🏛️ archetype-architect",
+        "badge": "badge-success",
+        "badge_text": "原型架构",
+        "duty": "生成可点击的 HTML 交互原型页面。",
+        "output": "<code>mockup.html</code> 原型、模块 PRD。",
+    },
+    "design-spec-architect": {
+        "title": "📐 design-spec-architect",
+        "badge": "badge-warning",
+        "badge_text": "设计说明书",
+        "duty": "撰写 HLD/DLD 设计文档与数据库 SQL。",
+        "output": "<code>docs/01~04.md</code>、建表 SQL。",
+    },
+    "coding-standards": {
+        "title": "💻 coding-standards",
+        "badge": "badge-primary",
+        "badge_text": "代码规范",
+        "duty": "开启看门狗，按规范写 Java 和 Vue 代码。",
+        "output": "<code>src/</code> 业务源码、第三方联调日志。",
+    },
+    "quality-verifier": {
+        "title": "🧪 quality-verifier",
+        "badge": "badge-danger",
+        "badge_text": "质量与排错",
+        "duty": "小黄鸭探针微创排错、契约碰撞测试，自动沉淀踩坑知识。",
+        "output": "小黄鸭诊断报告、微创修复代码、<code>knowledge-cards/postmortem-*.md</code> 踩坑卡片。",
+        "extra_html": """
+                            <div style="margin-top: 12px; padding: 10px; background: rgba(239, 68, 68, 0.05); border-radius: var(--radius-sm); border: 1px dashed rgba(239, 68, 68, 0.3); font-size: 12.5px;">
+                                <strong style="color: var(--danger);">🧠 踩坑知识卡片 3 大核心好处：</strong>
+                                <ul style="margin-left: 16px; margin-top: 6px; line-height: 1.6; color: var(--text-muted);">
+                                    <li><strong>1. 经验物理存盘</strong>：隐蔽 Bug (如 Spring Boot 3 与 MyBatis-Plus 兼容死穴) 自动归档，团队/AI 永久不踩重复坑。</li>
+                                    <li><strong>2. 零 Token 预加载开销</strong>：基于按需延迟加载 (Lazy Loading)，平时完全不读入上下文；只有真实触发 Exception 时才单点调阅 (仅 ~200 Token)，极速且低消耗。</li>
+                                    <li><strong>3. 看门狗进化</strong>：自动将踩坑经验反哺演进为全局看门狗规范，让 AI 随项目开发越用越聪明！</li>
+                                </ul>
+                            </div>"""
+    },
+    "legacy-archaeologist": {
+        "title": "🏛️ legacy-archaeologist",
+        "badge": "badge-purple",
+        "badge_text": "老项目考古",
+        "duty": "剖析老代码路由切片，写行为锁死探针。",
+        "output": "<code>legacy_arch.md</code>、行为锁死探针。",
+    },
+    "code-quality-reviewer": {
+        "title": "🔍 code-quality-reviewer",
+        "badge": "badge-warning",
+        "badge_text": "质量审查",
+        "duty": "静态扫描 NPE、内存泄漏、并发隐患、SQL注入与圈复杂度过高代码。",
+        "output": "<code>code-quality-report.md</code> 代码审查报告、微创重构建议。",
+    }
+}
 
 def generate_skills_router_text(skills_list):
     """将技能元数据列表格式化为 Markdown 路由条目"""
@@ -116,6 +178,108 @@ def generate_skills_router_text(skills_list):
     for s in skills_list:
         lines.append(f"- **`{s['name']}`**：{s['desc']}")
     return "\n".join(lines)
+
+def generate_skills_html_cards(skills_list):
+    cards_html = ['<div class="grid-2">']
+    for idx, s in enumerate(skills_list, 1):
+        name = s["name"]
+        meta = KNOWN_SKILLS_META.get(name, {})
+        
+        title = meta.get("title", f"🧩 {name}")
+        badge_cls = meta.get("badge", "badge-primary")
+        badge_txt = meta.get("badge_text", "扩展技能")
+        duty = meta.get("duty", s.get("desc", "自定义 AI 扩展技能"))
+        output = meta.get("output", f"<code>.agents/skills/{name}/</code> 对应产出物")
+        extra_html = meta.get("extra_html", "")
+
+        card = f"""                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">{idx}. {title}</div>
+                            <span class="badge {badge_cls}">{badge_txt}</span>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>白话职责</strong>：{duty}</p>
+                            <p><strong>核心产出</strong>：{output}</p>{extra_html}
+                        </div>
+                    </div>"""
+        cards_html.append(card)
+    
+    cards_html.append('                </div>')
+    return "\n".join(cards_html)
+
+def generate_skills_html_mermaid(skills_list):
+    lines = [
+        '<pre class="mermaid">',
+        'graph LR'
+    ]
+    
+    known_nodes = {
+        "legacy-archaeologist": 'S0["🏛️ legacy-archaeologist<br/>(老项目逆向考古专家)"]',
+        "requirement-discovery": 'S1["🔍 requirement-discovery<br/>(需求白话澄清专家)"]',
+        "archetype-architect": 'S2["🏛️ archetype-architect<br/>(原型架构梳理专家)"]',
+        "design-spec-architect": 'S3["📐 design-spec-architect<br/>(设计说明书专家)"]',
+        "coding-standards": 'S4["💻 coding-standards<br/>(代码规范与契约专家)"]',
+        "code-quality-reviewer": 'S6["🔍 code-quality-reviewer<br/>(静态代码质量审查与漏洞扫描)"]',
+        "quality-verifier": 'S5["🧪 quality-verifier<br/>(质量验证与小黄鸭排错)"]'
+    }
+
+    present_keys = [s["name"] for s in skills_list]
+    for key, node_str in known_nodes.items():
+        if key in present_keys:
+            lines.append(f'    {node_str}')
+    
+    extra_nodes = []
+    for idx, s in enumerate(skills_list):
+        if s["name"] not in known_nodes:
+            node_id = f'SE{idx}'
+            clean_desc = s["desc"][:15] + "..." if len(s["desc"]) > 15 else s["desc"]
+            lines.append(f'    {node_id}["🧩 {s["name"]}<br/>({clean_desc})"]')
+            extra_nodes.append(node_id)
+
+    if "legacy-archaeologist" in present_keys and "requirement-discovery" in present_keys:
+        lines.append('    S0 -->|输出老代码地图| S1')
+    if "requirement-discovery" in present_keys and "archetype-architect" in present_keys:
+        lines.append('    S1 -->|澄清需求基线| S2')
+    if "archetype-architect" in present_keys and "design-spec-architect" in present_keys:
+        lines.append('    S2 -->|生成交互原型| S3')
+    if "design-spec-architect" in present_keys and "coding-standards" in present_keys:
+        lines.append('    S3 -->|输出 DLD 契约| S4')
+    if "coding-standards" in present_keys and "code-quality-reviewer" in present_keys:
+        lines.append('    S4 -->|编写业务代码| S6')
+    if "code-quality-reviewer" in present_keys and "quality-verifier" in present_keys:
+        lines.append('    S6 -->|静态检测与重构| S5')
+    elif "coding-standards" in present_keys and "quality-verifier" in present_keys:
+        lines.append('    S4 -->|编写业务代码| S5')
+    
+    if "quality-verifier" in present_keys:
+        lines.append('    S5 -->|发现 BUG 小黄鸭排错| S4')
+        lines.append('    S5 -->|验收打钩同步文档| S3')
+
+    last_node = "S5" if "quality-verifier" in present_keys else ("S4" if "coding-standards" in present_keys else "S1")
+    for ex_id in extra_nodes:
+        lines.append(f'    {last_node} -->|增强扩展协作| {ex_id}')
+        lines.append(f'    {ex_id} -.->|反哺工作流| S3')
+
+    lines.append('</pre>')
+    return "\n".join(lines)
+
+def update_workflow_guide_html(skills_list):
+    html_path = "workflow_guide.html"
+    if not os.path.exists(html_path):
+        return
+
+    count = len(skills_list)
+    menu_text = f"<span>📚 {count} 大 Skill 协作拓扑图</span>"
+    title_text = f'<h1 class="panel-title">📚 全套 {count} 大 Skill 技能包协作拓扑图谱</h1>'
+    subtitle_text = f'<div class="card-title">📊 {count} 大 Skill 互相协作网络 Mermaid 关系图</div>'
+    mermaid_text = generate_skills_html_mermaid(skills_list)
+    cards_text = generate_skills_html_cards(skills_list)
+
+    update_file_anchor(html_path, "AUTO-SKILLS-MENU", menu_text, is_codeblock=False)
+    update_file_anchor(html_path, "AUTO-SKILLS-TITLE", title_text, is_codeblock=False)
+    update_file_anchor(html_path, "AUTO-SKILLS-SUBTITLE", subtitle_text, is_codeblock=False)
+    update_file_anchor(html_path, "AUTO-SKILLS-MERMAID", mermaid_text, is_codeblock=False)
+    update_file_anchor(html_path, "AUTO-SKILLS-CARDS", cards_text, is_codeblock=False)
 
 def get_node_info(path):
     name = os.path.basename(path)
@@ -243,13 +407,16 @@ def sync_all():
     update_file_anchor("README.md", "AUTO-TREE-MACRO", macro_tree, is_codeblock=True)
     update_file_anchor("WORKFLOW_GUIDE.md", "AUTO-TREE-FULL", full_tree, is_codeblock=True)
 
-    # 2. 刷新 Skills 路由表
+    # 2. 刷新 Skills 路由表与 HTML 图谱
     skills_list = scan_skills_registry()
     skills_text = generate_skills_router_text(skills_list)
     
     update_file_anchor(".cursorrules", "AUTO-SKILLS-MACRO", skills_text, is_codeblock=False)
     update_file_anchor(".windsurfrules", "AUTO-SKILLS-MACRO", skills_text, is_codeblock=False)
     update_file_anchor("README.md", "AUTO-SKILLS-MACRO", skills_text, is_codeblock=False)
+    
+    # 3. 刷新 HTML 交互指南中的 Skills 图谱与卡片
+    update_workflow_guide_html(skills_list)
 
 def get_workspace_fingerprint():
     state = []

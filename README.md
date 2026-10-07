@@ -28,7 +28,7 @@ Apex/                                 # 🚀 顶层工作区 (IDE 打开的根�
 ├── 🧠 .ai/                            # ⚙️ 统一工作流控制中心 (三层记忆金字塔)
 │   ├── 🛠️ scripts/                   # 🛠️ 自动化控制与分析脚本库
 │   ├── 📜 sop/                        # 📜 全套 00~06 数字 SOP 规则矩阵
-│   ├── 📄 tier1_snapshot.md           # [第一层：极简快照名片层] 项目动态快照 (tier1_snapshot.md)
+│   ├── 📄 tier1_snapshot.md           # [第一层：极简快照名片层] 项目动态快照 (tier1_snapshot.md) [DEMO 示例 / 样例模板]
 │   ├── 📄 tier2_legacy_arch.md        # (tier2_legacy_arch.md)
 │   ├── 📄 tier2_modules.md            # [第二层：宏观业务大模块总览层] 大模块矩阵索引表 (tier2_modules.md) [DEMO 示例 / 样例模板]
 │   ├── 📄 tier3_handover.md           # [第三层：微观原子任务层] 历史交接黑匣子 (tier3_handover.md) [DEMO 示例 / 样例模板]
@@ -42,10 +42,9 @@ Apex/                                 # 🚀 顶层工作区 (IDE 打开的根�
 │   ├── 🧠 .cursorrules                # 🧠 AI 行为约束与数字路由表
 │   ├── 🧠 .windsurfrules              # 🧠 IDE 规则适配文件
 │   ├── 📖 README.md                   # 📖 项目门面与使用指南
-│   ├── 📁 backend/                    # (Backend)
+│   ├── 📁 backend/
 │   ├── 📁 docs/                       # 📁 本工程 PRD / 架构 / 设计文档
-│   ├── 📁 frontend/                   # (Frontend)
-│   └── 🛠️ scripts/                   # 🛠️ 自动化控制与分析脚本库
+│   └── 📁 frontend/
 ├── 🛠️ scripts/                       # 🛠️ 自动化控制与分析脚本库
 │   └── 📁 tests/
 ├── 📄 workflow_guide.html
