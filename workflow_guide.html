@@ -591,7 +591,9 @@
                     <span class="code-tag">Manual</span>
                 </div>
                 <div class="menu-item" onclick="switchPanel('panel-skills', this)">
-                    <span>📚 6 大 Skill 协作拓扑图</span>
+                    <!-- AUTO-SKILLS-MENU:START -->
+<span>📚 7 大 Skill 协作拓扑图</span>
+<!-- AUTO-SKILLS-MENU:END -->
                     <span class="code-tag">Skills</span>
                 </div>
             </div>
@@ -1821,11 +1823,13 @@ flowchart LR
                 </div>
             </div>
 
-            <!-- Panel 9 (Skills) 保持不变 -->
+            <!-- Panel 9 (Skills) -->
             <div id="panel-skills" class="content-panel">
                 <div class="panel-header">
                     <div class="panel-title-group">
-                        <h1 class="panel-title">📚 全套 6 大 Skill 技能包协作拓扑图谱</h1>
+                        <!-- AUTO-SKILLS-TITLE:START -->
+<h1 class="panel-title">📚 全套 7 大 Skill 技能包协作拓扑图谱</h1>
+<!-- AUTO-SKILLS-TITLE:END -->
                         <span class="badge badge-primary">Skill System</span>
                     </div>
                     <p class="panel-subtitle">💡 <strong>白话一句话解释</strong>：Skill 就是给 AI 戴上的“专家帽子”。需要澄清需求时戴上产品经理帽子，写代码时戴上架构师帽子，排错时戴上小黄鸭医生帽子。</p>
@@ -1833,7 +1837,9 @@ flowchart LR
 
                 <div class="card">
                     <div class="card-header">
-                        <div class="card-title">📊 6 大 Skill 互相协作网络 Mermaid 关系图</div>
+                        <!-- AUTO-SKILLS-SUBTITLE:START -->
+<div class="card-title">📊 7 大 Skill 互相协作网络 Mermaid 关系图</div>
+<!-- AUTO-SKILLS-SUBTITLE:END -->
                         <span class="badge badge-primary">Skill Matrix</span>
                     </div>
                     <div class="card-body">
@@ -1848,43 +1854,36 @@ flowchart LR
                                 </div>
                             </div>
                             <div class="mermaid-viewport">
-                                <pre class="mermaid">
+                                <!-- AUTO-SKILLS-MERMAID:START -->
+<pre class="mermaid">
 graph LR
     S0["🏛️ legacy-archaeologist<br/>(老项目逆向考古专家)"]
     S1["🔍 requirement-discovery<br/>(需求白话澄清专家)"]
     S2["🏛️ archetype-architect<br/>(原型架构梳理专家)"]
     S3["📐 design-spec-architect<br/>(设计说明书专家)"]
     S4["💻 coding-standards<br/>(代码规范与契约专家)"]
+    S6["🔍 code-quality-reviewer<br/>(静态代码质量审查与漏洞扫描)"]
     S5["🧪 quality-verifier<br/>(质量验证与小黄鸭排错)"]
-
     S0 -->|输出老代码地图| S1
     S1 -->|澄清需求基线| S2
     S2 -->|生成交互原型| S3
     S3 -->|输出 DLD 契约| S4
-    S4 -->|编写业务代码| S5
+    S4 -->|编写业务代码| S6
+    S6 -->|静态检测与重构| S5
     S5 -->|发现 BUG 小黄鸭排错| S4
     S5 -->|验收打钩同步文档| S3
-                                </pre>
+</pre>
+<!-- AUTO-SKILLS-MERMAID:END -->
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="grid-2">
+                <!-- AUTO-SKILLS-CARDS:START -->
+<div class="grid-2">
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">1. 🔍 requirement-discovery</div>
-                            <span class="badge badge-primary">需求发现</span>
-                        </div>
-                        <div class="card-body">
-                            <p><strong>白话职责</strong>：澄清口语需求，抛出 A/B/C 选择题。</p>
-                            <p><strong>核心产出</strong>：需求基线草案 (5大状态模型)。</p>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <div class="card-header">
-                            <div class="card-title">2. 🏛️ archetype-architect</div>
+                            <div class="card-title">1. 🏛️ archetype-architect</div>
                             <span class="badge badge-success">原型架构</span>
                         </div>
                         <div class="card-body">
@@ -1892,21 +1891,19 @@ graph LR
                             <p><strong>核心产出</strong>：<code>mockup.html</code> 原型、模块 PRD。</p>
                         </div>
                     </div>
-
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">3. 📐 design-spec-architect</div>
-                            <span class="badge badge-warning">设计说明书</span>
+                            <div class="card-title">2. 🔍 code-quality-reviewer</div>
+                            <span class="badge badge-warning">质量审查</span>
                         </div>
                         <div class="card-body">
-                            <p><strong>白话职责</strong>：撰写 HLD/DLD 设计文档与数据库 SQL。</p>
-                            <p><strong>核心产出</strong>：<code>docs/01~04.md</code>、建表 SQL。</p>
+                            <p><strong>白话职责</strong>：静态扫描 NPE、内存泄漏、并发隐患、SQL注入与圈复杂度过高代码。</p>
+                            <p><strong>核心产出</strong>：<code>code-quality-report.md</code> 代码审查报告、微创重构建议。</p>
                         </div>
                     </div>
-
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">4. 💻 coding-standards</div>
+                            <div class="card-title">3. 💻 coding-standards</div>
                             <span class="badge badge-primary">代码规范</span>
                         </div>
                         <div class="card-body">
@@ -1914,16 +1911,34 @@ graph LR
                             <p><strong>核心产出</strong>：<code>src/</code> 业务源码、第三方联调日志。</p>
                         </div>
                     </div>
-
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">5. 🧪 quality-verifier</div>
+                            <div class="card-title">4. 📐 design-spec-architect</div>
+                            <span class="badge badge-warning">设计说明书</span>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>白话职责</strong>：撰写 HLD/DLD 设计文档与数据库 SQL。</p>
+                            <p><strong>核心产出</strong>：<code>docs/01~04.md</code>、建表 SQL。</p>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">5. 🏛️ legacy-archaeologist</div>
+                            <span class="badge badge-purple">老项目考古</span>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>白话职责</strong>：剖析老代码路由切片，写行为锁死探针。</p>
+                            <p><strong>核心产出</strong>：<code>legacy_arch.md</code>、行为锁死探针。</p>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">6. 🧪 quality-verifier</div>
                             <span class="badge badge-danger">质量与排错</span>
                         </div>
                         <div class="card-body">
                             <p><strong>白话职责</strong>：小黄鸭探针微创排错、契约碰撞测试，自动沉淀踩坑知识。</p>
                             <p><strong>核心产出</strong>：小黄鸭诊断报告、微创修复代码、<code>knowledge-cards/postmortem-*.md</code> 踩坑卡片。</p>
-                            
                             <div style="margin-top: 12px; padding: 10px; background: rgba(239, 68, 68, 0.05); border-radius: var(--radius-sm); border: 1px dashed rgba(239, 68, 68, 0.3); font-size: 12.5px;">
                                 <strong style="color: var(--danger);">🧠 踩坑知识卡片 3 大核心好处：</strong>
                                 <ul style="margin-left: 16px; margin-top: 6px; line-height: 1.6; color: var(--text-muted);">
@@ -1934,18 +1949,18 @@ graph LR
                             </div>
                         </div>
                     </div>
-
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">6. 🏛️ legacy-archaeologist</div>
-                            <span class="badge badge-purple">老项目考古</span>
+                            <div class="card-title">7. 🔍 requirement-discovery</div>
+                            <span class="badge badge-primary">需求发现</span>
                         </div>
                         <div class="card-body">
-                            <p><strong>白话职责</strong>：剖析老代码路由切片，写行为锁死探针。</p>
-                            <p><strong>核心产出</strong>：<code>legacy_arch.md</code>、行为锁死探针。</p>
+                            <p><strong>白话职责</strong>：澄清口语需求，抛出 A/B/C 选择题。</p>
+                            <p><strong>核心产出</strong>：需求基线草案 (5大状态模型)。</p>
                         </div>
                     </div>
                 </div>
+<!-- AUTO-SKILLS-CARDS:END -->
             </div>
 
         </main>
