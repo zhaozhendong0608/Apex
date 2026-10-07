@@ -48,7 +48,7 @@ Apex/                                                # 🚀 顶层工作区 (IDE
 │   ├── 🛠️ scripts/                                  # 🛠️ 自动化控制与分析脚本库
 │   │   ├── 📄 arch.py                                # 🏛️ 老项目拓扑图谱分析脚本
 │   │   ├── 📄 board.py                               # 📊 确定性看板与任务状态控制脚本
-│   │   └── 📄 sync_tree.py                           # 🔄 目录树与 Skill 路由自动同步脚本
+│   │   └── 📄 sync_tree.py                           # 🔄 目录树与 Markdown 文档自动同步脚本
 │   ├── 📜 sop/                                       # 📜 全套 00~06 数字 SOP 规则矩阵
 │   │   ├── 📄 00-sop-legacy.md                       # (00-sop-legacy)
 │   │   ├── 📄 01-sop-planning.md                     # (01-sop-planning)
