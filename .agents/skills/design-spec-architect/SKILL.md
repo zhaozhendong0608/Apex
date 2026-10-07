@@ -43,22 +43,27 @@ description: 概要设计说明书 (HLD) 与详细设计说明书 (DLD) 自动�
 
 ---
 
-## 📁 Phase 4: 持久化落盘与看板联动
+## 📁 Phase 4: 持久化落盘、测试说明书自动联动与看板同步
 1. **自动更新落盘文件**：
    - 全局架构：`docs/02-architecture.md`
    - 全局数据库：`docs/03-database-design.md`
    - 全局 API：`docs/04-api-design.md`
    - 模块级 DLD：`docs/modules/<module_name>/dld-<module_name>-v1.0.md`
-2. **看板同步 (Board Sync Protocol)**：
-   - 更新 `.ai/tier3_status.md` 对应任务的 `- **涉及文件**:` 属性追加最新 DLD 路径。
+2. **强制硬性链式触发【测试说明书】生成 (Test-First Linkage)**：
+   - 生成 DLD 后，**必须强制自动联动调用 `quality-verifier` 技能**，同步在 `docs/test-cases/<module_name>-testcase.md` 输出测试说明书（用例矩阵）。
+   - 自动生成配套的 Python 自动化测试脚本 `scripts/tests/test_<module_name>.py`。
+3. **看板同步 (Board Sync Protocol)**：
+   - 更新 `.ai/tier3_status.md` 对应任务的 `- **涉及文件**:` 属性追加最新 DLD 路径与 Testcase 路径。
    - 推演出的子任务自动调用脚本注册：
      ```bash
      python3 .ai/scripts/board.py add Task-YYY "[API实现] <module_name> <接口/表结构开发>" "<白话验收目标>" "docs/modules/<module_name>/dld-<module_name>-v1.0.md"
      ```
 
-3. **输出闭环卡片**：
-   🎉 **HLD/DLD 架构设计说明书已生成/更新完成！**
+4. **输出闭环卡片**：
+   🎉 **HLD/DLD 架构设计说明书与测试说明书已连贯生成完成！**
    - 📄 **详细设计书**：`docs/modules/<module_name>/dld-<module_name>-v1.0.md`
+   - 🧪 **测试说明书**：`docs/test-cases/<module_name>-testcase.md`
+   - 🐍 **测试脚本**：`scripts/tests/test_<module_name>.py`
    - 📋 **看板同步**：已更新 `.ai/tier3_status.md`
-   👉 **下一步**：回复 `2` 或 `继续` 加载 `02-sop-coding.md` 根据最新 DLD 编写代码。
+   👉 **下一步**：回复 `2` 或 `继续` 加载 `02-sop-coding.md` 根据最新 DLD 与测试契约编写代码。
 

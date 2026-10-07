@@ -42,7 +42,10 @@ Apex/                                 # 🚀 顶层工作区 (IDE 打开的根�
 │   ├── 🧠 .cursorrules                # 🧠 AI 行为约束与数字路由表
 │   ├── 🧠 .windsurfrules              # 🧠 IDE 规则适配文件
 │   ├── 📖 README.md                   # 📖 项目门面与使用指南
-│   └── 📁 docs/                       # 📁 本工程 PRD / 架构 / 设计文档
+│   ├── 📁 backend/                    # (Backend)
+│   ├── 📁 docs/                       # 📁 本工程 PRD / 架构 / 设计文档
+│   ├── 📁 frontend/                   # (Frontend)
+│   └── 🛠️ scripts/                   # 🛠️ 自动化控制与分析脚本库
 ├── 🛠️ scripts/                       # 🛠️ 自动化控制与分析脚本库
 │   └── 📁 tests/
 ├── 📄 workflow_guide.html
