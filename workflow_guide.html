@@ -592,7 +592,7 @@
                 </div>
                 <div class="menu-item" onclick="switchPanel('panel-skills', this)">
                     <!-- AUTO-SKILLS-MENU:START -->
-<span>📚 7 大 Skill 协作拓扑图</span>
+<span>📚 8 大 Skill 协作拓扑图</span>
 <!-- AUTO-SKILLS-MENU:END -->
                     <span class="code-tag">Skills</span>
                 </div>
@@ -771,6 +771,37 @@ graph TD
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 🛡️ .cursorrules 核心看门狗与防迷路导航指示协议 Card -->
+                <div class="card" style="margin-top: 20px; border-left: 4px solid var(--accent);">
+                    <div class="card-header">
+                        <div class="card-title">🛡️ AI 行为约束与防迷路导航指示协议 (.cursorrules 规则契约)</div>
+                        <span class="badge badge-warning">.cursorrules 权威约束</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="grid-2">
+                            <div style="padding: 12px; background: rgba(59, 130, 246, 0.05); border-radius: var(--radius-sm); border: 1px dashed rgba(59, 130, 246, 0.3);">
+                                <strong style="color: var(--primary);">📍 1. 防迷路导航指示牌协议 (Navigation Guidance Protocol)</strong>
+                                <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 6px; line-height: 1.6;">
+                                    在与用户展开多轮需求讨论、A/B 方案决策或排错沟通后，AI 物理强制在回复尾部附带<strong>防迷路导航指示牌</strong>：<br/>
+                                    • <strong>📍 当前步骤</strong>：明确所在 8 大 Skill/SOP 位置<br/>
+                                    • <strong>💡 决策小结</strong>：1 句话记下用户刚做出的选型决定<br/>
+                                    • <strong>🚀 决策者建议指令</strong>：提供推荐指令、跳过选项与讨论选项，控制权 100% 留给用户。
+                                </p>
+                            </div>
+
+                            <div style="padding: 12px; background: rgba(16, 185, 129, 0.05); border-radius: var(--radius-sm); border: 1px dashed rgba(16, 185, 129, 0.3);">
+                                <strong style="color: var(--success);">🛡️ 2. 看门狗护栏 4 大铁律 (Watchdog Guardrails)</strong>
+                                <ul style="font-size: 12.5px; color: var(--text-muted); margin-top: 6px; line-height: 1.6; margin-left: 16px;">
+                                    <li><strong>单次范围控制</strong>：单次改动 ≤ 3 文件 & 零新依赖添加。</li>
+                                    <li><strong>日志透传规约</strong>：第三方 API 联调必须打印 Request/Response 日志。</li>
+                                    <li><strong>零 Mock 假数据铁律</strong>：严禁硬编码保底假数据，暴露真实 DB 连通状态。</li>
+                                    <li><strong>看板状态确切操控</strong>：任务状态改动 100% 走 <code>board.py</code> 脚本。</li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1756,6 +1787,17 @@ flowchart LR
                                     </td>
                                 </tr>
                                 <tr>
+                                    <td><strong>[1.5] 技术PoC攻关 (按需)</strong></td>
+                                    <td><code>PoC</code> 或 <code>验证第三方API / 算法</code></td>
+                                    <td><code>poc-tech-prototype</code></td>
+                                    <td>沙盒隔离与 A/B 方案人机交互规约</td>
+                                    <td>
+                                        • 🟢 简单 CRUD 自动跳过直达 DLD<br/>
+                                        • <code>scratch/poc_sandbox/</code> (验证代码)<br/>
+                                        • <code>poc-feasibility-report.md</code> (可行性报告)
+                                    </td>
+                                </tr>
+                                <tr>
                                     <td><strong>[2] 单焦点编码</strong></td>
                                     <td><code>2</code></td>
                                     <td><code>coding-standards</code></td>
@@ -1764,6 +1806,16 @@ flowchart LR
                                         • <code>src/</code> 业务源码 (Controller/Vue3组件)<br/>
                                         • 第三方 API 联调日志 (带 Request/Response)<br/>
                                         • <code>.ai/tier3_status.md</code> (标记 ACTIVE)
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>[2.5] 静态质量审查</strong></td>
+                                    <td><code>审查</code> 或 <code>Review</code></td>
+                                    <td><code>code-quality-reviewer</code></td>
+                                    <td>阿里 Java 规约与 Clean Code 圈复杂度 Guard</td>
+                                    <td>
+                                        • <code>code-quality-report.md</code> (审查报告)<br/>
+                                        • 隐蔽 NPE / 内存泄漏 / SQL注入重构 Diff
                                     </td>
                                 </tr>
                                 <tr>
@@ -1828,7 +1880,7 @@ flowchart LR
                 <div class="panel-header">
                     <div class="panel-title-group">
                         <!-- AUTO-SKILLS-TITLE:START -->
-<h1 class="panel-title">📚 全套 7 大 Skill 技能包协作拓扑图谱</h1>
+<h1 class="panel-title">📚 全套 8 大 Skill 技能包协作拓扑图谱</h1>
 <!-- AUTO-SKILLS-TITLE:END -->
                         <span class="badge badge-primary">Skill System</span>
                     </div>
@@ -1838,7 +1890,7 @@ flowchart LR
                 <div class="card">
                     <div class="card-header">
                         <!-- AUTO-SKILLS-SUBTITLE:START -->
-<div class="card-title">📊 7 大 Skill 互相协作网络 Mermaid 关系图</div>
+<div class="card-title">📊 8 大 Skill 互相协作网络 Mermaid 关系图</div>
 <!-- AUTO-SKILLS-SUBTITLE:END -->
                         <span class="badge badge-primary">Skill Matrix</span>
                     </div>
@@ -1857,16 +1909,19 @@ flowchart LR
                                 <!-- AUTO-SKILLS-MERMAID:START -->
 <pre class="mermaid">
 graph LR
-    S0["🏛️ legacy-archaeologist<br/>(老项目逆向考古专家)"]
-    S1["🔍 requirement-discovery<br/>(需求白话澄清专家)"]
-    S2["🏛️ archetype-architect<br/>(原型架构梳理专家)"]
-    S3["📐 design-spec-architect<br/>(设计说明书专家)"]
-    S4["💻 coding-standards<br/>(代码规范与契约专家)"]
-    S6["🔍 code-quality-reviewer<br/>(静态代码质量审查与漏洞扫描)"]
-    S5["🧪 quality-verifier<br/>(质量验证与小黄鸭排错)"]
-    S0 -->|输出老代码地图| S1
+    S0["🏛️ legacy-archaeologist<br/>(1.老项目逆向考古)"]
+    S1["🔍 requirement-discovery<br/>(2.需求白话澄清)"]
+    S2["🏛️ archetype-architect<br/>(3.UI交互与业务原型)"]
+    S7["⚡ poc-tech-prototype<br/>(4.技术PoC探针/按需)"]
+    S3["📐 design-spec-architect<br/>(5.DLD详细设计说明书)"]
+    S4["💻 coding-standards<br/>(6.按DLD契约写代码)"]
+    S6["🔍 code-quality-reviewer<br/>(7.静态质量审查与重构)"]
+    S5["🧪 quality-verifier<br/>(8.测试碰撞与小黄鸭)"]
+    S0 -->|老代码地图| S1
     S1 -->|澄清需求基线| S2
-    S2 -->|生成交互原型| S3
+    S2 -->|复杂/迷雾场景| S7
+    S7 -->|PoC可行性报告| S3
+    S2 -.->|简单CRUD跳过PoC| S3
     S3 -->|输出 DLD 契约| S4
     S4 -->|编写业务代码| S6
     S6 -->|静态检测与重构| S5
@@ -1933,7 +1988,17 @@ graph LR
                     </div>
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">6. 🧪 quality-verifier</div>
+                            <div class="card-title">6. ⚡ poc-tech-prototype</div>
+                            <span class="badge badge-danger">技术PoC(按需)</span>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>白话职责</strong>：探明技术迷雾，在隔离沙盒中验证第三方 API、复杂算法与技术选型可行性（简单 CRUD 自动跳过）。</p>
+                            <p><strong>核心产出</strong>：<code>scratch/poc_sandbox/</code> 沙盒验证代码、<code>poc-report.md</code> 技术可行性报告。</p>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="card-title">7. 🧪 quality-verifier</div>
                             <span class="badge badge-danger">质量与排错</span>
                         </div>
                         <div class="card-body">
@@ -1951,7 +2016,7 @@ graph LR
                     </div>
                     <div class="card">
                         <div class="card-header">
-                            <div class="card-title">7. 🔍 requirement-discovery</div>
+                            <div class="card-title">8. 🔍 requirement-discovery</div>
                             <span class="badge badge-primary">需求发现</span>
                         </div>
                         <div class="card-body">
