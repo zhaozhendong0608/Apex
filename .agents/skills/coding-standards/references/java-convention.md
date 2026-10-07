@@ -26,19 +26,22 @@ com.yourpackage.module/
 | **性能防爆** | 集合已知元素大小时**必须指定 Capacity** (如 `new HashMap<>(135)`)；批量操作必须使用批量 SQL/`saveBatch()`；`pageSize` 强制上限约束 (`Math.min(pageSize, 100)`)。                                  |
 | **并发安全** | 线程池必须用 `ThreadPoolExecutor` 手动创建并指定有界队列与拒绝策略；时间解析必须使用 `LocalDateTime`。                                                                                            |
 | **事务控制** | 严禁在 `@Transactional` 中包含网络 HTTP / RPC / 大文件 IO；推荐 `TransactionTemplate` 编排最小化事务。                                                                                            |
-| **代码整洁** | 所有类引用**必须在顶部 `import`**，严禁代码正文出现内联全限定路径 (FQCN)；单个方法体 **≤ 30 行**，长逻辑抽取为 `private` 私有方法；嵌套 **≤ 3 层**，强制使用**卫语句 (Guard Clauses) 提前返回**。 |
+| **Lombok 规范**| 所有 POJO/Entity/DTO/VO/BO 对象**强制使用 Lombok 注解** (`@Data`, `@NoArgsConstructor`, `@AllArgsConstructor`, `@Builder`)，**严禁手写模板化 getter/setter/toString/hashCode**；日志打印强制使用 `@Slf4j`。 |
+| **代码整洁** | 所有类引用**必须在顶部 `import`**，严禁代码正文出现内联全限定路径 (FQCN)；单个方法体 **≤ 25 行**，长逻辑抽取为 `private` 私有方法；嵌套 **≤ 3 层**，强制使用**卫语句 (Guard Clauses) 提前返回**；禁止残留被注释掉的废弃代码段。 |
 
 ---
 
 ## 🚫 3. 红线禁令 (Don't - 一票否决)
 
-1. ❌ **严禁代码正文出现全类名内联** (如 `com.example.UserVo`) 与 **`import *` 星号盲目导入**。
-2. ❌ **严禁使用 `Executors` 创建无界线程池** 与 **使用线程不安全的 `SimpleDateFormat`**。
-3. ❌ **严禁在生产环境使用 `BeanUtils.copyProperties`** (强制 MapStruct)。
-4. ❌ **严禁在循环体内使用 `+` 拼接字符串** 或 **频繁 compile 正则表达式** (必须预编译为 `private static final` 常量)。
-5. ❌ **严禁在热点循环中逐条 SQL 操作 DB** (导致 N 次网络 RTT 开销)。
-6. ❌ **严禁在线程池环境使用 `ThreadLocal` 忘记在 `finally` 块中 `.remove()`** (防内存泄漏与数据污染)。
-7. ❌ **严禁 `System.out` 打印** (强制 `@Slf4j`) 与 **空 `catch` 块吞异常**。
+1. ❌ **严禁在 Controller/Service/DAO 层硬编码 Mock 假数据** (如 `List.of(Map.of(...))` 或假 Bean)，所有 API 必须 100% 连接真实数据库或外部微服务。
+2. ❌ **严禁手写繁琐模板化的 Getter/Setter 方法** (强制使用 Lombok 注解)。
+3. ❌ **严禁代码正文出现全类名内联** (如 `com.example.UserVo`) 与 **`import *` 星号盲目导入**。
+4. ❌ **严禁使用 `Executors` 创建无界线程池** 与 **使用线程不安全的 `SimpleDateFormat`**。
+5. ❌ **严禁在生产环境使用 `BeanUtils.copyProperties`** (强制 MapStruct)。
+6. ❌ **严禁在循环体内使用 `+` 拼接字符串** 或 **频繁 compile 正则表达式** (必须预编译为 `private static final` 常量)。
+7. ❌ **严禁在热点循环中逐条 SQL 操作 DB** (导致 N 次网络 RTT 开销)。
+8. ❌ **严禁在线程池环境使用 `ThreadLocal` 忘记在 `finally` 块中 `.remove()`** (防内存泄漏与数据污染)。
+9. ❌ **严禁 `System.out` 打印** (强制 `@Slf4j`) 与 **空 `catch` 块吞异常**。
 
 ---
 

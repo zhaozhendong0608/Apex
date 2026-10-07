@@ -25,6 +25,14 @@ description: 统一代码规范与 DLD 契约强绑定专家。负责在代码�
 - **贯穿 TraceID**：日志配置 MDC 包含 `[X-Trace-Id]` 占位符，支持全链路追踪；
 - **结构化日志**：入出参、状态变更及 Exception 必须打印包含关键标识（如 `userId`/`orderNo`）与全量 Traceback 的日志。
 
+### 4. 零 Mock 假数据铁律 (Zero Mock Enforcement)
+- **禁止硬编码假数据**：严禁在 Controller/Service/API 层使用 `List.of(Map.of(...))`、`new HashMap()` 硬编码或写死返回值假数据。
+- **真实数据库/接口联调**：所有业务 API 必须 100% 连接真实数据库 (MySQL/H2) 或第三方真实接口进行 CRUD 操作。
+
+### 5. 代码整洁度与 Lombok 强规范 (Clean Code & Lombok Standards)
+- **Lombok 注解强约束**：所有的 Entity、DTO、VO、BO 对象必须统一强制使用 `@Data`, `@NoArgsConstructor`, `@AllArgsConstructor`, `@Builder` 等 Lombok 注解，严禁手写冗余模板化的 getter/setter/toString 方法。
+- **极致代码整洁度**：删除任何废弃/被注释掉的代码段，保持简洁干净；方法行数 ≤ 25 行，单文件 ≤ 200 行，强制使用卫语句提前返回。
+
 ---
 
 ## 🛠️ 执行流程 (Step-by-Step Workflow)

@@ -24,10 +24,10 @@
 ## 5. 动态 Skill 按需加载路由 (Tiered Lazy Loading Registry)
 AI 在执行具体 SOP 环节时，按需调用 `view_file` 读取对应的 `SKILL.md`（严禁静态全量装载，极简控制 Token 占用）：
 <!-- AUTO-SKILLS-MACRO:START -->
-- **`requirement-discovery`** (`.agents/skills/requirement-discovery/`) ➔ 模糊需求澄清、白话决策树与需求基线收敛
-- **`archetype-architect`** (`.agents/skills/archetype-architect/`) ➔ 静态 DOM 确定性扫描、Grill 盲区质询与 Sign-off
-- **`design-spec-architect`** (`.agents/skills/design-spec-architect/`) ➔ 钧天科技 V1.0 HLD/DLD 标准设计说明书生成与 Diff 增量
-- **`coding-standards`** (`.agents/skills/coding-standards/`) ➔ DLD 契约强绑定、按需语言规约与公共资产影响分析
-- **`quality-verifier`** (`.agents/skills/quality-verifier/`) ➔ 环境探针预检、TDD 契约测试与小黄鸭探针排错
-- **`legacy-archaeologist`** (`.agents/skills/legacy-archaeologist/`) ➔ 老项目自顶向下切片追踪与逆向契约提纯
+- **`archetype-architect`**：原型架构与模块关系梳理专家。解析静态 HTML 原型，通过反向质询 (Grill Protocol) 补全隐藏业务逻辑，按场景选配生成 Mermaid 图表并强制落盘归档。
+- **`coding-standards`**：统一代码规范与 DLD 契约强绑定专家。负责在代码编写阶段，强约束 AI 逐字绑定 DLD 详细设计说明书中的数据库表结构、字段名与 API 契约，并按需加载 Java 或 Vue 语言级别的分层开发规约。
+- **`design-spec-architect`**：概要设计说明书 (HLD) 与详细设计说明书 (DLD) 自动生成与变更同步专家。基于 PRD 和原型推演系统分层、表结构、接口契约与异常流，严格遵循钧天科技 V1.0 8大章节标准，并在需求变更时增量更新架构文档。
+- **`legacy-archaeologist`**：老项目逆向考古与代码解密专家。负责在面对缺乏文档、代码庞杂的老项目时，自顶向下扫描路由与 Controller/Service/DAO 链路切片，逆向提取 API 契约与表结构关系，自动生成 legacy_hld.md，并编写反向行为锁死探针防止重构改崩旧业务。
+- **`quality-verifier`**：质量验证、TDD测试用例先行与小黄鸭探针排错专家。负责在编码前根据 DLD 契约自动生成测试用例文档与自动化脚本，在编码后执行契约碰撞测试，并在运行/编译报错时激活小黄鸭探针（日志抓取➔根因分析➔最小化验证）进行精准排错。
+- **`requirement-discovery`**：AI 主导的软件与工业系统需求发现和澄清流程。用于客户只给出一句话、模糊、不完整、口语化需求，或用户要求“分析需求、梳理需求、挖掘隐性需求、帮我问客户、把需求问清楚、像产品经理/行业专家一样澄清需求”时。先在内部展开目标、场景、异常、生命周期、上下游、数据、规模、权限与验收，再只向用户暴露真正需要其提供事实或做业务取舍的高价值问题。所有提问必须使用非技术用户能理解的白话和具体场景；区分已确认、AI 推断、暂定、待确认和潜在需求；用户不知道时给推荐默认值继续推进；需求未稳定前不得进入具体技术选型。
 <!-- AUTO-SKILLS-MACRO:END -->

@@ -10,97 +10,127 @@
 
 <!-- AUTO-TREE-FULL:START -->
 ```plaintext
-Apex/                                       # 🚀 顶层工作区 (IDE 打开的根目录)
-├── 🧩 .agents/                              # 🧩 AI 专属技能包库
+Apex/                                                # 🚀 顶层工作区 (IDE 打开的根目录)
+├── 🧩 .agents/                                       # 🧩 AI 专属技能包库
 │   └── 📁 skills/
-│       ├── 📁 archetype-architect/          # (原型架构与模块关系梳理专家)
-│       │   ├── 📖 README.md                 # 📖 项目门面与使用指南
-│       │   ├── 📄 SKILL.md                  # 原型架构与模块关系梳理专家。解析静态 HTML 原型，通过反向质询 (Grill Protocol) 补全隐藏业务逻辑，按场景选配生成 Mermaid 图表并强制落盘归档。
+│       ├── 📁 archetype-architect/                   # (原型架构与模块关系梳理专家)
+│       │   ├── 📖 README.md                          # 📖 项目门面与使用指南
+│       │   ├── 📄 SKILL.md                           # 原型架构与模块关系梳理专家。解析静态 HTML 原型，通过反向质询 (Grill Protocol) 补全隐藏业务逻辑，按场景选配生成 Mermaid 图表并强制落盘归档。
 │       │   ├── 📁 examples/
 │       │   ├── 📁 references/
-│       │   ├── 🛠️ scripts/                 # 🛠️ 自动化控制与分析脚本库
-│       │   └── 📁 templates/                # 📁 文档与原型外壳模板
-│       ├── 📁 coding-standards/             # (统一代码规范与 DLD 契约绑定专家)
-│       │   ├── 📖 README.md                 # 📖 项目门面与使用指南
-│       │   ├── 📄 SKILL.md                  # 统一代码规范与 DLD 契约强绑定专家。负责在代码编写阶段，强约束 AI 逐字绑定 DLD 详细设计说明书中的数据库表结构、字段名与 API 契约，并按需加载 Java 或 Vue 语言级别的分层开发规约。
+│       │   ├── 🛠️ scripts/                          # 🛠️ 自动化控制与分析脚本库
+│       │   └── 📁 templates/                         # 📁 文档与原型外壳模板
+│       ├── 📁 coding-standards/                      # (统一代码规范与 DLD 契约绑定专家)
+│       │   ├── 📖 README.md                          # 📖 项目门面与使用指南
+│       │   ├── 📄 SKILL.md                           # 统一代码规范与 DLD 契约强绑定专家。负责在代码编写阶段，强约束 AI 逐字绑定 DLD 详细设计说明书中的数据库表结构、字段名与 API 契约，并按需加载 Java 或 Vue 语言级别的分层开发规约。
 │       │   └── 📁 references/
-│       ├── 📁 design-spec-architect/        # 📐 Design-Spec-Architect (架构设计说明书与变更同步专家)
-│       │   ├── 📖 README.md                 # 📖 项目门面与使用指南
-│       │   ├── 📄 SKILL.md                  # 概要设计说明书 (HLD) 与详细设计说明书 (DLD) 自动生成与变更同步专家。基于 PRD 和原型推演系统分层、表结构、接口契约与异常流，严格遵循钧天科技 V1.0 8大章节标准，并在需求变更时增量更新架构文档。
+│       ├── 📁 design-spec-architect/                 # 📐 Design-Spec-Architect (架构设计说明书与变更同步专家)
+│       │   ├── 📖 README.md                          # 📖 项目门面与使用指南
+│       │   ├── 📄 SKILL.md                           # 概要设计说明书 (HLD) 与详细设计说明书 (DLD) 自动生成与变更同步专家。基于 PRD 和原型推演系统分层、表结构、接口契约与异常流，严格遵循钧天科技 V1.0 8大章节标准，并在需求变更时增量更新架构文档。
 │       │   ├── 📁 examples/
 │       │   ├── 📁 references/
-│       │   └── 📁 templates/                # 📁 文档与原型外壳模板
-│       ├── 📁 legacy-archaeologist/         # (老项目逆向考古与代码解密专家)
-│       │   ├── 📖 README.md                 # 📖 项目门面与使用指南
-│       │   ├── 📄 SKILL.md                  # 老项目逆向考古与代码解密专家。负责在面对缺乏文档、代码庞杂的老项目时，自顶向下扫描路由与 Controller/Service/DAO 链路切片，逆向提取 API 契约与表结构关系，自动生成 legacy_hld.md，并编写反向行为锁死探针防止重构改崩旧业务。
+│       │   └── 📁 templates/                         # 📁 文档与原型外壳模板
+│       ├── 📁 legacy-archaeologist/                  # (老项目逆向考古与代码解密专家)
+│       │   ├── 📖 README.md                          # 📖 项目门面与使用指南
+│       │   ├── 📄 SKILL.md                           # 老项目逆向考古与代码解密专家。负责在面对缺乏文档、代码庞杂的老项目时，自顶向下扫描路由与 Controller/Service/DAO 链路切片，逆向提取 API 契约与表结构关系，自动生成 legacy_hld.md，并编写反向行为锁死探针防止重构改崩旧业务。
 │       │   ├── 📁 references/
-│       │   └── 🛠️ scripts/                 # 🛠️ 自动化控制与分析脚本库
-│       ├── 📁 quality-verifier/             # 🧪 Quality-Verifier (质量验证与小黄鸭排错专家)
-│       │   ├── 📖 README.md                 # 📖 项目门面与使用指南
-│       │   ├── 📄 SKILL.md                  # 质量验证、TDD测试用例先行与小黄鸭探针排错专家。负责在编码前根据 DLD 契约自动生成测试用例文档与自动化脚本，在编码后执行契约碰撞测试，并在运行/编译报错时激活小黄鸭探针（日志抓取➔根因分析➔最小化验证）进行精准排错。
+│       │   └── 🛠️ scripts/                          # 🛠️ 自动化控制与分析脚本库
+│       ├── 📁 quality-verifier/                      # 🧪 Quality-Verifier (质量验证与小黄鸭排错专家)
+│       │   ├── 📖 README.md                          # 📖 项目门面与使用指南
+│       │   ├── 📄 SKILL.md                           # 质量验证、TDD测试用例先行与小黄鸭探针排错专家。负责在编码前根据 DLD 契约自动生成测试用例文档与自动化脚本，在编码后执行契约碰撞测试，并在运行/编译报错时激活小黄鸭探针（日志抓取➔根因分析➔最小化验证）进行精准排错。
 │       │   ├── 📁 references/
-│       │   └── 🛠️ scripts/                 # 🛠️ 自动化控制与分析脚本库
-│       └── 📁 requirement-discovery/        # 🔍 Requirement-Discovery (AI 主导的需求发现与澄清流程)
-│           ├── 📖 README.md                 # 📖 项目门面与使用指南
-│           ├── 📄 SKILL.md                  # AI 主导的软件与工业系统需求发现和澄清流程。用于客户只给出一句话、模糊、不完整、口语化需求，或用户要求“分析需求、梳理需求、挖掘隐性需求、帮我问客户、把需求问清楚、像产品经理/行业专家一样澄清需求”时。先在内部展开目标、场景、异常、生命周期、上下游、数据、规模、权限与验收，再只向用户暴露真正需要其提供事实或做业务取舍的高价值问题。所有提问必须使用非技术用户能理解的白话和具体场景；区分已确认、AI 推断、暂定、待确认和潜在需求；用户不知道时给推荐默认值继续推进；需求未稳定前不得进入具体技术选型。
+│       │   └── 🛠️ scripts/                          # 🛠️ 自动化控制与分析脚本库
+│       └── 📁 requirement-discovery/                 # 🔍 Requirement-Discovery (AI 主导的需求发现与澄清流程)
+│           ├── 📖 README.md                          # 📖 项目门面与使用指南
+│           ├── 📄 SKILL.md                           # AI 主导的软件与工业系统需求发现和澄清流程。用于客户只给出一句话、模糊、不完整、口语化需求，或用户要求“分析需求、梳理需求、挖掘隐性需求、帮我问客户、把需求问清楚、像产品经理/行业专家一样澄清需求”时。先在内部展开目标、场景、异常、生命周期、上下游、数据、规模、权限与验收，再只向用户暴露真正需要其提供事实或做业务取舍的高价值问题。所有提问必须使用非技术用户能理解的白话和具体场景；区分已确认、AI 推断、暂定、待确认和潜在需求；用户不知道时给推荐默认值继续推进；需求未稳定前不得进入具体技术选型。
 │           └── 📁 references/
-├── 🧠 .ai/                                  # ⚙️ 统一工作流控制中心 (三层记忆金字塔)
-│   ├── 🛠️ scripts/                         # 🛠️ 自动化控制与分析脚本库
-│   │   ├── 📄 arch.py                       # 🏛️ 老项目拓扑图谱分析脚本
-│   │   ├── 📄 board.py                      # 📊 确定性看板与任务状态控制脚本
-│   │   └── 📄 sync_tree.py                  # 🔄 目录树与 Markdown 文档自动同步脚本
-│   ├── 📜 sop/                              # 📜 全套 00~06 数字 SOP 规则矩阵
-│   │   ├── 📄 00-sop-legacy.md              # (00-sop-legacy)
-│   │   ├── 📄 01-sop-planning.md            # (01-sop-planning)
-│   │   ├── 📄 02-sop-coding.md              # (02-sop-coding)
-│   │   ├── 📄 03-sop-debug.md               # (03-sop-debug)
-│   │   ├── 📄 03_fast-sop-fasttrack.md      # (03_fast-sop-fasttrack)
-│   │   ├── 📄 04-sop-review.md              # (04-sop-review)
-│   │   ├── 📄 05-sop-archive.md             # (05-sop-archive)
-│   │   └── 📄 06-sop-resume.md              # (06-sop-resume)
-│   ├── 📄 tier1_snapshot.md                 # [第一层：极简快照名片层] 项目动态快照 (tier1_snapshot.md) [DEMO 示例 / 样例模板]
-│   ├── 📄 tier2_legacy_arch.md              # (tier2_legacy_arch.md)
-│   ├── 📄 tier2_modules.md                  # [第二层：宏观业务大模块总览层] 大模块矩阵索引表 (tier2_modules.md) [DEMO 示例 / 样例模板]
-│   ├── 📄 tier3_handover.md                 # [第三层：微观原子任务层] 历史交接黑匣子 (tier3_handover.md) [DEMO 示例 / 样例模板]
-│   └── 📄 tier3_status.md                   # 📋 [第三层：微观原子任务层] 实时任务看板 (tier3_status.md) [DEMO 示例 / 样例模板]
-├── 🧠 .cursorrules                          # 🧠 AI 行为约束与数字路由表
-├── 🧠 .windsurfrules                        # 🧠 IDE 规则适配文件
-├── 📖 README.md                             # 📖 项目门面与使用指南
-├── 📖 WORKFLOW_GUIDE.md                     # 📖 完整工作流与设计指南
-├── 💻 base_template/                        # [业务项目名称 / Project Name]
-│   ├── 🧩 .agents/                          # 🧩 AI 专属技能包库
+├── 🧠 .ai/                                           # ⚙️ 统一工作流控制中心 (三层记忆金字塔)
+│   ├── 🛠️ scripts/                                  # 🛠️ 自动化控制与分析脚本库
+│   │   ├── 📄 arch.py                                # 🏛️ 老项目拓扑图谱分析脚本
+│   │   ├── 📄 board.py                               # 📊 确定性看板与任务状态控制脚本
+│   │   └── 📄 sync_tree.py                           # 🔄 目录树与 Skill 路由自动同步脚本
+│   ├── 📜 sop/                                       # 📜 全套 00~06 数字 SOP 规则矩阵
+│   │   ├── 📄 00-sop-legacy.md                       # (00-sop-legacy)
+│   │   ├── 📄 01-sop-planning.md                     # (01-sop-planning)
+│   │   ├── 📄 02-sop-coding.md                       # (02-sop-coding)
+│   │   ├── 📄 03-sop-debug.md                        # (03-sop-debug)
+│   │   ├── 📄 03_fast-sop-fasttrack.md               # (03_fast-sop-fasttrack)
+│   │   ├── 📄 04-sop-review.md                       # (04-sop-review)
+│   │   ├── 📄 05-sop-archive.md                      # (05-sop-archive)
+│   │   └── 📄 06-sop-resume.md                       # (06-sop-resume)
+│   ├── 📄 tier1_snapshot.md                          # [第一层：极简快照名片层] 项目动态快照 (tier1_snapshot.md)
+│   ├── 📄 tier2_legacy_arch.md                       # (tier2_legacy_arch.md)
+│   ├── 📄 tier2_modules.md                           # [第二层：宏观业务大模块总览层] 大模块矩阵索引表 (tier2_modules.md) [DEMO 示例 / 样例模板]
+│   ├── 📄 tier3_handover.md                          # [第三层：微观原子任务层] 历史交接黑匣子 (tier3_handover.md) [DEMO 示例 / 样例模板]
+│   └── 📄 tier3_status.md                            # 📋 [第三层：微观原子任务层] 实时任务看板 (tier3_status.md) [DEMO 示例 / 样例模板]
+├── 🧠 .cursorrules                                   # 🧠 AI 行为约束与数字路由表
+├── 🧠 .windsurfrules                                 # 🧠 IDE 规则适配文件
+├── 📖 README.md                                      # 📖 项目门面与使用指南
+├── 📖 WORKFLOW_GUIDE.md                              # 📖 完整工作流与设计指南
+├── 💻 base_template/                                 # [业务项目名称 / Project Name]
+│   ├── 🧩 .agents/                                   # 🧩 AI 专属技能包库
 │   │   └── 📁 skills/
 │   │       └── 📁 requirement-discovery/
-│   ├── 🧠 .cursorrules                      # 🧠 AI 行为约束与数字路由表
-│   ├── 🧠 .windsurfrules                    # 🧠 IDE 规则适配文件
-│   ├── 📖 README.md                         # 📖 项目门面与使用指南
-│   └── 📁 docs/                             # 📁 本工程 PRD / 架构 / 设计文档
-│       ├── 📄 01-requirements.md            # 🗺️ 01 - 业务需求全景地图与 PRD 导航中心 (Requirements Master MAP)
-│       ├── 📄 02-architecture.md            # 🏛️ 02 - 概要设计与系统架构图
-│       ├── 📄 03-database-design.md         # 🗄️ 03 - 数据库设计与 ER 关系规约
-│       ├── 📄 04-api-design.md              # 🌐 04 - API 接口详细设计规范
-│       ├── 📄 05-known-limitations.md       # (Workflow Defect & Improvement Board)
-│       ├── 📄 06-legacy-graph-analysis.md   # 🕸️ 老项目路由元数据拆解与关系图谱分析指南 (Legacy Metadata Graph Analysis Guide)
-│       ├── 📁 db/
-│       │   ├── 📄 base.sql
-│       │   ├── 📁 migrations/               # 🗄️ 增量业务 SQL 演进目录 (db/migrations)
-│       │   └── 📄 service.sql
-│       ├── 🎨 design/                       # /UX 设计规范与主题资产库 (Design Assets Directory)
-│       │   ├── 📖 README.md                 # 📖 项目门面与使用指南
-│       │   └── 📄 design-tokens.md          # (Design System Tokens)
-│       ├── 📦 modules/                      # (Modules Directory)
-│       │   ├── 📖 README.md                 # 📖 项目门面与使用指南
-│       │   ├── 📁 auth/
-│       │   └── 📁 order/
-│       ├── 📁 templates/                    # 📁 文档与原型外壳模板库 (Templates Directory)
-│       │   ├── 📖 README.md                 # 📖 项目门面与使用指南
-│       │   ├── 📄 base-shell-template.html
-│       │   └── 📄 user-manual-template.md   # [项目名称] 产品使用手册与软著说明书
-│       └── 📄 user-manual.md                # (软著申报参考)
-├── 🛠️ scripts/                             # 🛠️ 自动化控制与分析脚本库
+│   ├── 🧠 .cursorrules                               # 🧠 AI 行为约束与数字路由表
+│   ├── 🧠 .windsurfrules                             # 🧠 IDE 规则适配文件
+│   ├── 📖 README.md                                  # 📖 项目门面与使用指南
+│   ├── 📁 backend/                                   # (Backend)
+│   │   ├── 📖 README.md                              # 📖 项目门面与使用指南
+│   │   ├── 📄 pom.xml
+│   │   └── 💻 src/
+│   │       └── 📁 main/
+│   ├── 📁 docs/                                      # 📁 本工程 PRD / 架构 / 设计文档
+│   │   ├── 📄 01-requirements.md                     # 🗺️ 01 - 业务需求全景地图与 PRD 导航中心 (Requirements Master MAP)
+│   │   ├── 📄 02-architecture.md                     # 🏛️ 02 - 概要设计与系统架构图
+│   │   ├── 📄 03-database-design.md                  # 🗄️ 03 - 数据库设计与 ER 关系规约
+│   │   ├── 📄 04-api-design.md                       # 🌐 04 - API 接口详细设计规范
+│   │   ├── 📄 05-known-limitations.md                # (Workflow Defect & Improvement Board)
+│   │   ├── 📄 06-legacy-graph-analysis.md            # 🕸️ 老项目路由元数据拆解与关系图谱分析指南 (Legacy Metadata Graph Analysis Guide)
+│   │   ├── 📁 db/
+│   │   │   ├── 📄 base.sql
+│   │   │   ├── 📁 migrations/                        # 🗄️ 增量业务 SQL 演进目录 (db/migrations)
+│   │   │   └── 📄 service.sql
+│   │   ├── 🎨 design/                                # /UX 设计规范与主题资产库 (Design Assets Directory)
+│   │   │   ├── 📖 README.md                          # 📖 项目门面与使用指南
+│   │   │   └── 📄 design-tokens.md                   # (Design System Tokens)
+│   │   ├── 📁 handovers/
+│   │   │   └── 📄 handover-20261007-sys_platform.md  # (Handover Document)
+│   │   ├── 📦 modules/                               # (Modules Directory)
+│   │   │   ├── 📖 README.md                          # 📖 项目门面与使用指南
+│   │   │   ├── 📁 auth/
+│   │   │   ├── 📁 order/
+│   │   │   └── 📁 sys_platform/
+│   │   ├── 📁 templates/                             # 📁 文档与原型外壳模板库 (Templates Directory)
+│   │   │   ├── 📖 README.md                          # 📖 项目门面与使用指南
+│   │   │   ├── 📄 base-shell-template.html
+│   │   │   └── 📄 user-manual-template.md            # [项目名称] 产品使用手册与软著说明书
+│   │   ├── 📁 test-cases/
+│   │   │   └── 📄 sys_platform-testcase.md           # 🧪 TC-SYS-PLATFORM-V1.0: 通用后台管理平台测试说明书 (测试用例矩阵)
+│   │   └── 📄 user-manual.md                         # (软著申报参考)
+│   ├── 📁 frontend/                                  # (Frontend)
+│   │   ├── 📖 README.md                              # 📖 项目门面与使用指南
+│   │   ├── 📄 index.html
+│   │   ├── 📄 package-lock.json
+│   │   ├── 📄 package.json
+│   │   ├── 💻 src/
+│   │   │   ├── 📄 App.vue
+│   │   │   ├── 📁 api/
+│   │   │   ├── 📄 main.ts
+│   │   │   ├── 📁 router/
+│   │   │   ├── 📁 stores/
+│   │   │   ├── 📄 style.css
+│   │   │   ├── 📁 types/
+│   │   │   ├── 📁 utils/
+│   │   │   └── 📁 views/
+│   │   ├── 📄 tsconfig.json
+│   │   └── 📄 vite.config.ts
+│   └── 🛠️ scripts/                                  # 🛠️ 自动化控制与分析脚本库
+│       └── 📁 tests/
+│           └── 📄 test_sys_platform.py
+├── 🛠️ scripts/                                      # 🛠️ 自动化控制与分析脚本库
 │   └── 📁 tests/
 ├── 📄 workflow_guide.html
-└── 📄 工作流问题待办.md                            # 📋 Apex 工作流问题诊断与优化待办清单 (Workflow Issue & Action Plan)
+└── 📄 工作流问题待办.md                                     # 📋 Apex 工作流问题诊断与优化待办清单 (Workflow Issue & Action Plan)
 ```
 <!-- AUTO-TREE-FULL:END -->
 

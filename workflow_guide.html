@@ -1473,7 +1473,8 @@ flowchart LR
                     <div class="chat-output-box">
                         <div class="chat-output-title">📄 本步骤确定性落盘产出物：</div>
                         • 小黄鸭根因分析诊断报告<br/>
-                        • <code>AuthServiceImpl.java</code> 第 38 行微创修复代码
+                        • <code>AuthServiceImpl.java</code> 第 38 行微创修复代码<br/>
+                        • 💡 踩坑知识卡片 <code>knowledge-cards/postmortem-*.md</code> (遇到隐蔽/框架死穴时自动落盘)
                     </div>
                 </div>
 
@@ -1767,10 +1768,11 @@ flowchart LR
                                     <td><strong>[3] 报错排错</strong></td>
                                     <td><code>3, 报 NullPointerException</code></td>
                                     <td><code>quality-verifier</code></td>
-                                    <td>小黄鸭 3 步探针与秘钥脱敏规约</td>
+                                    <td>小黄鸭 3 步探针与踩坑知识反哺机制</td>
                                     <td>
                                         • 小黄鸭根因分析诊断报告<br/>
-                                        • 微创修补代码 (仅动错的那 1 行)
+                                        • 微创修补代码 (仅动错的那 1 行)<br/>
+                                        • 🧠 踩坑知识卡片 <code>knowledge-cards/postmortem-*.md</code>
                                     </td>
                                 </tr>
                                 <tr>
@@ -1919,8 +1921,17 @@ graph LR
                             <span class="badge badge-danger">质量与排错</span>
                         </div>
                         <div class="card-body">
-                            <p><strong>白话职责</strong>：小黄鸭探针微创排错，契约碰撞测试。</p>
-                            <p><strong>核心产出</strong>：小黄鸭报告、微创修补代码。</p>
+                            <p><strong>白话职责</strong>：小黄鸭探针微创排错、契约碰撞测试，自动沉淀踩坑知识。</p>
+                            <p><strong>核心产出</strong>：小黄鸭诊断报告、微创修复代码、<code>knowledge-cards/postmortem-*.md</code> 踩坑卡片。</p>
+                            
+                            <div style="margin-top: 12px; padding: 10px; background: rgba(239, 68, 68, 0.05); border-radius: var(--radius-sm); border: 1px dashed rgba(239, 68, 68, 0.3); font-size: 12.5px;">
+                                <strong style="color: var(--danger);">🧠 踩坑知识卡片 3 大核心好处：</strong>
+                                <ul style="margin-left: 16px; margin-top: 6px; line-height: 1.6; color: var(--text-muted);">
+                                    <li><strong>1. 经验物理存盘</strong>：隐蔽 Bug (如 Spring Boot 3 与 MyBatis-Plus 兼容死穴) 自动归档，团队/AI 永久不踩重复坑。</li>
+                                    <li><strong>2. 零 Token 预加载开销</strong>：基于按需延迟加载 (Lazy Loading)，平时完全不读入上下文；只有真实触发 Exception 时才单点调阅 (仅 ~200 Token)，极速且低消耗。</li>
+                                    <li><strong>3. 看门狗进化</strong>：自动将踩坑经验反哺演进为全局看门狗规范，让 AI 随项目开发越用越聪明！</li>
+                                </ul>
+                            </div>
                         </div>
                     </div>
 
