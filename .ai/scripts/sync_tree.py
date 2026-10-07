@@ -166,6 +166,13 @@ KNOWN_SKILLS_META = {
         "badge_text": "质量审查",
         "duty": "静态扫描 NPE、内存泄漏、并发隐患、SQL注入与圈复杂度过高代码。",
         "output": "<code>code-quality-report.md</code> 代码审查报告、微创重构建议。",
+    },
+    "poc-tech-prototype": {
+        "title": "⚡ poc-tech-prototype",
+        "badge": "badge-danger",
+        "badge_text": "技术PoC(按需)",
+        "duty": "探明技术迷雾，在隔离沙盒中验证第三方 API、复杂算法与技术选型可行性（简单 CRUD 自动跳过）。",
+        "output": "<code>scratch/poc_sandbox/</code> 沙盒验证代码、<code>poc-report.md</code> 技术可行性报告。",
     }
 }
 
@@ -214,13 +221,14 @@ def generate_skills_html_mermaid(skills_list):
     ]
     
     known_nodes = {
-        "legacy-archaeologist": 'S0["🏛️ legacy-archaeologist<br/>(老项目逆向考古专家)"]',
-        "requirement-discovery": 'S1["🔍 requirement-discovery<br/>(需求白话澄清专家)"]',
-        "archetype-architect": 'S2["🏛️ archetype-architect<br/>(原型架构梳理专家)"]',
-        "design-spec-architect": 'S3["📐 design-spec-architect<br/>(设计说明书专家)"]',
-        "coding-standards": 'S4["💻 coding-standards<br/>(代码规范与契约专家)"]',
-        "code-quality-reviewer": 'S6["🔍 code-quality-reviewer<br/>(静态代码质量审查与漏洞扫描)"]',
-        "quality-verifier": 'S5["🧪 quality-verifier<br/>(质量验证与小黄鸭排错)"]'
+        "legacy-archaeologist": 'S0["🏛️ legacy-archaeologist<br/>(1.老项目逆向考古)"]',
+        "requirement-discovery": 'S1["🔍 requirement-discovery<br/>(2.需求白话澄清)"]',
+        "archetype-architect": 'S2["🏛️ archetype-architect<br/>(3.UI交互与业务原型)"]',
+        "poc-tech-prototype": 'S7["⚡ poc-tech-prototype<br/>(4.技术PoC探针/按需)"]',
+        "design-spec-architect": 'S3["📐 design-spec-architect<br/>(5.DLD详细设计说明书)"]',
+        "coding-standards": 'S4["💻 coding-standards<br/>(6.按DLD契约写代码)"]',
+        "code-quality-reviewer": 'S6["🔍 code-quality-reviewer<br/>(7.静态质量审查与重构)"]',
+        "quality-verifier": 'S5["🧪 quality-verifier<br/>(8.测试碰撞与小黄鸭)"]'
     }
 
     present_keys = [s["name"] for s in skills_list]
@@ -237,11 +245,18 @@ def generate_skills_html_mermaid(skills_list):
             extra_nodes.append(node_id)
 
     if "legacy-archaeologist" in present_keys and "requirement-discovery" in present_keys:
-        lines.append('    S0 -->|输出老代码地图| S1')
+        lines.append('    S0 -->|老代码地图| S1')
     if "requirement-discovery" in present_keys and "archetype-architect" in present_keys:
         lines.append('    S1 -->|澄清需求基线| S2')
-    if "archetype-architect" in present_keys and "design-spec-architect" in present_keys:
+
+    if "archetype-architect" in present_keys and "poc-tech-prototype" in present_keys:
+        lines.append('    S2 -->|复杂/迷雾场景| S7')
+        if "design-spec-architect" in present_keys:
+            lines.append('    S7 -->|PoC可行性报告| S3')
+            lines.append('    S2 -.->|简单CRUD跳过PoC| S3')
+    elif "archetype-architect" in present_keys and "design-spec-architect" in present_keys:
         lines.append('    S2 -->|生成交互原型| S3')
+
     if "design-spec-architect" in present_keys and "coding-standards" in present_keys:
         lines.append('    S3 -->|输出 DLD 契约| S4')
     if "coding-standards" in present_keys and "code-quality-reviewer" in present_keys:
