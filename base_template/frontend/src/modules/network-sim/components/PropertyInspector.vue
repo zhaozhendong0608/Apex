@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { Plus, Delete } from '@element-plus/icons-vue'
-import type { AclRuleDTO, RouteEntryDTO } from '../types'
+import type { AclRuleDTO, RouteEntryDTO, NatRuleDTO } from '../types'
 
 export interface SelectedNodeData {
   id: string
@@ -14,6 +14,7 @@ export interface SelectedNodeData {
   disabled?: boolean
   acls: AclRuleDTO[]
   routes?: RouteEntryDTO[]
+  natRules?: NatRuleDTO[]
 }
 
 export interface SelectedEdgeData {
@@ -198,6 +199,39 @@ const handleAddRoute = () => {
 const handleDeleteRoute = (index: number) => {
   if (!localNode.value || !localNode.value.routes) return
   localNode.value.routes.splice(index, 1)
+  handleNodeChange()
+}
+
+// 新增 NAT 规则 (支持 SNAT 源地址伪装 或 DNAT 目的端口映射)
+const handleAddNatRule = (type: 'SNAT' | 'DNAT' = 'SNAT') => {
+  if (!localNode.value) return
+  if (!localNode.value.natRules) {
+    localNode.value.natRules = []
+  }
+  const newRule: NatRuleDTO = type === 'SNAT' ? {
+    id: 'nat_' + Math.random().toString(36).substring(2, 6),
+    type: 'SNAT',
+    origSrc: '192.168.1.0/24',
+    transSrc: localNode.value.ip || '10.0.0.1',
+    description: '内部私网出境源地址伪装'
+  } : {
+    id: 'nat_' + Math.random().toString(36).substring(2, 6),
+    type: 'DNAT',
+    extIp: localNode.value.ip || '10.0.0.1',
+    extPort: 8080,
+    intIp: '172.16.1.100',
+    intPort: 6030,
+    protocol: 'TCP',
+    description: '公网端口映射入站至内部服务'
+  }
+  localNode.value.natRules.push(newRule)
+  handleNodeChange()
+}
+
+// 删除 NAT 规则项
+const handleDeleteNatRule = (index: number) => {
+  if (!localNode.value || !localNode.value.natRules) return
+  localNode.value.natRules.splice(index, 1)
   handleNodeChange()
 }
 </script>
@@ -443,6 +477,124 @@ const handleDeleteRoute = (index: number) => {
                   v-model="rt.description"
                   class="rule-input-desc"
                   placeholder="路由描述，如：通往OT控制区..."
+                  @input="handleNodeChange"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 防火墙与网关设备：NAT 网络地址转换配置面板 (SNAT / DNAT) -->
+        <div v-if="['FIREWALL', 'ROUTER', 'GATEWAY'].includes(localNode.type)" class="acl-section">
+          <div class="divider"></div>
+          <div class="acl-head-bar">
+            <span class="acl-title">🔄 NAT 地址转换 (SNAT / DNAT)</span>
+            <div class="nat-btn-group">
+              <button class="btn-mini-add" title="新增源地址伪装" @click="handleAddNatRule('SNAT')">
+                <el-icon><Plus /></el-icon> SNAT
+              </button>
+              <button class="btn-mini-add" title="新增目的端口映射" @click="handleAddNatRule('DNAT')">
+                <el-icon><Plus /></el-icon> DNAT
+              </button>
+            </div>
+          </div>
+
+          <div v-if="!localNode.natRules || localNode.natRules.length === 0" class="no-acl-tip">
+            暂未配置 NAT 规则，数据包透传过境时保持原五元组不变。
+          </div>
+
+          <div v-else class="acl-cards-wrap">
+            <div
+              v-for="(nr, idx) in localNode.natRules"
+              :key="nr.id"
+              class="acl-edit-card"
+              :class="nr.type === 'SNAT' ? 'snat-card' : 'dnat-card'"
+            >
+              <div class="rule-top-line">
+                <span class="rule-idx">N{{ idx + 1 }}</span>
+                <span :class="nr.type === 'SNAT' ? 'nat-tag-snat' : 'nat-tag-dnat'">{{ nr.type }}</span>
+                <select v-model="nr.type" class="rule-action-select" @change="handleNodeChange">
+                  <option value="SNAT">SNAT (源地址伪装)</option>
+                  <option value="DNAT">DNAT (端口映射入站)</option>
+                </select>
+                <button class="btn-del-rule" title="删除此规则" @click="handleDeleteNatRule(idx)">
+                  <el-icon><Delete /></el-icon>
+                </button>
+              </div>
+
+              <!-- SNAT 表单项 -->
+              <div v-if="nr.type === 'SNAT'" class="rule-inputs-row">
+                <div class="rule-field">
+                  <span class="field-label">内部源地址/网段</span>
+                  <input
+                    v-model="nr.origSrc"
+                    class="rule-input-sm"
+                    placeholder="如 192.168.1.0/24"
+                    @input="handleNodeChange"
+                  />
+                </div>
+                <div class="rule-field">
+                  <span class="field-label">转换后伪装 IP</span>
+                  <input
+                    v-model="nr.transSrc"
+                    class="rule-input-sm"
+                    placeholder="如 10.0.0.1"
+                    @input="handleNodeChange"
+                  />
+                </div>
+              </div>
+
+              <!-- DNAT 表单项 -->
+              <div v-else class="rule-inputs-column">
+                <div class="rule-inputs-row">
+                  <div class="rule-field">
+                    <span class="field-label">外部暴露 IP</span>
+                    <input
+                      v-model="nr.extIp"
+                      class="rule-input-sm"
+                      placeholder="如 10.0.0.1"
+                      @input="handleNodeChange"
+                    />
+                  </div>
+                  <div class="rule-field">
+                    <span class="field-label">外部端口</span>
+                    <input
+                      v-model.number="nr.extPort"
+                      type="number"
+                      class="rule-input-sm"
+                      placeholder="如 8080"
+                      @input="handleNodeChange"
+                    />
+                  </div>
+                </div>
+                <div class="rule-inputs-row" style="margin-top: 4px;">
+                  <div class="rule-field">
+                    <span class="field-label">内部目标 IP</span>
+                    <input
+                      v-model="nr.intIp"
+                      class="rule-input-sm"
+                      placeholder="如 172.16.1.100"
+                      @input="handleNodeChange"
+                    />
+                  </div>
+                  <div class="rule-field">
+                    <span class="field-label">内部目标端口</span>
+                    <input
+                      v-model.number="nr.intPort"
+                      type="number"
+                      class="rule-input-sm"
+                      placeholder="如 6030"
+                      @input="handleNodeChange"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div class="rule-desc-row">
+                <input
+                  v-model="nr.description"
+                  class="rule-input-desc"
+                  placeholder="NAT 规则描述，如：出境私网源地址伪装..."
                   @input="handleNodeChange"
                 />
               </div>
@@ -1083,5 +1235,49 @@ const handleDeleteRoute = (index: number) => {
 .color-dot:hover {
   transform: scale(1.15);
   border-color: #ffffff;
+}
+
+/* NAT 配置面板专属样式 */
+.nat-btn-group {
+  display: flex;
+  gap: 6px;
+}
+
+.nat-tag-snat {
+  font-size: 9px;
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid #059669;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-weight: bold;
+}
+
+.nat-tag-dnat {
+  font-size: 9px;
+  background: rgba(139, 92, 246, 0.2);
+  color: #a78bfa;
+  border: 1px solid #7c3aed;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-weight: bold;
+}
+
+.snat-card {
+  border-left: 3px solid #10b981;
+}
+
+.dnat-card {
+  border-left: 3px solid #8b5cf6;
+}
+
+.rule-action-select {
+  background: #111720;
+  border: 1px solid #334155;
+  color: #cbd5e1;
+  border-radius: 4px;
+  font-size: 10px;
+  padding: 1px 4px;
+  outline: none;
 }
 </style>

@@ -17,6 +17,19 @@ export interface RouteEntryDTO {
   description?: string
 }
 
+export interface NatRuleDTO {
+  id: string
+  type: 'SNAT' | 'DNAT'
+  origSrc?: string
+  transSrc?: string
+  extIp?: string
+  extPort?: number
+  intIp?: string
+  intPort?: number
+  protocol?: string
+  description?: string
+}
+
 export interface TopoNodeDTO {
   id: string
   name: string
@@ -27,6 +40,7 @@ export interface TopoNodeDTO {
   gateway?: string
   acls?: AclRuleDTO[]
   routes?: RouteEntryDTO[]
+  natRules?: NatRuleDTO[]
 }
 
 export interface TopoEdgeDTO {

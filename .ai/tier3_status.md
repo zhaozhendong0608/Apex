@@ -14,12 +14,7 @@
 ## ⚪ 待办中 (TODO)
 
 ### 🌟 第一优先级 (优先做 - 核心体验与工业合规亮点)
-- [Task-209] [S2-Muscle] NAT 网络地址转换 (SNAT/DNAT) 仿真
-  - **功能目标**: 边界防火墙/网关支持配置 SNAT 私网源地址伪装与 DNAT 端口映射，数据包过境时执行五元组转换并输出 `[NAT TRANSLATION]` 仿真日志。
-  - **涉及文件**: `backend/module-network-sim/engine/`, `frontend/src/modules/network-sim/components/PropertyInspector.vue`
-- [Task-210] [S2-Muscle] 工业网络等保与合规审计报告一键生成
-  - **功能目标**: 顶部工作台增加“合规评估报告”弹窗与一键导出（PDF/Markdown），自动化评估全网资产、大区隔离合规性、网闸物理隔离有效性及高危端口（22/3389）暴露审计。
-  - **涉及文件**: `frontend/src/modules/network-sim/views/NetworkSimView.vue`
+- 
 
 ### ⏳ 第二优先级 (以后做 - 二期进阶扩展)
 - [Task-301] 多方案拓扑场景对比与版本快照 (整改前 vs 整改后连通性矩阵对比)
@@ -97,5 +92,12 @@
 - **Status**: DONE
 - **功能目标**: 寻路成功后点亮链路流动粒子光效（流光顺畅流动）；阻断时在拦截节点打上红色脉冲警告圈 🚨 并悬浮展示放行/拦截原因气泡。
 - **涉及文件**: `frontend/src/modules/network-sim/views/NetworkSimView.vue`, `SimulationConsole.vue`
+
+[Task-209] [S2-Muscle] NAT 网络地址转换 (SNAT/DNAT) 仿真 (Done: 2026-10-24)
+  - **功能目标**: 边界防火墙/网关支持配置 SNAT 私网源地址伪装与 DNAT 端口映射，数据包过境时执行五元组转换并输出 `[NAT TRANSLATION]` 仿真日志。
+  - **涉及文件**: `backend/module-network-sim/engine/`, `frontend/src/modules/network-sim/components/PropertyInspector.vue`
+- [Task-210] [S2-Muscle] 工业网络等保与合规审计报告一键生成
+  - **功能目标**: 顶部工作台增加“合规评估报告”弹窗与一键导出（PDF/Markdown），自动化评估全网资产、大区隔离合规性、网闸物理隔离有效性及高危端口（22/3389）暴露审计。
+  - **涉及文件**: `frontend/src/modules/network-sim/views/NetworkSimView.vue`
 
 <!-- SECTION:DONE:END -->

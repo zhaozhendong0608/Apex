@@ -111,11 +111,25 @@ public class BfsRoutingEngine {
             adjacencyMap.computeIfAbsent(edge.getTargetNodeId(), k -> new ArrayList<>()).add(reverseEdge);
         }
 
-        // 内部路径状态：使每一条路径分支持有独立的流水线日志，杜绝跨分支相互串染
-        record PathState(List<String> path, List<String> pathLogs, boolean rerouted) {}
+        // 内部路径状态：使每一条路径分支持有独立的流水线日志与数据包五元组，支持 NAT 动态地址转换
+        record PathState(
+                List<String> path,
+                List<String> pathLogs,
+                boolean rerouted,
+                String curSrcIp,
+                String curDestIp,
+                Integer curDestPort
+        ) {}
 
         Queue<PathState> queue = new LinkedList<>();
-        queue.add(new PathState(new ArrayList<>(List.of(sourceNodeId)), new ArrayList<>(logs), false));
+        queue.add(new PathState(
+                new ArrayList<>(List.of(sourceNodeId)),
+                new ArrayList<>(logs),
+                false,
+                srcNode.getIp(),
+                destNode.getIp(),
+                destPort
+        ));
 
         Set<String> visited = new HashSet<>();
         visited.add(sourceNodeId);
@@ -128,6 +142,9 @@ public class BfsRoutingEngine {
             List<String> currentPath = state.path();
             List<String> currentLogs = new ArrayList<>(state.pathLogs());
             boolean currentRerouted = state.rerouted();
+            String curSrcIp = state.curSrcIp();
+            String curDestIp = state.curDestIp();
+            Integer curDestPort = state.curDestPort();
 
             String currentNodeId = currentPath.get(currentPath.size() - 1);
             TopoNode currentNode = nodeMap.get(currentNodeId);
@@ -138,11 +155,12 @@ public class BfsRoutingEngine {
 
             // 非源节点：在真正处理当前节点时，记录前移 TRACE 日志
             if (currentPath.size() > 1) {
-                currentLogs.add(String.format("[TRACE] 数据包前移至下一跳: [%s] (类型: %s, IP: %s)",
-                        currentNode.getName(), currentNode.getType(), currentNode.getIp()));
+                currentLogs.add(String.format("[TRACE] 数据包前移至下一跳: [%s] (类型: %s, IP: %s) | 载荷五元组: [%s ➔ %s:%s, 协议: %s]",
+                        currentNode.getName(), currentNode.getType(), currentNode.getIp(),
+                        curSrcIp, curDestIp, curDestPort != null ? curDestPort : "ANY", protocol != null ? protocol : "TCP"));
             }
 
-            // 成功抵达终点
+            // 成功抵达终点 (只要到达 targetNodeId，或通过 DNAT 映射后目的节点为目标设备)
             if (currentNodeId.equals(targetNodeId)) {
                 int hops = currentPath.size() - 1;
                 int totalLatency = hops * 2; // 默认每跳 2ms 模拟
@@ -196,9 +214,37 @@ public class BfsRoutingEngine {
                 }
             }
 
-            // 特性 2：如果当前中继节点是防火墙或具备 ACL 规则，执行安全拦截策略校验
+            // 特性 2：NAT 网络地址转换 (DNAT 目的地址端口映射入站)
+            // 在边界防火墙/网关执行入站目的地址与端口重写 (PREROUTING)
+            // 匹配条件：访问到达当前节点，且请求的目的端口等于 extPort (且如果配置了 extIp，则匹配当前节点 IP 或请求目的 IP)
+            if (currentNode.getNatRules() != null && !currentNode.getNatRules().isEmpty()) {
+                for (NatRule nr : currentNode.getNatRules()) {
+                    if ("DNAT".equalsIgnoreCase(nr.getType())) {
+                        boolean ipMatch = nr.getExtIp() == null || nr.getExtIp().trim().isEmpty()
+                                || nr.getExtIp().equalsIgnoreCase(curDestIp)
+                                || nr.getExtIp().equalsIgnoreCase(currentNode.getIp());
+                        boolean portMatch = nr.getExtPort() == null || nr.getExtPort().equals(curDestPort);
+                        boolean protoMatch = nr.getProtocol() == null || "ALL".equalsIgnoreCase(nr.getProtocol()) || nr.getProtocol().equalsIgnoreCase(protocol);
+                        if (ipMatch && portMatch && protoMatch) {
+                            String oldDest = curDestIp + ":" + curDestPort;
+                            if (nr.getIntIp() != null && !nr.getIntIp().trim().isEmpty()) {
+                                curDestIp = nr.getIntIp().trim();
+                            }
+                            if (nr.getIntPort() != null) {
+                                curDestPort = nr.getIntPort();
+                            }
+                            currentLogs.add(String.format("[NAT TRANSLATION] 节点 [%s] 执行入站 DNAT 映射: [%s] ➔ [%s:%s] (描述: %s)",
+                                    currentNode.getName(), oldDest, curDestIp, curDestPort,
+                                    nr.getDescription() != null ? nr.getDescription() : "端口映射入站"));
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // 特性 3：如果当前中继节点是防火墙或具备 ACL 规则，执行安全拦截策略校验 (基于转换后的实时五元组)
             if ("FIREWALL".equalsIgnoreCase(currentNode.getType()) || (currentNode.getAcls() != null && !currentNode.getAcls().isEmpty())) {
-                AclRuleMatcher.MatchResult matchRes = aclMatcher.evaluate(currentNode, srcNode.getIp(), destNode.getIp(), destPort, protocol);
+                AclRuleMatcher.MatchResult matchRes = aclMatcher.evaluate(currentNode, curSrcIp, curDestIp, curDestPort, protocol);
                 currentLogs.add("[TRACE] " + matchRes.reason());
 
                 if (matchRes.matched() && matchRes.matchedRule().getAction() == AclAction.DENY) {
@@ -219,11 +265,42 @@ public class BfsRoutingEngine {
                 }
             }
 
+            // 特性 4：NAT 网络地址转换 (SNAT 源地址伪装出境)
+            // 在边界防火墙/网关出站时，将内部私网源 IP 转换为公网/边界出境 IP (POSTROUTING)
+            if (currentNode.getNatRules() != null && !currentNode.getNatRules().isEmpty()) {
+                for (NatRule nr : currentNode.getNatRules()) {
+                    if ("SNAT".equalsIgnoreCase(nr.getType())) {
+                        boolean srcMatch = true;
+                        if (nr.getOrigSrc() != null && !nr.getOrigSrc().trim().isEmpty()) {
+                            String orig = nr.getOrigSrc().trim();
+                            if (orig.contains("/")) {
+                                String[] parts = orig.split("/");
+                                String net = parts[0];
+                                int prefix = Integer.parseInt(parts[1]);
+                                long maskLong = (0xFFFFFFFFL << (32 - prefix)) & 0xFFFFFFFFL;
+                                String maskStr = String.format("%d.%d.%d.%d", (maskLong >> 24) & 0xFF, (maskLong >> 16) & 0xFF, (maskLong >> 8) & 0xFF, maskLong & 0xFF);
+                                srcMatch = isSameSubnet(curSrcIp, net, maskStr);
+                            } else {
+                                srcMatch = orig.equalsIgnoreCase(curSrcIp);
+                            }
+                        }
+                        if (srcMatch && nr.getTransSrc() != null && !nr.getTransSrc().trim().isEmpty()) {
+                            String oldSrc = curSrcIp;
+                            curSrcIp = nr.getTransSrc().trim();
+                            currentLogs.add(String.format("[NAT TRANSLATION] 节点 [%s] 执行出境 SNAT 源地址伪装: [%s] ➔ [%s] (描述: %s)",
+                                    currentNode.getName(), oldSrc, curSrcIp,
+                                    nr.getDescription() != null ? nr.getDescription() : "私网出境源地址伪装"));
+                            break;
+                        }
+                    }
+                }
+            }
+
             // 特性 A：路由器 / 三层交换机静态路由表 (Routing Table) 转发决策
             // 若当前节点配置了路由表，根据目标 IP 匹配最佳静态路由项 (最长前缀匹配 / LPM)
             RouteEntry matchedRoute = null;
             if (currentNode.getRoutes() != null && !currentNode.getRoutes().isEmpty()) {
-                matchedRoute = findBestMatchingRoute(currentNode.getRoutes(), destNode.getIp());
+                matchedRoute = findBestMatchingRoute(currentNode.getRoutes(), curDestIp);
                 if (matchedRoute != null) {
                     currentLogs.add(String.format("[ROUTE MATCH] 节点 [%s] 命中静态路由表项: 目标网段 [%s/%s] ➔ 下一跳网关 [%s] (描述: %s)",
                             currentNode.getName(), matchedRoute.getDestSubnet(), matchedRoute.getMask(),
@@ -272,7 +349,7 @@ public class BfsRoutingEngine {
                 visited.add(nextNodeId);
                 List<String> newPath = new ArrayList<>(currentPath);
                 newPath.add(nextNodeId);
-                queue.add(new PathState(newPath, currentLogs, nextRerouted));
+                queue.add(new PathState(newPath, currentLogs, nextRerouted, curSrcIp, curDestIp, curDestPort));
             }
         }
 

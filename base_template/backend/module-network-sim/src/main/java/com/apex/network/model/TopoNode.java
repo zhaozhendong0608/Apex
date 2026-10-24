@@ -68,6 +68,12 @@ public class TopoNode implements Serializable {
     private List<RouteEntry> routes = new ArrayList<>();
 
     /**
+     * 该防火墙/网关设备配置的 NAT 网络地址转换规则表 (SNAT / DNAT)
+     */
+    @Builder.Default
+    private List<NatRule> natRules = new ArrayList<>();
+
+    /**
      * 节点设备宕机/断电故障状态 (true: 宕机离线, false: 正常运行)
      */
     @Builder.Default

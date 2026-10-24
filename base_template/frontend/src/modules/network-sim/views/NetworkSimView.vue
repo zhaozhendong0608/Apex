@@ -447,7 +447,8 @@ onMounted(async () => {
       gateway: data.gateway || '',
       disabled: Boolean(data.disabled),
       acls: data.acls || [],
-      routes: data.routes || []
+      routes: data.routes || [],
+      natRules: data.natRules || []
     }
   })
 
@@ -682,7 +683,8 @@ const handleUpdateNode = (updated: SelectedNodeData) => {
       gateway: updated.gateway,
       disabled: isFault,
       acls: updated.acls,
-      routes: updated.routes || []
+      routes: updated.routes || [],
+      natRules: updated.natRules || []
     })
 
     // 2. 实时刷新 SVG 图元上的文字与副标题 IP 以及故障外观
@@ -864,6 +866,7 @@ const createDeviceNode = (
     zone?: string
     acls?: any[]
     routes?: any[]
+    natRules?: any[]
     subtext?: string
   } = {}
 ) => {
@@ -915,6 +918,12 @@ const createDeviceNode = (
     ] : []
   )
 
+  const defaultNatRules = options.natRules || (
+    type === 'FIREWALL' ? [
+      { id: 'nat_fw_1', type: 'SNAT', origSrc: '192.168.1.0/24', transSrc: '10.0.0.1', description: 'IT管理区出境源地址伪装(SNAT)' }
+    ] : []
+  )
+
   return graph.addNode({
     id,
     x,
@@ -930,7 +939,8 @@ const createDeviceNode = (
       gateway: defaultGw,
       zone: defaultZone,
       acls: defaultAcls,
-      routes: defaultRoutes
+      routes: defaultRoutes,
+      natRules: defaultNatRules
     },
     markup: [
       { tagName: 'rect', selector: 'body' },
