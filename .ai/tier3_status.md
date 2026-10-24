@@ -8,13 +8,28 @@
 <!-- SECTION:ACTIVE:START -->
 ## 🔴 进行中 (ACTIVE)
 
----
-
 <!-- SECTION:ACTIVE:END -->
 
 <!-- SECTION:TODO:START -->
 ## ⚪ 待办中 (TODO)
-- [Task-001] [S1-Bone 骨架] 完成需求规划与接口契约设计
+
+### 🌟 第一优先级 (优先做 - 核心体验与工业合规亮点)
+- [Task-209] [S2-Muscle] NAT 网络地址转换 (SNAT/DNAT) 仿真
+  - **功能目标**: 边界防火墙/网关支持配置 SNAT 私网源地址伪装与 DNAT 端口映射，数据包过境时执行五元组转换并输出 `[NAT TRANSLATION]` 仿真日志。
+  - **涉及文件**: `backend/module-network-sim/engine/`, `frontend/src/modules/network-sim/components/PropertyInspector.vue`
+- [Task-210] [S2-Muscle] 工业网络等保与合规审计报告一键生成
+  - **功能目标**: 顶部工作台增加“合规评估报告”弹窗与一键导出（PDF/Markdown），自动化评估全网资产、大区隔离合规性、网闸物理隔离有效性及高危端口（22/3389）暴露审计。
+  - **涉及文件**: `frontend/src/modules/network-sim/views/NetworkSimView.vue`
+
+### ⏳ 第二优先级 (以后做 - 二期进阶扩展)
+- [Task-301] 多方案拓扑场景对比与版本快照 (整改前 vs 整改后连通性矩阵对比)
+- [Task-302] 预置工业攻防演练剧本库 (震网病毒渗透、勒索软件横向移动拦截、APT跨区渗透演示)
+- [Task-303] 真实工业交换机/路由器网络配置（Cisco/Huawei 格式配置或 CSV）资产逆向导入
+
+### ❌ 明确放弃项 (不必做 - 避免过度设计)
+- ❌ 接入复杂的底层服务器/设备瞬时时序指标采集图表（如假 CPU/内存曲线）
+- ❌ 完整实现 OSPF/BGP 等底层复杂动态路由洪泛协议状态机
+- ❌ 浏览器端应用层报文深度内容抓包过滤（DPI/HTTP Payload）
 
 ---
 
@@ -22,6 +37,11 @@
 
 <!-- SECTION:DONE:START -->
 ## 🟢 已完成 (DONE)
+
+[Task-207] [S2-Muscle] 路由器与核心三层设备：静态路由表 (LPM) 与分支隔离日志 (Done: 2026-10-24)
+- **Status**: DONE
+- **功能目标**: 实现基于最长前缀匹配 (LPM) 的静态路由转发决策，前端支持可视增删查改路由条目；实现 PathState 分支日志完全隔离机制，杜绝弃用分支日志污染。
+- **涉及文件**: `backend/module-network-sim/engine/BfsRoutingEngine.java`, `frontend/src/modules/network-sim/components/PropertyInspector.vue`
 
 [Task-101] [S1-Bone] 通用平台数据表与认证API骨架 (Done: 2026-10-07)
 - **Status**: DONE
@@ -72,5 +92,10 @@
 - **Status**: DONE
 - **功能目标**: 画布支持根据路由query中id读取真实JSON，修改后点击保存回写数据库，连通性测试调用后端BFS接口
 - **涉及文件**: frontend/src/modules/network-sim/views/NetworkSimView.vue
+
+[Task-208] [S3-Skin] 画布动态流水线光效与阻断视觉强化 (Done: 2026-10-24)
+- **Status**: DONE
+- **功能目标**: 寻路成功后点亮链路流动粒子光效（流光顺畅流动）；阻断时在拦截节点打上红色脉冲警告圈 🚨 并悬浮展示放行/拦截原因气泡。
+- **涉及文件**: `frontend/src/modules/network-sim/views/NetworkSimView.vue`, `SimulationConsole.vue`
 
 <!-- SECTION:DONE:END -->

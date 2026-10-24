@@ -107,7 +107,8 @@ Apex/                                                       # 🚀 顶层工作�
 │   │   │   ├── 📖 README.md                                 # 📖 项目门面与使用指南
 │   │   │   └── 📄 design-tokens.md                          # (Design System Tokens)
 │   │   ├── 📁 handovers/
-│   │   │   └── 📄 handover-20261007-sys_platform.md         # (Handover Document)
+│   │   │   ├── 📄 handover-20261007-sys_platform.md         # (Handover Document)
+│   │   │   └── 📄 handover-20261024-network_sim.md          # (Module-Network-Sim) 阶段交接文档
 │   │   ├── 📦 modules/                                      # (Modules Directory)
 │   │   │   ├── 📖 README.md                                 # 📖 项目门面与使用指南
 │   │   │   ├── 📁 auth/

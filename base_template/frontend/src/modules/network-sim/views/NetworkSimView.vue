@@ -203,6 +203,67 @@ const logs = ref<LogItem[]>([
 const packetVisible = ref(false)
 const passBadgeVisible = ref(false)
 
+// 阻断红色脉冲警告圈与拦截气泡状态
+const blockedPulse = ref<{
+  visible: boolean
+  x: number
+  y: number
+  width: number
+  height: number
+  nodeId: string
+}>({
+  visible: false,
+  x: 0,
+  y: 0,
+  width: 110,
+  height: 60,
+  nodeId: ''
+})
+
+const blockedTooltip = ref<{
+  visible: boolean
+  x: number
+  y: number
+  ruleId: string
+  reason: string
+  nodeName: string
+}>({
+  visible: false,
+  x: 0,
+  y: 0,
+  ruleId: '',
+  reason: '',
+  nodeName: ''
+})
+
+// 动态将图元的世界坐标转换为当前画布容器内的视口像素坐标
+const updateBlockedVisualPosition = () => {
+  if (!graph || !blockedPulse.value.visible || !blockedPulse.value.nodeId) return
+  const cell = graph.getCellById(blockedPulse.value.nodeId)
+  if (!cell || !cell.isNode()) return
+
+  const bbox = cell.getBBox()
+  // 转换图元坐标至画布容器相对像素坐标
+  const p = graph.localToClient(bbox.x, bbox.y)
+  const containerRect = containerRef.value?.getBoundingClientRect()
+  if (!containerRect) return
+
+  const zoom = graph.zoom()
+  const relX = p.x - containerRect.left
+  const relY = p.y - containerRect.top
+  const scaledW = bbox.width * zoom
+  const scaledH = bbox.height * zoom
+
+  blockedPulse.value.x = relX
+  blockedPulse.value.y = relY
+  blockedPulse.value.width = scaledW
+  blockedPulse.value.height = scaledH
+
+  // 悬浮气泡置于节点上方居中
+  blockedTooltip.value.x = relX + scaledW / 2
+  blockedTooltip.value.y = relY - 12
+}
+
 onMounted(async () => {
   if (!containerRef.value) return
 
@@ -331,6 +392,17 @@ onMounted(async () => {
         item.node.setPosition(current.x + item.offsetX, current.y + item.offsetY)
       })
     }
+    if (blockedPulse.value.visible && node.id === blockedPulse.value.nodeId) {
+      updateBlockedVisualPosition()
+    }
+  })
+
+  // 画布平移与缩放时同步更新警告脉冲与气泡视口坐标
+  graph.on('translate', () => {
+    if (blockedPulse.value.visible) updateBlockedVisualPosition()
+  })
+  graph.on('scale', () => {
+    if (blockedPulse.value.visible) updateBlockedVisualPosition()
   })
 
   // 监听图元点击事件：选中节点或大区底板
@@ -1206,9 +1278,11 @@ const handleSimulate = async (customParams?: { sourceId: string; targetId: strin
   if (!graph) return
   passBadgeVisible.value = false
   packetVisible.value = false
+  blockedPulse.value.visible = false
+  blockedTooltip.value.visible = false
   simulating.value = true
 
-  // 重置此前的高亮连线
+  // 重置此前的高亮连线与节点样式
   resetEdgeStyles()
 
   try {
@@ -1256,7 +1330,7 @@ const handleSimulate = async (customParams?: { sourceId: string; targetId: strin
       })
     }
 
-    // 3. 动态高亮与数据流动轨迹特效
+    // 3. 动态高亮与数据流动轨迹特效 (增强流动光效与阻断警示线)
     if (data.nodePath && data.nodePath.length > 1) {
       for (let i = 0; i < data.nodePath.length - 1; i++) {
         const u = data.nodePath[i]
@@ -1271,19 +1345,23 @@ const handleSimulate = async (customParams?: { sourceId: string; targetId: strin
 
         if (matchedEdge) {
           if (data.reachable) {
-            // 通畅流光路径：翠绿呼吸跑马灯
+            // 通畅流光路径：高饱和度翠绿脉冲流光线
             matchedEdge.attr('line/stroke', '#22c55e')
-            matchedEdge.attr('line/strokeWidth', 3.5)
-            matchedEdge.attr('line/strokeDasharray', '8 4')
+            matchedEdge.attr('line/strokeWidth', 4)
+            matchedEdge.attr('line/strokeDasharray', '10 5')
             matchedEdge.attr('line/style', {
-              animation: 'ant-line 0.6s linear infinite'
+              animation: 'ant-line 0.5s linear infinite',
+              filter: 'drop-shadow(0 0 6px rgba(34, 197, 94, 0.75))'
             })
           } else {
-            // 阻断路径：警示红光虚线
+            // 阻断路径：警示红光呼吸虚线
             matchedEdge.attr('line/stroke', '#ef4444')
-            matchedEdge.attr('line/strokeWidth', 3)
-            matchedEdge.attr('line/strokeDasharray', '5 5')
-            matchedEdge.attr('line/style', {})
+            matchedEdge.attr('line/strokeWidth', 3.5)
+            matchedEdge.attr('line/strokeDasharray', '6 4')
+            matchedEdge.attr('line/style', {
+              animation: 'ant-line-reverse 0.7s linear infinite',
+              filter: 'drop-shadow(0 0 6px rgba(239, 68, 68, 0.75))'
+            })
           }
         }
       }
@@ -1298,12 +1376,40 @@ const handleSimulate = async (customParams?: { sourceId: string; targetId: strin
         showToast('success', `✔ 后端 BFS 判定：[${srcName}] ➔ [${dstName}] 顺利连通！(跳数: ${data.hops}, 延迟: ${data.totalLatencyMs}ms)`)
       }
     } else if (data.blocked) {
-      // 拦截节点闪烁红色描边
-      if (data.blockedNodeId) {
-        const blockedCell = graph.getCellById(data.blockedNodeId)
+      // 拦截节点视觉强化：红色脉冲警告圈 🚨 + 悬浮放行/拦截原因气泡
+      const blockedNodeId = data.blockedNodeId || (data.nodePath && data.nodePath[data.nodePath.length - 1])
+      if (blockedNodeId) {
+        const blockedCell = graph.getCellById(blockedNodeId)
         if (blockedCell && blockedCell.isNode()) {
           blockedCell.attr('body/stroke', '#ef4444')
           blockedCell.attr('body/strokeWidth', 3)
+          blockedCell.attr('badge/text', '🚨 拦截')
+          blockedCell.attr('badge/fill', '#ef4444')
+          blockedCell.attr('badge/display', 'block')
+
+          // 激活脉冲警告光环
+          blockedPulse.value.visible = true
+          blockedPulse.value.nodeId = blockedNodeId
+
+          // 激活悬浮气泡
+          const bData = blockedCell.getData() || {}
+          const bAttrs = blockedCell.getAttrs()
+          const bName = (bAttrs?.title as any)?.text || bData.name || blockedNodeId
+          const isGapReverse = data.blockedRuleId === 'GAP_HARDWARE_REVERSE_ISOLATION'
+          const reasonText = isGapReverse
+            ? '国家能源局36号令：单向网闸硬件反向阻断 (严禁IT外网穿透OT工控区)'
+            : (data.blockedRuleId ? `安全策略拦截 (规则: ${data.blockedRuleId})` : '默认DENY拒绝通行')
+
+          blockedTooltip.value = {
+            visible: true,
+            x: 0,
+            y: 0,
+            ruleId: data.blockedRuleId || 'DENY',
+            reason: reasonText,
+            nodeName: bName
+          }
+
+          updateBlockedVisualPosition()
         }
       }
 
@@ -1330,6 +1436,8 @@ const handleClearLogs = () => {
 const handleResetSimulation = () => {
   passBadgeVisible.value = false
   packetVisible.value = false
+  blockedPulse.value.visible = false
+  blockedTooltip.value.visible = false
   resetEdgeStyles()
   showToast('info', '已复位当前画布仿真流光与高亮状态')
   addLog('INFO: 仿真演练状态已复位，恢复拓扑初始观察视角', 'info')
@@ -1402,9 +1510,40 @@ const handleExportPng = () => {
       <div class="canvas-area">
         <div ref="containerRef" class="x6-wrap"></div>
 
-        <!-- 悬浮报文气泡与通畅浮标 -->
-        <div v-if="packetVisible" class="packet-bubble">ICMP Ping 报文 (Port: 6030)</div>
-        <div v-if="passBadgeVisible" class="badge-pass">✔ 链路畅通</div>
+        <!-- 阻断红色脉冲警告圈 (覆盖在被拦截设备周围，形成扩散红光脉冲波) -->
+        <div
+          v-if="blockedPulse.visible"
+          class="blocked-pulse-ring"
+          :style="{
+            top: `${blockedPulse.y}px`,
+            left: `${blockedPulse.x}px`,
+            width: `${blockedPulse.width}px`,
+            height: `${blockedPulse.height}px`
+          }"
+        >
+          <div class="pulse-wave wave-1"></div>
+          <div class="pulse-wave wave-2"></div>
+        </div>
+
+        <!-- 悬浮拦截原因气泡 (位于被拦截设备上方，展示放行/拦截原因) -->
+        <div
+          v-if="blockedTooltip.visible"
+          class="blocked-tooltip-bubble"
+          :style="{
+            top: `${blockedTooltip.y}px`,
+            left: `${blockedTooltip.x}px`
+          }"
+        >
+          <div class="bubble-header">
+            <span class="bubble-badge">🚨 TRAFFIC BLOCKED</span>
+            <span class="bubble-node">[{{ blockedTooltip.nodeName }}]</span>
+          </div>
+          <div class="bubble-body">
+            <span class="rule-tag">{{ blockedTooltip.ruleId }}</span>
+            <span class="reason-text">{{ blockedTooltip.reason }}</span>
+          </div>
+          <div class="bubble-arrow"></div>
+        </div>
 
         <!-- 底部仿真演练控制台 (支持自选源/宿端、端口与协议) -->
         <SimulationConsole
@@ -1597,38 +1736,6 @@ const handleExportPng = () => {
   height: 100%;
 }
 
-.packet-bubble {
-  position: absolute;
-  top: 145px;
-  left: 235px;
-  background: #0f172a;
-  border: 1px solid #38bdf8;
-  border-radius: 4px;
-  padding: 3px 8px;
-  font-size: 10px;
-  color: #38bdf8;
-  font-family: monospace;
-  font-weight: bold;
-  box-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
-  pointer-events: none;
-  z-index: 10;
-}
-
-.badge-pass {
-  position: absolute;
-  top: 120px;
-  left: 415px;
-  background: #14532d;
-  color: #4ade80;
-  border: 1px solid #22c55e;
-  border-radius: 12px;
-  padding: 2px 8px;
-  font-size: 10px;
-  font-weight: bold;
-  z-index: 10;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-}
-
 /* 自定义右键菜单样式 */
 .custom-context-menu {
   position: fixed;
@@ -1730,13 +1837,57 @@ const handleExportPng = () => {
   opacity: 0;
 }
 
-/* 链路通畅跑马灯流光动画 */
+/* 链路通畅跑马灯流光动画 (正向高速流动) */
 @keyframes ant-line {
   from {
-    stroke-dashoffset: 24;
+    stroke-dashoffset: 30;
   }
   to {
     stroke-dashoffset: 0;
+  }
+}
+
+/* 阻断链路警示虚线动画 (反向逆流警示) */
+@keyframes ant-line-reverse {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: 20;
+  }
+}
+
+/* 红色脉冲波扩散动画 */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.9;
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.85);
+  }
+  70% {
+    transform: scale(1.15);
+    opacity: 0.4;
+    box-shadow: 0 0 0 16px rgba(239, 68, 68, 0);
+  }
+  100% {
+    transform: scale(1.22);
+    opacity: 0;
+    box-shadow: 0 0 0 22px rgba(239, 68, 68, 0);
+  }
+}
+
+/* 拦截气泡浮现微动动画 */
+@keyframes tooltip-bounce {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -85%) scale(0.9);
+  }
+  50% {
+    transform: translate(-50%, -105%) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -100%) scale(1);
   }
 }
 
@@ -1744,8 +1895,111 @@ const handleExportPng = () => {
   animation: ant-line 0.5s linear infinite !important;
 }
 
+:deep(.x6-edge path[style*="ant-line-reverse"]) {
+  animation: ant-line-reverse 0.7s linear infinite !important;
+}
+
 :deep(.x6-edge path) {
   transition: stroke 0.25s ease, stroke-width 0.25s ease;
+}
+
+/* 阻断红色脉冲警告圈样式 */
+.blocked-pulse-ring {
+  position: absolute;
+  pointer-events: none;
+  z-index: 15;
+  border-radius: 8px;
+}
+
+.pulse-wave {
+  position: absolute;
+  inset: -6px;
+  border-radius: 12px;
+  border: 2px solid #ef4444;
+  pointer-events: none;
+  animation: pulse-ring 1.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+}
+
+.pulse-wave.wave-2 {
+  animation-delay: 0.9s;
+}
+
+/* 悬浮拦截原因气泡样式 */
+.blocked-tooltip-bubble {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  z-index: 20;
+  min-width: 220px;
+  max-width: 320px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid #ef4444;
+  border-radius: 8px;
+  padding: 8px 12px;
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.35), 0 0 12px rgba(239, 68, 68, 0.25);
+  backdrop-filter: blur(8px);
+  animation: tooltip-bounce 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  pointer-events: none;
+}
+
+.bubble-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  font-size: 11px;
+}
+
+.bubble-badge {
+  background: #7f1d1d;
+  color: #fca5a5;
+  border: 1px solid #ef4444;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+}
+
+.bubble-node {
+  color: #f87171;
+  font-family: monospace;
+  font-weight: 600;
+}
+
+.bubble-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.rule-tag {
+  align-self: flex-start;
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+  border: 1px dashed #ef4444;
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-family: monospace;
+  font-weight: 600;
+}
+
+.reason-text {
+  font-size: 11px;
+  color: #e2e8f0;
+  line-height: 1.4;
+}
+
+/* 气泡底部指向小三角 */
+.bubble-arrow {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid #ef4444;
 }
 
 /* X6 Transform 自由缩放手柄样式美化 */

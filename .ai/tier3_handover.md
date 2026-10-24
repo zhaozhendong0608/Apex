@@ -49,3 +49,10 @@
 * 🎯 完成任务: [Task-201 ~ Task-206] 网络拓扑仿真系统(Module-Network-Sim)全栈闭环
 * 🛠️ 本次改动核心文件: backend/pom.xml, module-network-sim/, frontend/src/modules/network-sim/
 * 💡 关键决策: Maven多模块重构，纯Java BFS+ACL寻路引擎，X6原生SVG图元，双向属性检查器，通用区域底板与右键删除功能
+
+---
+
+## 📦 归档交接 [2026-10-24 18:23:00]
+* 🎯 完成任务: [Task-207] 静态路由表(LPM)转发决策与多分支探索日志完全隔离
+* 🛠️ 本次改动核心文件: backend/module-network-sim/model/RouteEntry.java, engine/BfsRoutingEngine.java, frontend/src/modules/network-sim/components/PropertyInspector.vue, views/NetworkSimView.vue
+* 💡 关键决策: 路由器三层单播下一跳严格锁定避免广播漫游；引入 PathState 结构完全消除多分支探索日志相互串染；明确后续 P0 为画布流动光效与阻断红圈
