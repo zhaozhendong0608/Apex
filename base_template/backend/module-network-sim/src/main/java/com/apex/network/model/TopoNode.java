@@ -55,4 +55,10 @@ public class TopoNode implements Serializable {
      */
     @Builder.Default
     private List<AclRule> acls = new ArrayList<>();
+
+    /**
+     * 节点设备宕机/断电故障状态 (true: 宕机离线, false: 正常运行)
+     */
+    @Builder.Default
+    private Boolean disabled = false;
 }

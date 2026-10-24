@@ -50,9 +50,33 @@ public class BfsRoutingEngine {
                 srcNode.getName(), srcNode.getIp(), destNode.getName(), destNode.getIp(),
                 destPort != null ? destPort : "任意", protocol != null ? protocol : "TCP"));
 
-        // 构建邻接表 (双向物理链路)
+        // 检查源节点与目标节点自身的健康状态
+        if (Boolean.TRUE.equals(srcNode.getDisabled())) {
+            logs.add(String.format("[ERROR] 源设备节点 [%s] 处于离线/宕机状态，无法发起数据传输！", srcNode.getName()));
+            return SimResultVO.builder()
+                    .reachable(false)
+                    .blocked(false)
+                    .logs(logs)
+                    .build();
+        }
+
+        if (Boolean.TRUE.equals(destNode.getDisabled())) {
+            logs.add(String.format("[ERROR] 目标设备节点 [%s] 处于离线/宕机状态，网络不可达！", destNode.getName()));
+            return SimResultVO.builder()
+                    .reachable(false)
+                    .blocked(false)
+                    .logs(logs)
+                    .build();
+        }
+
+        // 构建邻接表 (双向物理链路，过滤故障链路)
         Map<String, List<TopoEdge>> adjacencyMap = new HashMap<>();
         for (TopoEdge edge : graph.getEdges()) {
+            if (Boolean.TRUE.equals(edge.getDisabled())) {
+                logs.add(String.format("[WARN] 物理链路 [%s ➔ %s] 处于故障切断/挖断状态，BFS 寻路跳过此通道。",
+                        edge.getSourceNodeId(), edge.getTargetNodeId()));
+                continue;
+            }
             adjacencyMap.computeIfAbsent(edge.getSourceNodeId(), k -> new ArrayList<>()).add(edge);
             // 构造反向链路以支持无向物理连通
             TopoEdge reverseEdge = TopoEdge.builder()
@@ -61,6 +85,7 @@ public class BfsRoutingEngine {
                     .targetNodeId(edge.getSourceNodeId())
                     .bandwidth(edge.getBandwidth())
                     .latencyMs(edge.getLatencyMs())
+                    .disabled(edge.getDisabled())
                     .build();
             adjacencyMap.computeIfAbsent(edge.getTargetNodeId(), k -> new ArrayList<>()).add(reverseEdge);
         }
@@ -73,6 +98,7 @@ public class BfsRoutingEngine {
         visited.add(sourceNodeId);
 
         int maxHopsLimit = 50; // 防死循环跳数护栏
+        boolean hasRerouted = false; // 是否发生冗余路径自愈
 
         while (!queue.isEmpty()) {
             List<String> currentPath = queue.poll();
@@ -82,8 +108,13 @@ public class BfsRoutingEngine {
             if (currentNodeId.equals(targetNodeId)) {
                 int hops = currentPath.size() - 1;
                 int totalLatency = hops * 2; // 默认每跳 2ms 模拟
-                logs.add(String.format("[SUCCESS] 数据包顺利抵达目的节点 [%s]，网络连通！(跳数: %d, 预估延迟: %dms)",
-                        destNode.getName(), hops, totalLatency));
+                if (hasRerouted) {
+                    logs.add(String.format("[REDUNDANCY] 工业网络故障应急自愈成功！避开故障节点/链路，成功通过冗余备用路径抵达目的节点 [%s]！(跳数: %d, 预估延迟: %dms)",
+                            destNode.getName(), hops, totalLatency));
+                } else {
+                    logs.add(String.format("[SUCCESS] 数据包顺利抵达目的节点 [%s]，网络连通！(跳数: %d, 预估延迟: %dms)",
+                            destNode.getName(), hops, totalLatency));
+                }
 
                 return SimResultVO.builder()
                         .reachable(true)
@@ -112,10 +143,48 @@ public class BfsRoutingEngine {
                     continue;
                 }
 
+                // 特性 0：如果下一跳中间节点处于宕机/断电故障状态，跳过并尝试冗余寻路
+                if (Boolean.TRUE.equals(nextNode.getDisabled())) {
+                    hasRerouted = true;
+                    logs.add(String.format("[WARN] 中继设备节点 [%s] 处于硬件宕机/断电离线状态，跳过此节点并搜寻冗余备用通道！", nextNode.getName()));
+                    continue;
+                }
+
                 logs.add(String.format("[TRACE] 数据包前移至下一跳: [%s] (类型: %s, IP: %s)",
                         nextNode.getName(), nextNode.getType(), nextNode.getIp()));
 
-                // 如果下一跳是防火墙/具备 ACL 的节点，执行安全拦截策略校验
+                // 特性 1：电力二次系统物理单向安全隔离装置 (GAP) 硬件单向约束
+                // 工业规约：仅允许数据从“生产控制大区 (OT_ZONE / 现场层)”单向摆渡至“管理信息大区 (IT_ZONE)”，严禁反向穿透！
+                if ("GAP".equalsIgnoreCase(nextNode.getType())) {
+                    String srcZone = srcNode.getZone() != null ? srcNode.getZone() : "";
+                    String destZone = destNode.getZone() != null ? destNode.getZone() : "";
+
+                    // 判断是否为从 IT_ZONE (或非 OT 区) 试图反向穿透发往 OT_ZONE / PHY_ZONE
+                    boolean isReverseTraffic = "IT_ZONE".equalsIgnoreCase(srcZone) 
+                            || "OT_ZONE".equalsIgnoreCase(destZone) 
+                            || "PHY_ZONE".equalsIgnoreCase(destZone);
+
+                    if (isReverseTraffic) {
+                        List<String> blockedPath = new ArrayList<>(currentPath);
+                        blockedPath.add(nextNodeId);
+                        logs.add(String.format("[SECURITY ALERT] 触发电力二次系统物理单向隔离网闸 [%s] 硬件反向阻断！", nextNode.getName()));
+                        logs.add("[ERROR] 国家能源局 36 号令安全防护规约：严禁由管理信息大区 (IT) 向生产控制大区 (OT) 进行反向穿透控制！物理链路强行切断。");
+
+                        return SimResultVO.builder()
+                                .reachable(false)
+                                .blocked(true)
+                                .blockedNodeId(nextNodeId)
+                                .blockedRuleId("GAP_HARDWARE_REVERSE_ISOLATION")
+                                .nodePath(blockedPath)
+                                .hops(blockedPath.size() - 1)
+                                .logs(logs)
+                                .build();
+                    } else {
+                        logs.add(String.format("[INFO] 物理单向网闸 [%s] 校验通过：合法单向数据采集摆渡 (OT ➔ IT)，允许单向透传数据包。", nextNode.getName()));
+                    }
+                }
+
+                // 特性 2：如果下一跳是防火墙/具备 ACL 的节点，执行安全拦截策略校验
                 if ("FIREWALL".equalsIgnoreCase(nextNode.getType()) || (nextNode.getAcls() != null && !nextNode.getAcls().isEmpty())) {
                     AclRuleMatcher.MatchResult matchRes = aclMatcher.evaluate(nextNode, srcNode.getIp(), destNode.getIp(), destPort, protocol);
                     logs.add("[TRACE] " + matchRes.reason());

@@ -14,16 +14,39 @@ export interface DeviceItem {
   }
 }
 
-// 设备列表
-const devices: DeviceItem[] = [
-  { type: 'FIREWALL', name: '核心防火墙', icon: '🧱', color: '#ef4444' },
-  { type: 'SWITCH', name: '工业交换机', icon: '🔲', color: '#38bdf8' },
-  { type: 'GATEWAY', name: '边缘网关', icon: '⚙️', color: '#14b8a6' },
-  { type: 'NEURON', name: 'Neuron网关', icon: '🔄', color: '#22c55e' },
-  { type: 'SERVER', name: '应用服务器', icon: '🗄️', color: '#a855f7' },
-  { type: 'HOST', name: '研发办公PC', icon: '💻', color: '#38bdf8' },
-  { type: 'TDENGINE', name: 'TDengine', icon: '🛢️', color: '#06b6d4' },
-  { type: 'SENSOR', name: '温湿传感器', icon: '🌡️', color: '#f59e0b' }
+export interface DeviceGroup {
+  name: string
+  items: DeviceItem[]
+}
+
+// 结构化设备分组库
+const deviceGroups: DeviceGroup[] = [
+  {
+    name: '网络与边界路由',
+    items: [
+      { type: 'ROUTER', name: '核心路由器', icon: '🌐', color: '#38bdf8' },
+      { type: 'FIREWALL', name: '工业防火墙', icon: '🧱', color: '#ef4444' },
+      { type: 'GAP', name: '单向安全网闸', icon: '🛡️', color: '#f97316' },
+      { type: 'SWITCH', name: '工业交换机', icon: '🔲', color: '#0ea5e9' }
+    ]
+  },
+  {
+    name: '工业控制与边缘',
+    items: [
+      { type: 'PLC', name: '工业控制器PLC', icon: '🎛️', color: '#8b5cf6' },
+      { type: 'GATEWAY', name: '边缘网关', icon: '⚙️', color: '#14b8a6' },
+      { type: 'NEURON', name: 'Neuron网关', icon: '🔄', color: '#22c55e' },
+      { type: 'SENSOR', name: '工业传感器', icon: '🌡️', color: '#f59e0b' }
+    ]
+  },
+  {
+    name: '计算与存储服务',
+    items: [
+      { type: 'SERVER', name: '应用服务器', icon: '🗄️', color: '#a855f7' },
+      { type: 'TDENGINE', name: 'TDengine', icon: '🛢️', color: '#06b6d4' },
+      { type: 'HOST', name: '研发办公PC', icon: '💻', color: '#38bdf8' }
+    ]
+  }
 ]
 
 // 通用大区/背景底板图元（拖入画布后在右侧检查器自由设定名称、颜色与边框样式）
@@ -51,20 +74,22 @@ const onDragStart = (e: DragEvent, item: DeviceItem) => {
 
 <template>
   <div class="device-palette">
-    <!-- 1. 网络设备分组 -->
-    <div class="palette-header">网络与边缘设备</div>
-    <div class="device-grid">
-      <div
-        v-for="item in devices"
-        :key="item.type"
-        class="device-tile"
-        draggable="true"
-        @dragstart="onDragStart($event, item)"
-      >
-        <div class="tile-icon" :style="{ color: item.color }">{{ item.icon }}</div>
-        <div class="tile-name">{{ item.name }}</div>
+    <!-- 1. 网络与边缘设备分层展示 -->
+    <template v-for="group in deviceGroups" :key="group.name">
+      <div class="palette-header">{{ group.name }}</div>
+      <div class="device-grid">
+        <div
+          v-for="item in group.items"
+          :key="item.type"
+          class="device-tile"
+          draggable="true"
+          @dragstart="onDragStart($event, item)"
+        >
+          <div class="tile-icon" :style="{ color: item.color }">{{ item.icon }}</div>
+          <div class="tile-name">{{ item.name }}</div>
+        </div>
       </div>
-    </div>
+    </template>
 
     <!-- 2. 背景容器大区 (单一通用图元) -->
     <div class="palette-header" style="margin-top: 4px;">容器与背景底板</div>

@@ -160,6 +160,9 @@ public class NetTopologyService {
                 // 链路 Edge
                 JSONObject srcObj = cell.getJSONObject("source");
                 JSONObject tgtObj = cell.getJSONObject("target");
+                JSONObject data = cell.getJSONObject("data");
+                boolean edgeDisabled = data != null && Boolean.TRUE.equals(data.getBoolean("disabled"));
+
                 if (srcObj != null && tgtObj != null) {
                     String srcId = srcObj.getString("cell");
                     String tgtId = tgtObj.getString("cell");
@@ -170,6 +173,7 @@ public class NetTopologyService {
                                 .targetNodeId(tgtId)
                                 .bandwidth("1000 Mbps")
                                 .latencyMs(2)
+                                .disabled(edgeDisabled)
                                 .build());
                     }
                 }
@@ -182,6 +186,7 @@ public class NetTopologyService {
                 String nodeType = "HOST";
                 String ip = "192.168.1.1";
                 String zone = "IT_ZONE";
+                boolean nodeDisabled = false;
                 List<AclRule> acls = new ArrayList<>();
 
                 if (data != null) {
@@ -189,6 +194,7 @@ public class NetTopologyService {
                     nodeType = data.getString("type");
                     ip = data.getString("ip");
                     zone = data.getString("zone");
+                    nodeDisabled = Boolean.TRUE.equals(data.getBoolean("disabled"));
                     JSONArray aclArr = data.getJSONArray("acls");
                     if (aclArr != null) {
                         acls = aclArr.toJavaList(AclRule.class);
@@ -204,6 +210,7 @@ public class NetTopologyService {
                         .zone(zone)
                         .ip(ip != null ? ip : "192.168.1.1")
                         .acls(acls)
+                        .disabled(nodeDisabled)
                         .build());
             }
         }

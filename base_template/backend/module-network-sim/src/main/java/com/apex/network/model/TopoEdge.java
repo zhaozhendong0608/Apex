@@ -43,4 +43,10 @@ public class TopoEdge implements Serializable {
      */
     @Builder.Default
     private Integer latencyMs = 2;
+
+    /**
+     * 链路故障/光纤切断状态 (true: 故障断开, false: 正常通畅)
+     */
+    @Builder.Default
+    private Boolean disabled = false;
 }

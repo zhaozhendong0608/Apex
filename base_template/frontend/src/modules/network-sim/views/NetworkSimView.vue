@@ -1,12 +1,30 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Graph } from '@antv/x6'
-import { ElMessage } from 'element-plus'
+import { Graph, Node } from '@antv/x6'
+import { Transform } from '@antv/x6-plugin-transform'
+import { Snapline } from '@antv/x6-plugin-snapline'
+import { Export } from '@antv/x6-plugin-export'
+import { ElMessage, type MessageHandler } from 'element-plus'
 import DevicePalette, { type DeviceItem } from '../components/DevicePalette.vue'
 import PropertyInspector, { type SelectedNodeData, type SelectedEdgeData, type SelectedZoneData } from '../components/PropertyInspector.vue'
 import SimulationConsole, { type LogItem } from '../components/SimulationConsole.vue'
 import { getTopologyDetailApi, saveTopologyApi, runSimulationApi } from '../api/topology'
+
+// 消息提示防重叠防遮挡管理
+let activeMessage: MessageHandler | null = null
+const showToast = (type: 'success' | 'warning' | 'error' | 'info', message: string, duration = 3000) => {
+  if (activeMessage) {
+    activeMessage.close()
+  }
+  activeMessage = ElMessage({
+    type,
+    message,
+    duration,
+    grouping: true,
+    offset: 45
+  })
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -31,35 +49,151 @@ const contextMenu = ref<{
   targetCellId: string
   targetType: 'node' | 'edge' | 'zone'
   targetTitle: string
+  isDisabled?: boolean
 }>({
   visible: false,
   x: 0,
   y: 0,
   targetCellId: '',
   targetType: 'node',
-  targetTitle: ''
+  targetTitle: '',
+  isDisabled: false
 })
 
 const closeContextMenu = () => {
   contextMenu.value.visible = false
 }
 
-// 统一删除右键目标图元
-const handleDeleteContextCell = () => {
+// 应用图元的故障/正常外观与醒目标签
+const applyCellFaultStyle = (cell: any, disabled: boolean) => {
+  if (cell.isEdge()) {
+    if (disabled) {
+      cell.attr('line/stroke', '#ef4444')
+      cell.attr('line/strokeDasharray', '6 4')
+      cell.attr('line/strokeWidth', 2.5)
+      cell.setLabels([
+        {
+          attrs: {
+            text: {
+              text: '⚡ [链路切断]',
+              fill: '#ef4444',
+              fontSize: 10,
+              fontWeight: 'bold',
+              textAnchor: 'middle'
+            },
+            rect: {
+              fill: '#0f172a',
+              stroke: '#ef4444',
+              strokeWidth: 1,
+              rx: 3,
+              ry: 3
+            }
+          },
+          position: 0.5
+        }
+      ])
+    } else {
+      cell.attr('line/stroke', '#38bdf8')
+      cell.attr('line/strokeDasharray', '0')
+      cell.attr('line/strokeWidth', 2)
+      cell.setLabels([])
+    }
+  } else if (cell.isNode() && !cell.id.startsWith('zone_')) {
+    if (disabled) {
+      cell.attr('body/stroke', '#ef4444')
+      cell.attr('body/strokeWidth', 2)
+      cell.attr('body/strokeDasharray', '4 3')
+      cell.attr('sub/fill', '#ef4444')
+      cell.attr('sub/text', '[已宕机离线]')
+      cell.attr('badge/text', '⚡ 宕机')
+      cell.attr('badge/fill', '#f87171')
+      cell.attr('badge/display', 'block')
+    } else {
+      const data = cell.getData() || {}
+      cell.attr('body/stroke', data.color || '#38bdf8')
+      cell.attr('body/strokeWidth', 1.5)
+      cell.attr('body/strokeDasharray', '0')
+      cell.attr('sub/fill', '#94a3b8')
+      cell.attr('sub/text', data.ip || '192.168.1.1')
+      cell.attr('badge/display', 'none')
+    }
+  }
+}
+
+// 切换图元故障状态 (供右键菜单调用)
+const toggleContextCellFault = () => {
   if (!graph || !contextMenu.value.targetCellId) return
   const cell = graph.getCellById(contextMenu.value.targetCellId)
+  if (!cell) return
+
+  const currentData = cell.getData() || {}
+  const nextDisabled = !currentData.disabled
+
+  cell.setData({
+    ...currentData,
+    disabled: nextDisabled
+  })
+
+  applyCellFaultStyle(cell, nextDisabled)
+
+  const title = contextMenu.value.targetTitle
+  if (nextDisabled) {
+    ElMessage.warning(`已将 [${title}] 注入为故障/宕机状态！`)
+    addLog(`WARN: 注入故障！图元 [${title}] 状态置为不可用 (disabled=true)`, 'danger')
+  } else {
+    ElMessage.success(`[${title}] 已恢复正常运行！`)
+    addLog(`INFO: 恢复运行，图元 [${title}] 已解除故障 (disabled=false)`, 'success')
+  }
+
+  // 同步更新已选中右侧面板属性
+  if (selectedNode.value?.id === cell.id) {
+    selectedNode.value.disabled = nextDisabled
+  }
+  if (selectedEdge.value?.id === cell.id) {
+    selectedEdge.value.disabled = nextDisabled
+  }
+
+  closeContextMenu()
+}
+
+// 统一根据 ID 删除图元（供右键与 Delete 键盘事件复用）
+const deleteCellById = (cellId: string, cellTitle?: string) => {
+  if (!graph || !cellId) return
+  const cell = graph.getCellById(cellId)
   if (cell) {
-    const title = contextMenu.value.targetTitle || '选中图元'
+    const title = cellTitle || (cell.isNode() ? (cell.getData()?.name || '节点') : '链路')
     cell.remove()
     ElMessage.success(`已删除: ${title}`)
     addLog(`INFO: 已移除画布图元 [${title}]`, 'info')
 
-    // 清空被删除图元的属性检查器选中态
-    if (selectedNode.value?.id === cell.id) selectedNode.value = null
-    if (selectedEdge.value?.id === cell.id) selectedEdge.value = null
-    if (selectedZone.value?.id === cell.id) selectedZone.value = null
+    if (selectedNode.value?.id === cellId) selectedNode.value = null
+    if (selectedEdge.value?.id === cellId) selectedEdge.value = null
+    if (selectedZone.value?.id === cellId) selectedZone.value = null
   }
+}
+
+// 右键菜单触发删除
+const handleDeleteContextCell = () => {
+  deleteCellById(contextMenu.value.targetCellId, contextMenu.value.targetTitle)
   closeContextMenu()
+}
+
+// 键盘 Delete / Backspace 快捷删除当前选中的图元
+const handleKeyDown = (e: KeyboardEvent) => {
+  // 如果焦点在 input、textarea 或 select 内部，不触发图元删除
+  const activeEl = document.activeElement
+  if (activeEl && ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeEl.tagName)) {
+    return
+  }
+
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    const currentSelectedId = selectedNode.value?.id || selectedEdge.value?.id || selectedZone.value?.id
+    if (currentSelectedId) {
+      e.preventDefault()
+      const title = selectedNode.value?.name || selectedZone.value?.name || (selectedEdge.value ? '物理网络链路' : '')
+      deleteCellById(currentSelectedId, title)
+    }
+  }
 }
 
 const logs = ref<LogItem[]>([
@@ -83,15 +217,33 @@ onMounted(async () => {
       type: 'mesh',
       args: { color: '#1f2a3a', thickness: 1 }
     },
-    panning: { enabled: true, eventTypes: ['leftMouseDown'], modifiers: 'ctrl' },
+    panning: {
+      enabled: true,
+      eventTypes: ['leftMouseDown', 'rightMouseDown']
+    },
     mousewheel: { enabled: true, modifiers: ['ctrl', 'meta'] },
     connecting: {
       snap: true,
       allowBlank: false,
       allowLoop: false,
+      allowNode: true,
+      allowPort: true,
+      allowMulti: true, // 允许同一端口/节点之间连接多条链路，彻底支持随意自由多连
+      allowEdge: false,
       highlight: true,
       connector: 'rounded',
       router: 'orth',
+      validateConnection({ sourceCell, targetCell }) {
+        // 禁止大区底板参与连线
+        if (sourceCell?.id.startsWith('zone_') || targetCell?.id.startsWith('zone_')) {
+          return false
+        }
+        // 禁止自连
+        if (sourceCell?.id === targetCell?.id) {
+          return false
+        }
+        return true
+      },
       createEdge() {
         return graph!.createEdge({
           attrs: {
@@ -103,6 +255,81 @@ onMounted(async () => {
           }
         })
       }
+    }
+  })
+
+  // 监听连线端点改接事件：当把已有连线拖拽重新连接到其他设备时触发
+  graph.on('edge:connected', ({ type }) => {
+    addLog(`INFO: 物理链路已成功重新挂载至新设备 (改接端点: ${type === 'source' ? '源端' : '宿端'})`, 'info')
+  })
+
+  // 启用对角/四角自由缩放插件 (仅对大区底板 zone_ 生效)
+  graph.use(
+    new Transform({
+      resizing: {
+        enabled: (node: Node) => node.id.startsWith('zone_'),
+        minWidth: 140,
+        minHeight: 100,
+        orthogonal: false,
+        restrict: false,
+        autoScroll: false
+      }
+    })
+  )
+
+  // 启用智能对齐辅助线与吸附插件 (Snapline)
+  graph.use(
+    new Snapline({
+      enabled: true,
+      tolerance: 8,
+      sharp: true,
+      className: 'custom-snapline'
+    })
+  )
+
+  // 启用高清导出插件 (Export)
+  graph.use(new Export())
+
+  // 记录大区移动前的子节点相对位置，实现大区拖动时联动移动内部所有设备节点
+  let movingZoneChildren: Array<{ node: Node; offsetX: number; offsetY: number }> = []
+
+  graph.on('node:mousedown', ({ node }) => {
+    if (node.id.startsWith('zone_')) {
+      const zoneBBox = node.getBBox()
+      movingZoneChildren = []
+
+      // 找出当前在大区几何矩形范围内的所有设备节点
+      graph!.getNodes().forEach(n => {
+        if (!n.id.startsWith('zone_')) {
+          const nBBox = n.getBBox()
+          // 只要设备节点的中心点落在大区底板内部，即视为大区归属节点
+          const centerX = nBBox.x + nBBox.width / 2
+          const centerY = nBBox.y + nBBox.height / 2
+          if (
+            centerX >= zoneBBox.x &&
+            centerX <= zoneBBox.x + zoneBBox.width &&
+            centerY >= zoneBBox.y &&
+            centerY <= zoneBBox.y + zoneBBox.height
+          ) {
+            movingZoneChildren.push({
+              node: n,
+              offsetX: nBBox.x - zoneBBox.x,
+              offsetY: nBBox.y - zoneBBox.y
+            })
+          }
+        }
+      })
+    } else {
+      movingZoneChildren = []
+    }
+  })
+
+  // 当大区位置改变时，实时位移内部子节点
+  graph.on('node:change:position', ({ node, current }) => {
+    if (node.id.startsWith('zone_') && movingZoneChildren.length > 0 && current) {
+      movingZoneChildren.forEach(item => {
+        item.node.setPosition(current.x + item.offsetX, current.y + item.offsetY)
+      })
     }
   })
 
@@ -123,7 +350,9 @@ onMounted(async () => {
         borderColor: body.stroke || '#60a5fa',
         bgColor: body.fill || 'rgba(96, 165, 250, 0.12)',
         isDashed: body.strokeDasharray && body.strokeDasharray !== '0',
-        fontSize: label.fontSize || 11
+        fontSize: label.fontSize || 11,
+        subnetPrefix: data.subnetPrefix || (node.id.includes('it') ? '192.168.1' : node.id.includes('dmz') ? '10.0.0' : node.id.includes('ot') ? '172.16.1' : node.id.includes('field') ? '172.16.2' : '192.168.10'),
+        gateway: data.gateway || `${data.subnetPrefix || '192.168.1'}.1`
       }
       return
     }
@@ -143,18 +372,67 @@ onMounted(async () => {
       zone: data.zone || 'IT_ZONE',
       ip: data.ip || subText,
       subnet: data.subnet || '255.255.255.0',
+      disabled: Boolean(data.disabled),
       acls: data.acls || []
     }
   })
 
-  // 监听图元点击事件：选中链路
+  // 监听图元点击事件：选中链路并反查源宿节点真实名称，同时挂载连线端点自由改接手柄 (Arrowhead Tools)
   graph.on('edge:click', ({ edge }) => {
+    // 先清理此前连线上的手柄工具
+    graph!.getEdges().forEach(e => e.removeTools())
+
+    // 为当前选中的链路挂载源端与宿端改接手柄
+    edge.addTools([
+      {
+        name: 'source-arrowhead',
+        args: {
+          attrs: {
+            fill: '#38bdf8',
+            stroke: '#0f172a',
+            strokeWidth: 1.5,
+            cursor: 'move'
+          }
+        }
+      },
+      {
+        name: 'target-arrowhead',
+        args: {
+          attrs: {
+            fill: '#38bdf8',
+            stroke: '#0f172a',
+            strokeWidth: 1.5,
+            cursor: 'move'
+          }
+        }
+      }
+    ])
+
     selectedNode.value = null
     selectedZone.value = null
+
+    const sourceCell = edge.getSourceCell()
+    const targetCell = edge.getTargetCell()
+
+    let sourceName = '源设备'
+    let targetName = '宿设备'
+
+    if (sourceCell && sourceCell.isNode()) {
+      const sData = sourceCell.getData() || {}
+      sourceName = sData.name || (sourceCell.getAttrs()?.title as any)?.text || sourceCell.id
+    }
+    if (targetCell && targetCell.isNode()) {
+      const tData = targetCell.getData() || {}
+      targetName = tData.name || (targetCell.getAttrs()?.title as any)?.text || targetCell.id
+    }
+
     selectedEdge.value = {
       id: edge.id,
-      bandwidth: '1000',
-      latencyMs: 2
+      sourceName,
+      targetName,
+      bandwidth: edge.getData()?.bandwidth || '1000',
+      latencyMs: edge.getData()?.latencyMs ?? 2,
+      disabled: Boolean(edge.getData()?.disabled)
     }
     closeContextMenu()
   })
@@ -164,9 +442,10 @@ onMounted(async () => {
     e.preventDefault()
     const isZone = node.id.startsWith('zone_')
     const attrs = node.getAttrs()
+    const data = node.getData() || {}
     const title = isZone
       ? ((attrs?.label as any)?.text || '大区底板')
-      : ((attrs?.title as any)?.text || node.getData()?.name || '设备节点')
+      : ((attrs?.title as any)?.text || data.name || '设备节点')
 
     contextMenu.value = {
       visible: true,
@@ -174,25 +453,29 @@ onMounted(async () => {
       y: e.clientY,
       targetCellId: node.id,
       targetType: isZone ? 'zone' : 'node',
-      targetTitle: title
+      targetTitle: title,
+      isDisabled: Boolean(data.disabled)
     }
   })
 
   // 监听图元右键事件：链路
   graph.on('edge:contextmenu', ({ edge, e }) => {
     e.preventDefault()
+    const data = edge.getData() || {}
     contextMenu.value = {
       visible: true,
       x: e.clientX,
       y: e.clientY,
       targetCellId: edge.id,
       targetType: 'edge',
-      targetTitle: '物理网络链路'
+      targetTitle: '物理网络链路',
+      isDisabled: Boolean(data.disabled)
     }
   })
 
-  // 点击空白处取消选择并关闭右键菜单
+  // 点击空白处取消选择并关闭右键菜单，清除所有连线改接工具
   graph.on('blank:click', () => {
+    graph!.getEdges().forEach(e => e.removeTools())
     selectedNode.value = null
     selectedEdge.value = null
     selectedZone.value = null
@@ -233,19 +516,76 @@ onMounted(async () => {
         addLog(`INFO: 已向画布添加背景大区底板 [${item.name}]`, 'info')
       } else {
         // 拖入的是普通设备节点
-        createDeviceNode(item.type, item.name, item.icon, item.color, e.clientX - rect.left - 55, e.clientY - rect.top - 30)
+        const dropX = e.clientX - rect.left - 55
+        const dropY = e.clientY - rect.top - 30
+        const centerDropX = dropX + 55
+        const centerDropY = dropY + 30
+
+        // 智能检测当前放置位置是否位于某个大区底板范围内
+        const zoneNodes = graph.getNodes().filter(n => n.id.startsWith('zone_'))
+        const matchedZone = zoneNodes.find(z => {
+          const zBox = z.getBBox()
+          return centerDropX >= zBox.x && centerDropX <= zBox.x + zBox.width &&
+                 centerDropY >= zBox.y && centerDropY <= zBox.y + zBox.height
+        })
+
+        let inheritedIp: string | undefined
+        let inheritedZone: string | undefined
+
+        if (matchedZone) {
+          const zData = matchedZone.getData() || {}
+          const prefix = zData.subnetPrefix || (
+            matchedZone.id.includes('it') ? '192.168.1' :
+            matchedZone.id.includes('dmz') ? '10.0.0' :
+            matchedZone.id.includes('ot') ? '172.16.1' :
+            matchedZone.id.includes('field') ? '172.16.2' : '192.168.10'
+          )
+          inheritedZone = matchedZone.id.includes('it') ? 'IT_ZONE' :
+                          matchedZone.id.includes('dmz') ? 'DMZ_ZONE' :
+                          matchedZone.id.includes('ot') ? 'OT_ZONE' : 'PHY_ZONE'
+
+          // 自动分配该大区内未占用的末位 IP (Host ID)
+          const existingIps = graph.getNodes()
+            .filter(n => !n.id.startsWith('zone_'))
+            .map(n => n.getData()?.ip as string)
+            .filter(ip => ip && ip.startsWith(`${prefix}.`))
+
+          let hostId = 10
+          while (existingIps.includes(`${prefix}.${hostId}`) && hostId < 254) {
+            hostId++
+          }
+          inheritedIp = `${prefix}.${hostId}`
+          addLog(`INFO: 设备 [${item.name}] 落在 [${(matchedZone.getAttrs()?.label as any)?.text || matchedZone.id}]，自动继承网段 ${prefix}.0/24，智能分配 IP: ${inheritedIp}`, 'info')
+        }
+
+        createDeviceNode(item.type, item.name, item.icon, item.color, dropX, dropY, {
+          ip: inheritedIp,
+          zone: inheritedZone
+        })
         addLog(`INFO: 已向画布添加设备节点 [${item.name}]`, 'info')
+        refreshAvailableNodes()
       }
     } catch (parseErr) {
       console.error('解析拖拽数据失败', parseErr)
     }
   })
 
+  // 挂载键盘 Delete / Backspace 监听
+  window.addEventListener('keydown', handleKeyDown)
+
   // 根据路由 ID 拉取数据库方案，否则载入默认 Demo
   if (topoId.value) {
     await loadTopologyFromBackend(topoId.value)
   } else {
     loadDemoTopology()
+  }
+  refreshAvailableNodes()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown)
+  if (graph) {
+    graph.dispose()
   }
 })
 
@@ -254,6 +594,7 @@ const handleUpdateNode = (updated: SelectedNodeData) => {
   if (!graph) return
   const node = graph.getCellById(updated.id)
   if (node && node.isNode()) {
+    const isFault = Boolean(updated.disabled)
     // 1. 回写节点业务 data
     node.setData({
       name: updated.name,
@@ -261,12 +602,14 @@ const handleUpdateNode = (updated: SelectedNodeData) => {
       zone: updated.zone,
       ip: updated.ip,
       subnet: updated.subnet,
+      disabled: isFault,
       acls: updated.acls
     })
 
-    // 2. 实时刷新 SVG 图元上的文字与副标题 IP
+    // 2. 实时刷新 SVG 图元上的文字与副标题 IP 以及故障外观
     node.setAttrByPath('title/text', updated.name)
     node.setAttrByPath('sub/text', updated.ip)
+    applyCellFaultStyle(node, isFault)
   }
 }
 
@@ -275,10 +618,13 @@ const handleUpdateEdge = (updated: SelectedEdgeData) => {
   if (!graph) return
   const edge = graph.getCellById(updated.id)
   if (edge && edge.isEdge()) {
+    const isFault = Boolean(updated.disabled)
     edge.setData({
       bandwidth: updated.bandwidth,
-      latencyMs: updated.latencyMs
+      latencyMs: updated.latencyMs,
+      disabled: isFault
     })
+    applyCellFaultStyle(edge, isFault)
   }
 }
 
@@ -287,12 +633,15 @@ const handleUpdateZone = (updated: SelectedZoneData) => {
   if (!graph) return
   const zoneNode = graph.getCellById(updated.id)
   if (zoneNode && zoneNode.isNode()) {
-    // 1. 同步业务数据
+    // 1. 同步业务数据 (包含网段前缀与默认网关)
     zoneNode.setData({
       name: updated.name,
+      subnetPrefix: updated.subnetPrefix,
+      gateway: updated.gateway,
       borderColor: updated.borderColor,
       bgColor: updated.bgColor,
-      isDashed: updated.isDashed
+      isDashed: updated.isDashed,
+      fontSize: updated.fontSize
     })
 
     // 2. 同步 SVG 外观属性 (标题文本、颜色、边框颜色、虚线边框、字号)
@@ -352,9 +701,32 @@ const handleSaveTopology = async () => {
   }
 }
 
-// 创建安全大区 (SVG 标准图元)
-const createZoneBox = (id: string, title: string, x: number, y: number, width: number, height: number, bgColor: string, borderColor: string, isDashed = false) => {
+// 创建安全大区 (SVG 标准图元，支持配置子网前缀与默认网关)
+const createZoneBox = (
+  id: string,
+  title: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  bgColor: string,
+  borderColor: string,
+  isDashed = false,
+  options: {
+    subnetPrefix?: string
+    gateway?: string
+    fontSize?: number
+  } = {}
+) => {
   if (!graph) return
+  const prefix = options.subnetPrefix || (
+    id.includes('it') ? '192.168.1' :
+    id.includes('dmz') ? '10.0.0' :
+    id.includes('ot') ? '172.16.1' :
+    id.includes('field') ? '172.16.2' : '192.168.10'
+  )
+  const defaultGw = options.gateway || `${prefix}.1`
+
   return graph.addNode({
     id,
     x,
@@ -362,6 +734,15 @@ const createZoneBox = (id: string, title: string, x: number, y: number, width: n
     width,
     height,
     zIndex: 1,
+    data: {
+      name: title,
+      subnetPrefix: prefix,
+      gateway: defaultGw,
+      borderColor,
+      bgColor,
+      isDashed,
+      fontSize: options.fontSize || 11
+    },
     markup: [
       { tagName: 'rect', selector: 'body' },
       { tagName: 'text', selector: 'label' }
@@ -378,7 +759,7 @@ const createZoneBox = (id: string, title: string, x: number, y: number, width: n
       label: {
         text: title,
         fill: borderColor,
-        fontSize: 11,
+        fontSize: options.fontSize || 11,
         fontWeight: 'bold',
         textAnchor: 'start',
         textVerticalAnchor: 'top',
@@ -389,10 +770,57 @@ const createZoneBox = (id: string, title: string, x: number, y: number, width: n
   })
 }
 
-// 创建设备节点 (SVG 标准图元)
-const createDeviceNode = (type: string, name: string, icon: string, color: string, x: number, y: number, subtext = '') => {
+// 创建设备节点 (SVG 标准图元，支持传入完整工业配置参数)
+const createDeviceNode = (
+  type: string,
+  name: string,
+  icon: string,
+  color: string,
+  x: number,
+  y: number,
+  options: {
+    ip?: string
+    subnet?: string
+    zone?: string
+    acls?: any[]
+    subtext?: string
+  } = {}
+) => {
   if (!graph) return null
   const id = 'dev_' + Math.random().toString(36).substring(2, 8)
+
+  const defaultIp = options.ip || (
+    type === 'HOST' ? '192.168.1.10' :
+    type === 'ROUTER' ? '192.168.1.1' :
+    type === 'FIREWALL' ? '10.0.0.1' :
+    type === 'GAP' ? '10.0.0.2' :
+    type === 'PLC' ? '172.16.1.50' :
+    type === 'TDENGINE' ? '172.16.1.100' :
+    type === 'SERVER' ? '192.168.1.5' : '192.168.1.254'
+  )
+
+  const defaultSubnet = options.subnet || '255.255.255.0'
+  const defaultZone = options.zone || (
+    ['HOST', 'SERVER', 'ROUTER'].includes(type) ? 'IT_ZONE' :
+    ['FIREWALL', 'GAP'].includes(type) ? 'DMZ_ZONE' :
+    ['SWITCH', 'PLC', 'NEURON', 'TDENGINE'].includes(type) ? 'OT_ZONE' : 'PHY_ZONE'
+  )
+
+  const defaultAcls = options.acls || (
+    type === 'FIREWALL' ? [
+      { id: 'acl_fw_1', priority: 1, action: 'PERMIT', destPort: 6030, protocol: 'TCP', description: '放行TDengine时序写入与查询' },
+      { id: 'acl_fw_2', priority: 2, action: 'PERMIT', destPort: 1883, protocol: 'TCP', description: '放行工业MQTT物联数据采集' },
+      { id: 'acl_fw_3', priority: 3, action: 'DENY', destPort: 22, protocol: 'TCP', description: '阻断跨大区SSH远程管理' }
+    ] :
+    type === 'GAP' ? [
+      { id: 'gap_rule_1', priority: 1, action: 'PERMIT', destPort: 6030, protocol: 'TCP', description: '单向摆渡：时序指标归档' },
+      { id: 'gap_rule_2', priority: 2, action: 'DENY', destPort: 80, protocol: 'TCP', description: '阻断反向HTTP穿透请求' }
+    ] :
+    type === 'ROUTER' ? [
+      { id: 'rt_acl_1', priority: 1, action: 'PERMIT', destPort: 6030, protocol: 'TCP', description: '默认放行核心业务网段' }
+    ] : []
+  )
+
   return graph.addNode({
     id,
     x,
@@ -403,17 +831,17 @@ const createDeviceNode = (type: string, name: string, icon: string, color: strin
     data: {
       type,
       name,
-      ip: type === 'HOST' ? '192.168.1.10' : type === 'FIREWALL' ? '192.168.1.1' : type === 'TDENGINE' ? '10.1.1.5' : '192.168.1.254',
-      acls: type === 'FIREWALL' ? [
-        { id: 'acl_1', priority: 1, action: 'PERMIT', destPort: 6030, protocol: 'TCP', description: '放行TDengine时序库端口' },
-        { id: 'acl_2', priority: 2, action: 'DENY', destPort: 22, protocol: 'TCP', description: '禁止SSH登录' }
-      ] : []
+      ip: defaultIp,
+      subnet: defaultSubnet,
+      zone: defaultZone,
+      acls: defaultAcls
     },
     markup: [
       { tagName: 'rect', selector: 'body' },
       { tagName: 'text', selector: 'icon' },
       { tagName: 'text', selector: 'title' },
-      { tagName: 'text', selector: 'sub' }
+      { tagName: 'text', selector: 'sub' },
+      { tagName: 'text', selector: 'badge' }
     ],
     attrs: {
       body: {
@@ -426,6 +854,16 @@ const createDeviceNode = (type: string, name: string, icon: string, color: strin
           name: 'dropShadow',
           args: { dx: 0, dy: 3, blur: 5, color: '#000000', opacity: 0.5 }
         }
+      },
+      badge: {
+        text: '',
+        fill: '#ffffff',
+        fontSize: 9,
+        fontWeight: 'bold',
+        textAnchor: 'end',
+        refX: 104,
+        refY: 10,
+        display: 'none'
       },
       icon: {
         text: icon,
@@ -446,7 +884,7 @@ const createDeviceNode = (type: string, name: string, icon: string, color: strin
         refY: 22
       },
       sub: {
-        text: subtext || type,
+        text: options.subtext || defaultIp,
         fill: '#94a3b8',
         fontSize: 9,
         fontFamily: 'monospace',
@@ -458,98 +896,335 @@ const createDeviceNode = (type: string, name: string, icon: string, color: strin
     },
     ports: {
       groups: {
-        top: { position: 'top', attrs: { circle: { r: 3, magnet: true, stroke: '#38bdf8', fill: '#0f172a' } } },
-        bottom: { position: 'bottom', attrs: { circle: { r: 3, magnet: true, stroke: '#38bdf8', fill: '#0f172a' } } },
-        left: { position: 'left', attrs: { circle: { r: 3, magnet: true, stroke: '#38bdf8', fill: '#0f172a' } } },
-        right: { position: 'right', attrs: { circle: { r: 3, magnet: true, stroke: '#38bdf8', fill: '#0f172a' } } }
+        top: {
+          position: 'top',
+          attrs: {
+            circle: {
+              r: 4.5,
+              magnet: true,
+              stroke: '#38bdf8',
+              strokeWidth: 1.5,
+              fill: '#0f172a',
+              cursor: 'crosshair',
+              style: {
+                transition: 'transform 0.15s, stroke 0.15s'
+              }
+            }
+          }
+        },
+        bottom: {
+          position: 'bottom',
+          attrs: {
+            circle: {
+              r: 4.5,
+              magnet: true,
+              stroke: '#38bdf8',
+              strokeWidth: 1.5,
+              fill: '#0f172a',
+              cursor: 'crosshair',
+              style: {
+                transition: 'transform 0.15s, stroke 0.15s'
+              }
+            }
+          }
+        },
+        left: {
+          position: 'left',
+          attrs: {
+            circle: {
+              r: 4.5,
+              magnet: true,
+              stroke: '#38bdf8',
+              strokeWidth: 1.5,
+              fill: '#0f172a',
+              cursor: 'crosshair',
+              style: {
+                transition: 'transform 0.15s, stroke 0.15s'
+              }
+            }
+          }
+        },
+        right: {
+          position: 'right',
+          attrs: {
+            circle: {
+              r: 4.5,
+              magnet: true,
+              stroke: '#38bdf8',
+              strokeWidth: 1.5,
+              fill: '#0f172a',
+              cursor: 'crosshair',
+              style: {
+                transition: 'transform 0.15s, stroke 0.15s'
+              }
+            }
+          }
+        }
       },
       items: [{ id: 'p_l', group: 'left' }, { id: 'p_r', group: 'right' }, { id: 'p_t', group: 'top' }, { id: 'p_b', group: 'bottom' }]
     }
   })
 }
 
-// 载入默认标准拓扑
+// 载入默认标准工业分级拓扑 (IT大区 ➔ 核心路由 ➔ DMZ防火墙与隔离网闸 ➔ OT生产大区工业交换机/PLC/网关)
 const loadDemoTopology = () => {
   if (!graph) return
   graph.clearCells()
 
-  // 1. 绘制 4 大安全区域底板
-  createZoneBox('zone_it', '管理信息大区 (IT Zone)', 30, 30, 230, 260, 'rgba(147, 197, 253, 0.1)', '#60a5fa', false)
-  createZoneBox('zone_dmz', '核心边界隔离区 (DMZ)', 290, 30, 160, 260, 'rgba(254, 202, 202, 0.12)', '#f87171', true)
-  createZoneBox('zone_ot', '生产控制大区 (OT Zone)', 480, 30, 260, 220, 'rgba(187, 247, 208, 0.12)', '#4ade80', false)
-  createZoneBox('zone_phy', '物理设备层', 480, 270, 260, 100, 'rgba(254, 240, 138, 0.12)', '#facc15', false)
+  // 1. 绘制 4 大工业级安全防护分区底板 (显式注入专业网段前缀与默认网关)
+  createZoneBox('zone_it', '管理信息大区 (IT Zone - 192.168.1.0/24)', 30, 30, 240, 280, 'rgba(147, 197, 253, 0.08)', '#60a5fa', false, {
+    subnetPrefix: '192.168.1',
+    gateway: '192.168.1.1'
+  })
+  createZoneBox('zone_dmz', '边界隔离与DMZ (10.0.0.0/24)', 300, 30, 180, 280, 'rgba(254, 202, 202, 0.1)', '#f87171', true, {
+    subnetPrefix: '10.0.0',
+    gateway: '10.0.0.1'
+  })
+  createZoneBox('zone_ot', '生产控制大区 (OT Zone - 172.16.1.0/24)', 510, 30, 280, 280, 'rgba(187, 247, 208, 0.08)', '#4ade80', false, {
+    subnetPrefix: '172.16.1',
+    gateway: '172.16.1.1'
+  })
+  createZoneBox('zone_field', '现场过程监控与物理层 (172.16.2.0/24)', 510, 330, 280, 110, 'rgba(254, 240, 138, 0.08)', '#facc15', false, {
+    subnetPrefix: '172.16.2',
+    gateway: '172.16.2.1'
+  })
 
-  // 2. 注入各分区内的设备
-  const pc = createDeviceNode('HOST', '研发办公PC', '💻', '#38bdf8', 50, 140, '192.168.1.10')!
-  const grafana = createDeviceNode('SERVER', 'Grafana看板', '🖥️', '#38bdf8', 120, 70, '(Server)')!
-  const itSw = createDeviceNode('SWITCH', 'IT交换机', '🔲', '#38bdf8', 160, 140, 'SW-01')!
+  // 2. 注入各分区内的标准工业设备 (配置详细业务参数、IP及真实安全策略)
+  // [IT 区]
+  const pc = createDeviceNode('HOST', '工程师站PC', '💻', '#38bdf8', 50, 130, {
+    ip: '192.168.1.10',
+    subnet: '255.255.255.0',
+    zone: 'IT_ZONE',
+    subtext: '192.168.1.10'
+  })!
+  const grafana = createDeviceNode('SERVER', '监控大屏服务', '🖥️', '#a855f7', 50, 210, {
+    ip: '192.168.1.5',
+    subnet: '255.255.255.0',
+    zone: 'IT_ZONE',
+    subtext: '192.168.1.5:3000'
+  })!
+  const itRouter = createDeviceNode('ROUTER', 'IT核心路由器', '🌐', '#38bdf8', 150, 130, {
+    ip: '192.168.1.1',
+    subnet: '255.255.255.0',
+    zone: 'IT_ZONE',
+    subtext: '网关 192.168.1.1',
+    acls: [
+      { id: 'rt_acl_1', priority: 1, action: 'PERMIT', destPort: 6030, protocol: 'TCP', description: '放行访问OT时序数据库' },
+      { id: 'rt_acl_2', priority: 2, action: 'PERMIT', destPort: 1883, protocol: 'TCP', description: '放行边缘MQTT遥测消息' }
+    ]
+  })!
 
-  const fw = createDeviceNode('FIREWALL', '工业核心防火墙', '🧱', '#ef4444', 315, 140, '(Firewall)')!
+  // [DMZ 隔离区]
+  const fw = createDeviceNode('FIREWALL', '边界防火墙', '🧱', '#ef4444', 335, 80, {
+    ip: '10.0.0.1',
+    subnet: '255.255.255.0',
+    zone: 'DMZ_ZONE',
+    subtext: 'DMZ-FW01',
+    acls: [
+      { id: 'fw_rule_1', priority: 1, action: 'PERMIT', destPort: 6030, protocol: 'TCP', description: '放行TDengine数据湖写入' },
+      { id: 'fw_rule_2', priority: 2, action: 'PERMIT', destPort: 1883, protocol: 'TCP', description: '放行工业MQTT数据汇聚' },
+      { id: 'fw_rule_3', priority: 3, action: 'DENY', destPort: 22, protocol: 'TCP', description: '严禁跨区SSH远程调试' },
+      { id: 'fw_rule_4', priority: 4, action: 'DENY', destPort: 3389, protocol: 'TCP', description: '严禁跨区RDP远程桌面' }
+    ]
+  })!
+  const gap = createDeviceNode('GAP', '单向安全网闸', '🛡️', '#f97316', 335, 180, {
+    ip: '10.0.0.2',
+    subnet: '255.255.255.0',
+    zone: 'DMZ_ZONE',
+    subtext: '单向隔离摆渡',
+    acls: [
+      { id: 'gap_1', priority: 1, action: 'PERMIT', destPort: 6030, protocol: 'TCP', description: '工业OT向IT单向摆渡时序指标' },
+      { id: 'gap_2', priority: 2, action: 'DENY', destPort: 80, protocol: 'TCP', description: '阻断所有外部反向控制信令' }
+    ]
+  })!
 
-  const tdengine = createDeviceNode('TDENGINE', 'TDengine时序库', '🛢️', '#06b6d4', 590, 60, '(Server)')!
-  const mqtt = createDeviceNode('SERVER', 'MQTT Broker', '📟', '#10b981', 590, 130, '(Server)')!
-  const neuron = createDeviceNode('NEURON', 'Neuron网关', '🔄', '#22c55e', 590, 190, '(Gateway)')!
+  // [OT 生产控制区]
+  const otSw = createDeviceNode('SWITCH', '工业核心交换机', '🔲', '#0ea5e9', 530, 130, {
+    ip: '172.16.1.1',
+    subnet: '255.255.255.0',
+    zone: 'OT_ZONE',
+    subtext: '三层核心交换机'
+  })!
+  const tdengine = createDeviceNode('TDENGINE', '时序数据库', '🛢️', '#06b6d4', 660, 60, {
+    ip: '172.16.1.100',
+    subnet: '255.255.255.0',
+    zone: 'OT_ZONE',
+    subtext: '端口: 6030'
+  })!
+  const neuron = createDeviceNode('NEURON', 'Neuron工业网关', '🔄', '#22c55e', 660, 140, {
+    ip: '172.16.1.10',
+    subnet: '255.255.255.0',
+    zone: 'OT_ZONE',
+    subtext: 'Modbus/OPC-UA'
+  })!
+  const plc = createDeviceNode('PLC', '产线控制器PLC', '🎛️', '#8b5cf6', 660, 220, {
+    ip: '172.16.1.50',
+    subnet: '255.255.255.0',
+    zone: 'OT_ZONE',
+    subtext: 'S7-1500 工控机'
+  })!
 
-  createDeviceNode('SENSOR', '烟雾传感器', '🌡️', '#f59e0b', 500, 300, '(Sensor)')
-  createDeviceNode('SENSOR', '温湿传感器', '🌡️', '#f59e0b', 620, 300, '(Sensor)')
+  // [物理层]
+  const sensor1 = createDeviceNode('SENSOR', '振动传感器', '🌡️', '#f59e0b', 530, 360, {
+    ip: '172.16.2.11',
+    subnet: '255.255.255.0',
+    zone: 'PHY_ZONE',
+    subtext: '4-20mA 模拟量'
+  })!
+  const sensor2 = createDeviceNode('SENSOR', '温湿传感器', '🌡️', '#f59e0b', 660, 360, {
+    ip: '172.16.2.12',
+    subnet: '255.255.255.0',
+    zone: 'PHY_ZONE',
+    subtext: 'Modbus-RTU 485'
+  })!
 
-  // 3. 构建拓扑连线
-  graph.addEdge({ source: { cell: pc.id, port: 'p_r' }, target: { cell: itSw.id, port: 'p_l' }, attrs: { line: { stroke: '#38bdf8', strokeWidth: 2 } } })
-  graph.addEdge({ source: { cell: grafana.id, port: 'p_b' }, target: { cell: itSw.id, port: 'p_t' }, attrs: { line: { stroke: '#38bdf8', strokeWidth: 2 } } })
+  // 3. 构建规范连线
+  // IT 内部汇聚连线
+  graph.addEdge({ source: { cell: pc.id, port: 'p_r' }, target: { cell: itRouter.id, port: 'p_l' }, attrs: { line: { stroke: '#38bdf8', strokeWidth: 2 } } })
+  graph.addEdge({ source: { cell: grafana.id, port: 'p_r' }, target: { cell: itRouter.id, port: 'p_b' }, attrs: { line: { stroke: '#38bdf8', strokeWidth: 2 } } })
 
+  // 跨区域边界路由与隔离连线 (经由路由器 ➔ 防火墙/网闸)
   graph.addEdge({
-    id: 'edge_it_fw',
-    source: { cell: itSw.id, port: 'p_r' },
+    id: 'edge_router_fw',
+    source: { cell: itRouter.id, port: 'p_r' },
     target: { cell: fw.id, port: 'p_l' },
     attrs: { line: { stroke: '#38bdf8', strokeWidth: 2.5 } }
   })
-
   graph.addEdge({
-    id: 'edge_fw_ot',
-    source: { cell: fw.id, port: 'p_r' },
-    target: { cell: mqtt.id, port: 'p_l' },
-    attrs: { line: { stroke: '#38bdf8', strokeWidth: 2.5 } }
+    id: 'edge_router_gap',
+    source: { cell: itRouter.id, port: 'p_r' },
+    target: { cell: gap.id, port: 'p_l' },
+    attrs: { line: { stroke: '#f97316', strokeWidth: 2, strokeDasharray: '4 4' } }
   })
 
-  graph.addEdge({ source: { cell: mqtt.id, port: 'p_t' }, target: { cell: tdengine.id, port: 'p_b' }, attrs: { line: { stroke: '#38bdf8', strokeWidth: 2 } } })
-  graph.addEdge({ source: { cell: neuron.id, port: 'p_t' }, target: { cell: mqtt.id, port: 'p_b' }, attrs: { line: { stroke: '#38bdf8', strokeWidth: 2 } } })
+  // DMZ ➔ OT 工业交换机
+  graph.addEdge({
+    id: 'edge_fw_otsw',
+    source: { cell: fw.id, port: 'p_r' },
+    target: { cell: otSw.id, port: 'p_l' },
+    attrs: { line: { stroke: '#38bdf8', strokeWidth: 2.5 } }
+  })
+  graph.addEdge({
+    id: 'edge_gap_otsw',
+    source: { cell: gap.id, port: 'p_r' },
+    target: { cell: otSw.id, port: 'p_l' },
+    attrs: { line: { stroke: '#f97316', strokeWidth: 2 } }
+  })
+
+  // OT 内部互联与工业采集链路
+  graph.addEdge({ source: { cell: otSw.id, port: 'p_r' }, target: { cell: tdengine.id, port: 'p_l' }, attrs: { line: { stroke: '#38bdf8', strokeWidth: 2 } } })
+  graph.addEdge({ source: { cell: otSw.id, port: 'p_r' }, target: { cell: neuron.id, port: 'p_l' }, attrs: { line: { stroke: '#38bdf8', strokeWidth: 2 } } })
+  graph.addEdge({ source: { cell: otSw.id, port: 'p_r' }, target: { cell: plc.id, port: 'p_l' }, attrs: { line: { stroke: '#38bdf8', strokeWidth: 2 } } })
+
+  // 物理传感器接入控制器与网关
+  graph.addEdge({ source: { cell: sensor1.id, port: 'p_t' }, target: { cell: plc.id, port: 'p_b' }, attrs: { line: { stroke: '#f59e0b', strokeWidth: 1.5, strokeDasharray: '2 2' } } })
+  graph.addEdge({ source: { cell: sensor2.id, port: 'p_t' }, target: { cell: neuron.id, port: 'p_b' }, attrs: { line: { stroke: '#f59e0b', strokeWidth: 1.5, strokeDasharray: '2 2' } } })
 
   graph.zoomToFit({ padding: 30 })
 }
 
-// 执行连通性仿真：先自动保存最新拓扑，再触发 Java 后端真实 BFS 算法
-const handleSimulate = async () => {
+// 提取画布中可用设备节点列表供演练控制台选择
+const availableNodes = ref<Array<{ id: string; name: string; ip: string; type: string }>>([])
+
+const refreshAvailableNodes = () => {
+  if (!graph) return
+  const nodes = graph.getNodes().filter(n => !n.id.startsWith('zone_'))
+  availableNodes.value = nodes.map(n => {
+    const data = n.getData() || {}
+    const attrs = n.getAttrs()
+    return {
+      id: n.id,
+      name: (attrs?.title as any)?.text || data.name || n.id,
+      ip: (attrs?.sub as any)?.text || data.ip || '192.168.1.1',
+      type: data.type || 'HOST'
+    }
+  })
+}
+
+// 仿真计算中状态
+const simulating = ref(false)
+
+// 清理高亮与流光特效 (保留故障注入状态外观)
+const resetEdgeStyles = () => {
+  if (!graph) return
+  graph.getEdges().forEach(edge => {
+    const isFault = Boolean(edge.getData()?.disabled)
+    if (isFault) {
+      edge.attr('line/stroke', '#ef4444')
+      edge.attr('line/strokeWidth', 2)
+      edge.attr('line/strokeDasharray', '5 5')
+      edge.attr('line/style', {})
+    } else {
+      edge.attr('line/stroke', '#38bdf8')
+      edge.attr('line/strokeWidth', 2)
+      edge.attr('line/strokeDasharray', '0')
+      edge.attr('line/style', {})
+    }
+  })
+  graph.getNodes().forEach(n => {
+    if (!n.id.startsWith('zone_')) {
+      const isFault = Boolean(n.getData()?.disabled)
+      if (isFault) {
+        n.attr('body/stroke', '#ef4444')
+        n.attr('body/strokeWidth', 2)
+        n.attr('body/strokeDasharray', '4 3')
+      } else {
+        n.attr('body/stroke', n.getData()?.color || '#38bdf8')
+        n.attr('body/strokeWidth', 1.5)
+        n.attr('body/strokeDasharray', '0')
+      }
+    }
+  })
+}
+
+// 执行端到端连通性仿真：支持从演练控制台传入自定义源端、宿端、端口与协议
+const handleSimulate = async (customParams?: { sourceId: string; targetId: string; destPort: number; protocol: string }) => {
   if (!graph) return
   passBadgeVisible.value = false
-  packetVisible.value = true
+  packetVisible.value = false
+  simulating.value = true
 
-  addLog('TRACE: 正在向 Spring Boot 仿真引擎同步最新图元拓扑...', 'trace')
+  // 重置此前的高亮连线
+  resetEdgeStyles()
 
   try {
     // 1. 先保存画布最新状态
     await handleSaveTopology()
+    refreshAvailableNodes()
+
+    let srcId = customParams?.sourceId
+    let dstId = customParams?.targetId
+    let dPort = customParams?.destPort ?? 6030
+    let proto = customParams?.protocol ?? 'TCP'
 
     const nodes = graph.getNodes().filter(n => !n.id.startsWith('zone_'))
-    const hostNode = nodes.find(n => n.getData()?.type === 'HOST') || nodes[0]
-    const targetNode = nodes.find(n => n.getData()?.type === 'TDENGINE' || n.getData()?.type === 'SERVER') || nodes[nodes.length - 1]
+    const hostNode = nodes.find(n => n.id === srcId) || nodes.find(n => n.getData()?.type === 'HOST') || nodes[0]
+    const targetNode = nodes.find(n => n.id === dstId) || nodes.find(n => n.getData()?.type === 'TDENGINE' || n.getData()?.type === 'SERVER') || nodes[nodes.length - 1]
 
     if (!hostNode || !targetNode) {
       ElMessage.warning('画布中缺少源设备或目标设备，无法测试')
       return
     }
 
-    addLog(`TRACE: 触发后端真实 BFS 寻路测试: [${hostNode.getData()?.name || hostNode.id}] ➔ [${targetNode.getData()?.name || targetNode.id}] (端口: 6030)`, 'trace')
+    srcId = hostNode.id
+    dstId = targetNode.id
+
+    const srcName = hostNode.getData()?.name || hostNode.id
+    const dstName = targetNode.getData()?.name || targetNode.id
+
+    addLog(`TRACE: 触发后端真实 BFS 寻路测试: [${srcName}] ➔ [${dstName}] | 端口: ${dPort}, 协议: ${proto}`, 'trace')
 
     // 2. 调用后端真实仿真计算 API
     const res = await runSimulationApi({
       topologyId: topoId.value || 1,
-      sourceNodeId: hostNode.id,
-      targetNodeId: targetNode.id,
-      destPort: 6030,
-      protocol: 'TCP'
+      sourceNodeId: srcId,
+      targetNodeId: dstId,
+      destPort: dPort,
+      protocol: proto
     })
 
     const data = res.data
+
     // 渲染后端回显日志
     if (data.logs && data.logs.length > 0) {
       data.logs.forEach(msg => {
@@ -557,15 +1232,83 @@ const handleSimulate = async () => {
       })
     }
 
+    // 3. 动态高亮与数据流动轨迹特效
+    if (data.nodePath && data.nodePath.length > 1) {
+      for (let i = 0; i < data.nodePath.length - 1; i++) {
+        const u = data.nodePath[i]
+        const v = data.nodePath[i + 1]
+
+        // 查找两节点之间的物理连线 (双向比对)
+        const matchedEdge = graph.getEdges().find(e => {
+          const s = e.getSourceCellId()
+          const t = e.getTargetCellId()
+          return (s === u && t === v) || (s === v && t === u)
+        })
+
+        if (matchedEdge) {
+          if (data.reachable) {
+            // 通畅流光路径：翠绿呼吸跑马灯
+            matchedEdge.attr('line/stroke', '#22c55e')
+            matchedEdge.attr('line/strokeWidth', 3.5)
+            matchedEdge.attr('line/strokeDasharray', '8 4')
+            matchedEdge.attr('line/style', {
+              animation: 'ant-line 0.6s linear infinite'
+            })
+          } else {
+            // 阻断路径：警示红光虚线
+            matchedEdge.attr('line/stroke', '#ef4444')
+            matchedEdge.attr('line/strokeWidth', 3)
+            matchedEdge.attr('line/strokeDasharray', '5 5')
+            matchedEdge.attr('line/style', {})
+          }
+        }
+      }
+    }
+
     if (data.reachable) {
       passBadgeVisible.value = true
-      ElMessage.success('后端 BFS 寻路判定：网络完全连通！')
+      const hasRedundancy = data.logs && data.logs.some(l => l.includes('[REDUNDANCY]'))
+      if (hasRedundancy) {
+        showToast('success', `🔄 工业应急网络自愈成功！避开故障链路/宕机设备，成功通过冗余备用路径到达 [${dstName}]！(跳数: ${data.hops}, 延迟: ${data.totalLatencyMs}ms)`, 4500)
+      } else {
+        showToast('success', `✔ 后端 BFS 判定：[${srcName}] ➔ [${dstName}] 顺利连通！(跳数: ${data.hops}, 延迟: ${data.totalLatencyMs}ms)`)
+      }
     } else if (data.blocked) {
-      ElMessage.error(`被防火墙 ACL 规则 [${data.blockedRuleId}] 拦截阻断！`)
+      // 拦截节点闪烁红色描边
+      if (data.blockedNodeId) {
+        const blockedCell = graph.getCellById(data.blockedNodeId)
+        if (blockedCell && blockedCell.isNode()) {
+          blockedCell.attr('body/stroke', '#ef4444')
+          blockedCell.attr('body/strokeWidth', 3)
+        }
+      }
+
+      if (data.blockedRuleId === 'GAP_HARDWARE_REVERSE_ISOLATION') {
+        showToast('error', '🛡️ 触发单向安全网闸硬件反向阻断：国家能源局36号令严禁IT外网向OT工控区反向穿透！', 4000)
+      } else {
+        showToast('error', `被节点安全策略拦截阻断！规则: [${data.blockedRuleId || 'DENY'}]`, 3500)
+      }
+    } else {
+      showToast('warning', `未找到从 [${srcName}] 至 [${dstName}] 的有效物理通路！可能相关链路中断或节点宕机。`, 3500)
     }
   } catch (err: any) {
-    ElMessage.error(err.message || '仿真请求失败')
+    showToast('error', err.message || '仿真请求失败')
+  } finally {
+    simulating.value = false
   }
+}
+
+const handleClearLogs = () => {
+  logs.value = []
+}
+
+// 一键复位仿真演练动画与高亮状态
+const handleResetSimulation = () => {
+  passBadgeVisible.value = false
+  packetVisible.value = false
+  resetEdgeStyles()
+  showToast('info', '已复位当前画布仿真流光与高亮状态')
+  addLog('INFO: 仿真演练状态已复位，恢复拓扑初始观察视角', 'info')
 }
 
 const addLog = (text: string, type: 'info' | 'trace' | 'success' | 'danger') => {
@@ -581,6 +1324,23 @@ const handleBackToList = () => {
 const zoomIn = () => graph?.zoom(0.1)
 const zoomOut = () => graph?.zoom(-0.1)
 const zoomFit = () => graph?.zoomToFit({ padding: 30 })
+
+// 导出当前拓扑架构为高清 PNG 图片
+const handleExportPng = () => {
+  if (!graph) return
+  try {
+    const filename = `${topoName.value || '网络拓扑架构图'}_${new Date().toISOString().slice(0, 10)}.png`
+    graph.exportPNG(filename, {
+      padding: 30,
+      backgroundColor: '#151d28',
+      quality: 1
+    })
+    ElMessage.success(`已成功导出高清拓扑图: ${filename}`)
+    addLog(`SUCCESS: 导出高清架构图 [${filename}] 成功`, 'success')
+  } catch (err: any) {
+    ElMessage.error(err.message || '导出拓扑图失败')
+  }
+}
 </script>
 
 <template>
@@ -598,6 +1358,9 @@ const zoomFit = () => graph?.zoomToFit({ padding: 30 })
       <div class="view-actions">
         <button class="btn-action-primary" :disabled="saving" @click="handleSaveTopology">
           💾 {{ saving ? '保存中...' : '保存拓扑' }}
+        </button>
+        <button class="btn-action-export" title="导出当前拓扑为高清PNG图片" @click="handleExportPng">
+          📸 导出拓扑图
         </button>
         <button title="自适应画布" @click="zoomFit">⛶</button>
         <button title="放大" @click="zoomIn">🔍+</button>
@@ -619,8 +1382,15 @@ const zoomFit = () => graph?.zoomToFit({ padding: 30 })
         <div v-if="packetVisible" class="packet-bubble">ICMP Ping 报文 (Port: 6030)</div>
         <div v-if="passBadgeVisible" class="badge-pass">✔ 链路畅通</div>
 
-        <!-- 底部控制台 -->
-        <SimulationConsole :logs="logs" />
+        <!-- 底部仿真演练控制台 (支持自选源/宿端、端口与协议) -->
+        <SimulationConsole
+          :logs="logs"
+          :nodes="availableNodes"
+          :simulating="simulating"
+          @run="handleSimulate"
+          @clear-logs="handleClearLogs"
+          @reset-sim="handleResetSimulation"
+        />
 
         <!-- 自定义右键快捷菜单 -->
         <div
@@ -636,6 +1406,23 @@ const zoomFit = () => graph?.zoomToFit({ padding: 30 })
             <span class="menu-title" :title="contextMenu.targetTitle">{{ contextMenu.targetTitle }}</span>
           </div>
           <div class="menu-divider"></div>
+          
+          <!-- 故障注入/恢复 (针对设备节点与物理链路) -->
+          <div
+            v-if="contextMenu.targetType === 'node' || contextMenu.targetType === 'edge'"
+            class="menu-item"
+            :class="{ 'is-warning': !contextMenu.isDisabled, 'is-success': contextMenu.isDisabled }"
+            @click="toggleContextCellFault"
+          >
+            <span class="item-icon">{{ contextMenu.isDisabled ? '💚' : '⚠️' }}</span>
+            <span>
+              {{ contextMenu.isDisabled
+                ? (contextMenu.targetType === 'edge' ? '恢复链路通畅' : '恢复设备正常运行')
+                : (contextMenu.targetType === 'edge' ? '模拟链路切断 (故障注入)' : '模拟硬件宕机 (故障注入)')
+              }}
+            </span>
+          </div>
+
           <div class="menu-item is-danger" @click="handleDeleteContextCell">
             <span class="item-icon">🗑️</span>
             <span>删除此{{ contextMenu.targetType === 'zone' ? '大区底板' : contextMenu.targetType === 'edge' ? '链路' : '节点' }}</span>
@@ -643,16 +1430,19 @@ const zoomFit = () => graph?.zoomToFit({ padding: 30 })
         </div>
       </div>
 
-      <!-- 右侧属性检查器 (支持点选设备节点、物理链路与安全大区底板编辑) -->
-      <PropertyInspector
-        :selected-node="selectedNode"
-        :selected-edge="selectedEdge"
-        :selected-zone="selectedZone"
-        @update-node="handleUpdateNode"
-        @update-edge="handleUpdateEdge"
-        @update-zone="handleUpdateZone"
-        @simulate="handleSimulate"
-      />
+      <!-- 右侧属性检查器 (点击空白处自动隐藏，选中图元时展开) -->
+      <transition name="slide-fade">
+        <PropertyInspector
+          v-if="selectedNode || selectedEdge || selectedZone"
+          :selected-node="selectedNode"
+          :selected-edge="selectedEdge"
+          :selected-zone="selectedZone"
+          @update-node="handleUpdateNode"
+          @update-edge="handleUpdateEdge"
+          @update-zone="handleUpdateZone"
+          @simulate="handleSimulate"
+        />
+      </transition>
     </div>
   </div>
 </template>
@@ -726,6 +1516,27 @@ const zoomFit = () => graph?.zoomToFit({ padding: 30 })
 }
 .btn-action-primary:hover {
   background: #0369a1;
+}
+
+.btn-action-export {
+  background: #1e293b;
+  border: 1px solid #334155;
+  color: #38bdf8;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s;
+}
+
+.btn-action-export:hover {
+  background: #0f172a;
+  border-color: #38bdf8;
+  color: #7dd3fc;
+  box-shadow: 0 0 6px rgba(56, 189, 248, 0.3);
 }
 
 .view-actions button {
@@ -851,6 +1662,24 @@ const zoomFit = () => graph?.zoomToFit({ padding: 30 })
   background: #334155;
 }
 
+.menu-item.is-warning {
+  color: #fbbf24;
+}
+
+.menu-item.is-warning:hover {
+  background: rgba(245, 158, 11, 0.18);
+  color: #f59e0b;
+}
+
+.menu-item.is-success {
+  color: #4ade80;
+}
+
+.menu-item.is-success:hover {
+  background: rgba(34, 197, 94, 0.18);
+  color: #22c55e;
+}
+
 .menu-item.is-danger {
   color: #f87171;
 }
@@ -862,5 +1691,59 @@ const zoomFit = () => graph?.zoomToFit({ padding: 30 })
 
 .item-icon {
   font-size: 13px;
+}
+
+/* 属性面板滑入滑出动画 */
+.slide-fade-enter-active {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.slide-fade-leave-active {
+  transition: all 0.2s cubic-bezier(0.7, 0, 0.84, 0);
+}
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  transform: translateX(30px);
+  opacity: 0;
+}
+
+/* 链路通畅跑马灯流光动画 */
+@keyframes ant-line {
+  from {
+    stroke-dashoffset: 24;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+:deep(.x6-edge path[style*="ant-line"]) {
+  animation: ant-line 0.5s linear infinite !important;
+}
+
+:deep(.x6-edge path) {
+  transition: stroke 0.25s ease, stroke-width 0.25s ease;
+}
+
+/* X6 Transform 自由缩放手柄样式美化 */
+:deep(.x6-widget-transform) {
+  padding: 0;
+  border: 1px dashed #38bdf8;
+  border-radius: 8px;
+}
+:deep(.x6-widget-transform-resize) {
+  border-radius: 3px;
+  background-color: #38bdf8;
+  border: 1px solid #0f172a;
+  box-shadow: 0 0 6px rgba(56, 189, 248, 0.6);
+  width: 8px;
+  height: 8px;
+}
+
+/* X6 Snapline 智能对齐辅助线美化 (高亮亮青色激光线) */
+:deep(.x6-widget-snapline) {
+  stroke: #38bdf8 !important;
+  stroke-width: 1px !important;
+  stroke-dasharray: 4 2 !important;
+  opacity: 0.85;
 }
 </style>

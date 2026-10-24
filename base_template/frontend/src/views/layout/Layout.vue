@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore, type ThemeType } from '@/stores/theme'
+import { Fold, Expand } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -13,6 +14,11 @@ const themeStore = useThemeStore()
 const { userInfo } = storeToRefs(authStore)
 
 const activeMenu = computed(() => route.path)
+const isCollapse = ref(false)
+
+const toggleCollapse = () => {
+  isCollapse.value = !isCollapse.value
+}
 
 const handleLogout = async () => {
   await authStore.logout()
@@ -33,8 +39,18 @@ const themeOptions: { label: string; value: ThemeType }[] = [
     <!-- Header 顶部导航栏 -->
     <header class="app-header">
       <div class="brand">
+        <el-button
+          class="collapse-toggle-btn"
+          link
+          :title="isCollapse ? '展开菜单' : '收起菜单'"
+          @click="toggleCollapse"
+        >
+          <el-icon :size="18">
+            <component :is="isCollapse ? Expand : Fold" />
+          </el-icon>
+        </el-button>
         <div class="brand-icon">A</div>
-        <span>SysPlatform 通用平台</span>
+        <span v-show="!isCollapse">SysPlatform 通用平台</span>
       </div>
 
       <div class="header-right">
@@ -70,8 +86,14 @@ const themeOptions: { label: string; value: ThemeType }[] = [
 
     <!-- 主体区域：侧边栏 + 内容区 -->
     <div class="main-body">
-      <aside class="app-sidebar">
-        <el-menu :default-active="activeMenu" router class="sidebar-menu">
+      <aside class="app-sidebar" :class="{ 'is-collapsed': isCollapse }">
+        <el-menu
+          :default-active="activeMenu"
+          :collapse="isCollapse"
+          :collapse-transition="true"
+          router
+          class="sidebar-menu"
+        >
           <el-sub-menu index="/system">
             <template #title>
               <el-icon><Setting /></el-icon>
@@ -122,6 +144,18 @@ const themeOptions: { label: string; value: ThemeType }[] = [
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
+}
+
+.collapse-toggle-btn {
+  color: var(--text-main);
+  padding: 4px;
+  margin-right: 2px;
+  border-radius: 4px;
+}
+
+.collapse-toggle-btn:hover {
+  background: var(--border-color);
+  color: var(--primary-color);
 }
 
 .brand {
@@ -182,6 +216,12 @@ const themeOptions: { label: string; value: ThemeType }[] = [
   width: 220px;
   background: var(--bg-sidebar);
   border-right: 1px solid var(--border-color);
+  transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow-x: hidden;
+}
+
+.app-sidebar.is-collapsed {
+  width: 64px;
 }
 
 .sidebar-menu {

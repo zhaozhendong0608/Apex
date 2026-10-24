@@ -10,6 +10,7 @@ export interface SelectedNodeData {
   zone: string
   ip: string
   subnet: string
+  disabled?: boolean
   acls: AclRuleDTO[]
 }
 
@@ -19,6 +20,7 @@ export interface SelectedEdgeData {
   targetName?: string
   bandwidth: string
   latencyMs: number
+  disabled?: boolean
 }
 
 export interface SelectedZoneData {
@@ -28,6 +30,8 @@ export interface SelectedZoneData {
   bgColor: string
   isDashed: boolean
   fontSize: number
+  subnetPrefix?: string // 如 192.168.1
+  gateway?: string      // 如 192.168.1.1
 }
 
 const props = defineProps<{
@@ -48,6 +52,10 @@ const localNode = ref<SelectedNodeData | null>(null)
 const localEdge = ref<SelectedEdgeData | null>(null)
 const localZone = ref<SelectedZoneData | null>(null)
 
+// 当前设备拆解出的前三段网段与最后一段主机号
+const ipPrefix = ref<string>('192.168.1')
+const hostSuffix = ref<number | string>(10)
+
 // 深度监听 props 变化
 watch(
   () => props.selectedNode,
@@ -56,12 +64,39 @@ watch(
       localNode.value = JSON.parse(JSON.stringify(val))
       localEdge.value = null
       localZone.value = null
+
+      // 解析当前 IP: 提取前三段与最后一段
+      const rawIp = localNode.value?.ip || '192.168.1.10'
+      const lastDotIndex = rawIp.lastIndexOf('.')
+      if (lastDotIndex > -1) {
+        ipPrefix.value = rawIp.substring(0, lastDotIndex)
+        hostSuffix.value = rawIp.substring(lastDotIndex + 1)
+      } else {
+        ipPrefix.value = '192.168.1'
+        hostSuffix.value = '10'
+      }
     } else {
       localNode.value = null
     }
   },
   { immediate: true, deep: true }
 )
+
+// 当用户修改第四段主机号时，自动拼装完整 IP 并触发节点更新
+const handleHostSuffixChange = () => {
+  if (!localNode.value) return
+  // 过滤并规范化数字 (1 ~ 254)
+  let val = String(hostSuffix.value).replace(/\D/g, '')
+  if (val !== '') {
+    let num = parseInt(val, 10)
+    if (num > 254) num = 254
+    if (num < 1) num = 1
+    val = String(num)
+  }
+  hostSuffix.value = val
+  localNode.value.ip = `${ipPrefix.value}.${val || 1}`
+  handleNodeChange()
+}
 
 watch(
   () => props.selectedEdge,
@@ -185,13 +220,24 @@ const handleDeleteAcl = (index: number) => {
         </div>
 
         <div class="form-item">
-          <label>IP 地址</label>
-          <input
-            v-model="localNode.ip"
-            class="prop-input-full"
-            placeholder="如 192.168.1.10"
-            @input="handleNodeChange"
-          />
+          <label>IP 地址规划 (锁定大区网段，仅编辑末位)</label>
+          <div class="ip-split-input-group">
+            <span class="ip-prefix-badge" title="该网段由当前所属安全大区全局锁定，不可在此修改">
+              🔒 {{ ipPrefix }}.
+            </span>
+            <input
+              v-model="hostSuffix"
+              type="text"
+              class="ip-host-suffix-input"
+              maxlength="3"
+              placeholder="10"
+              title="主机号范围: 1 ~ 254"
+              @input="handleHostSuffixChange"
+            />
+          </div>
+          <div class="ip-sub-hint">
+            💡 前三段网段与大区底板严格绑定，仅允许修改末位主机号 (1~254)。
+          </div>
         </div>
 
         <div class="form-item">
@@ -204,11 +250,30 @@ const handleDeleteAcl = (index: number) => {
           />
         </div>
 
-        <!-- 防火墙与网关专属：ACL 安全规则集 -->
-        <div v-if="localNode.type === 'FIREWALL' || localNode.type === 'GATEWAY'" class="acl-section">
+        <!-- 工业应急故障演练注入 -->
+        <div class="form-item fault-injection-box" :class="{ 'is-offline': localNode.disabled }">
+          <div class="fault-header">
+            <span class="fault-title">⚠️ 设备状态 / 硬件宕机注入</span>
+            <el-switch
+              v-model="localNode.disabled"
+              active-text="宕机离线"
+              inactive-text="正常运行"
+              inline-prompt
+              active-color="#ef4444"
+              inactive-color="#10b981"
+              @change="handleNodeChange"
+            />
+          </div>
+          <div class="fault-tip" v-if="localNode.disabled">
+            已注入模拟硬件断电/宕机！寻路引擎将尝试自愈切换备用冗余设备。
+          </div>
+        </div>
+
+        <!-- 防火墙、网关、单向网闸与路由器：ACL/过滤策略规则集 -->
+        <div v-if="['FIREWALL', 'GATEWAY', 'GAP', 'ROUTER'].includes(localNode.type)" class="acl-section">
           <div class="divider"></div>
           <div class="acl-head-bar">
-            <span class="acl-title">🛡️ ACL 过滤规则集</span>
+            <span class="acl-title">🛡️ ACL 与隔离过滤策略</span>
             <button class="btn-mini-add" @click="handleAddAcl">
               <el-icon><Plus /></el-icon> 新增
             </button>
@@ -280,6 +345,19 @@ const handleDeleteAcl = (index: number) => {
           <span>⚡ 链路物理属性</span>
         </div>
 
+        <!-- 源设备与目的设备卡片回显 -->
+        <div v-if="localEdge.sourceName || localEdge.targetName" class="edge-nodes-card">
+          <div class="edge-node-badge">
+            <span class="badge-tag">源端</span>
+            <span class="badge-name">{{ localEdge.sourceName || '未指定' }}</span>
+          </div>
+          <div class="edge-arrow-icon">➔</div>
+          <div class="edge-node-badge">
+            <span class="badge-tag">宿端</span>
+            <span class="badge-name">{{ localEdge.targetName || '未指定' }}</span>
+          </div>
+        </div>
+
         <div class="form-item">
           <label>链路带宽</label>
           <div class="input-unit-wrap">
@@ -304,6 +382,25 @@ const handleDeleteAcl = (index: number) => {
             <span class="unit-text">ms</span>
           </div>
         </div>
+
+        <!-- 工业应急故障演练：链路光纤切断/挖断注入 -->
+        <div class="form-item fault-injection-box" :class="{ 'is-offline': localEdge.disabled }">
+          <div class="fault-header">
+            <span class="fault-title">⚡ 物理链路切断 / 故障注入</span>
+            <el-switch
+              v-model="localEdge.disabled"
+              active-text="物理故障"
+              inactive-text="通畅正常"
+              inline-prompt
+              active-color="#ef4444"
+              inactive-color="#10b981"
+              @change="handleEdgeChange"
+            />
+          </div>
+          <div class="fault-tip" v-if="localEdge.disabled">
+            已模拟光纤挖断/端口断开！寻路引擎将避开此链路并启用备用路由自愈。
+          </div>
+        </div>
       </div>
 
       <!-- 场景 4：选中了安全大区底板 -->
@@ -318,6 +415,32 @@ const handleDeleteAcl = (index: number) => {
             v-model="localZone.name"
             class="prop-input-full"
             placeholder="例如：IT信息大区 / 生产控制区"
+            @input="handleZoneChange"
+          />
+        </div>
+
+        <div class="form-item">
+          <label>大区分配网段 (Subnet Prefix)</label>
+          <div class="input-unit-wrap">
+            <input
+              v-model="localZone.subnetPrefix"
+              class="prop-input-full"
+              placeholder="如 192.168.1 或 10.0.0"
+              @input="handleZoneChange"
+            />
+            <span class="unit-text">.0/24</span>
+          </div>
+          <div class="ip-sub-hint">
+            🌐 拖入或位于该区域内的设备，将自动继承此 IP 网段前缀。
+          </div>
+        </div>
+
+        <div class="form-item">
+          <label>默认网关 (Gateway)</label>
+          <input
+            v-model="localZone.gateway"
+            class="prop-input-full"
+            placeholder="如 192.168.1.1"
             @input="handleZoneChange"
           />
         </div>
@@ -459,11 +582,95 @@ const handleDeleteAcl = (index: number) => {
   margin-bottom: 12px;
 }
 
+.fault-injection-box {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-top: 6px;
+  margin-bottom: 14px;
+  transition: all 0.2s;
+}
+
+.fault-injection-box.is-offline {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: #ef4444;
+}
+
+.fault-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.fault-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.fault-tip {
+  margin-top: 6px;
+  font-size: 10px;
+  color: #fca5a5;
+  line-height: 1.4;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.ip-sub-hint {
+  margin-top: 4px;
+  font-size: 10px;
+  color: #64748b;
+  line-height: 1.35;
+}
+
 .form-item label {
   display: block;
   font-size: 11px;
   color: #8e9cae;
   margin-bottom: 4px;
+}
+
+.ip-split-input-group {
+  display: flex;
+  align-items: center;
+  background: #111720;
+  border: 1px solid #2b394b;
+  border-radius: 4px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.ip-split-input-group:focus-within {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.2);
+}
+
+.ip-prefix-badge {
+  background: #1e293b;
+  color: #94a3b8;
+  font-family: monospace;
+  font-size: 11px;
+  font-weight: bold;
+  padding: 6px 8px;
+  border-right: 1px solid #2b394b;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.ip-host-suffix-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 6px 8px;
+  color: #38bdf8;
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: bold;
+  outline: none;
+  width: 100%;
 }
 
 .prop-input-full, .prop-select-full {
@@ -649,6 +856,46 @@ const handleDeleteAcl = (index: number) => {
   padding: 12px 14px;
   border-top: 1px solid #2b394b;
   background: #141b24;
+}
+
+.edge-nodes-card {
+  background: #151d28;
+  border: 1px solid #2b394b;
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  gap: 6px;
+}
+
+.edge-node-badge {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.badge-tag {
+  font-size: 9px;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.badge-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: #38bdf8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.edge-arrow-icon {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: bold;
 }
 
 .btn-simulate {
