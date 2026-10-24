@@ -12,13 +12,13 @@
 ---
 
 ## 🏆 2. 已稳固里程碑 (MAX 3 行)
-- **[Milestone-1.3]** SysPlatform 全栈后端/前端真实代码全量构建归档 (Task-104) 🟢
-- **[Milestone-1.4]** 升级扩展全套 Skill 技能体系（新建 `code-quality-reviewer` 与 `poc-tech-prototype`）并落地防迷路导航卡片协议与 HTML 自动同步 🟢
+- **[Milestone-2.2]** 完成网络拓扑仿真系统全链路闭环：拓扑方案 CRUD 列表管理、X6 画布根据 ID 动态存取、纯 Java BFS+ACL 寻路算法真实联调与全量构建归档 (Task-204 ~ Task-206) 🟢
+- **[Milestone-2.1]** 学习平台多模块 Maven 结构重构、数据库 Schema/Seed 数据追加与算法单测 🟢
 
 ---
 
 ## 🎯 3. 当前活跃状态 (ACTIVE Focus)
-- **[Task-NONE]** 技能体系与防迷路导航指示牌已落盘归档，准备规划新一轮业务模块需求 (可通过发 1 启动)
+- **[Task-NONE]** 拓扑仿真方案管理与仿真工作台已全链路闭环，准备下一阶段规划 (如时序指标接入或英语学习模块)
 
 ---
 

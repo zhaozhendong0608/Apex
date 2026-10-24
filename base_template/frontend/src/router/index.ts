@@ -23,6 +23,18 @@ const routes = [
         name: 'RoleManagement',
         component: () => import('@/views/system/RoleManagementView.vue'),
         meta: { title: '角色权限管理' }
+      },
+      {
+        path: '/network-sim',
+        name: 'TopologyList',
+        component: () => import('@/modules/network-sim/views/TopologyListView.vue'),
+        meta: { title: '网络拓扑方案管理' }
+      },
+      {
+        path: '/network-sim/designer',
+        name: 'NetworkDesigner',
+        component: () => import('@/modules/network-sim/views/NetworkSimView.vue'),
+        meta: { title: '网络拓扑仿真工作台' }
       }
     ]
   }

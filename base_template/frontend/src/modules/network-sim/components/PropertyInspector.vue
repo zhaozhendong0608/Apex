@@ -1,0 +1,712 @@
+<script setup lang="ts">
+import { ref, watch } from 'vue'
+import { Plus, Delete } from '@element-plus/icons-vue'
+import type { AclRuleDTO } from '../types'
+
+export interface SelectedNodeData {
+  id: string
+  name: string
+  type: string
+  zone: string
+  ip: string
+  subnet: string
+  acls: AclRuleDTO[]
+}
+
+export interface SelectedEdgeData {
+  id: string
+  sourceName?: string
+  targetName?: string
+  bandwidth: string
+  latencyMs: number
+}
+
+export interface SelectedZoneData {
+  id: string
+  name: string
+  borderColor: string
+  bgColor: string
+  isDashed: boolean
+  fontSize: number
+}
+
+const props = defineProps<{
+  selectedNode: SelectedNodeData | null
+  selectedEdge: SelectedEdgeData | null
+  selectedZone: SelectedZoneData | null
+}>()
+
+const emit = defineEmits<{
+  (e: 'updateNode', node: SelectedNodeData): void
+  (e: 'updateEdge', edge: SelectedEdgeData): void
+  (e: 'updateZone', zone: SelectedZoneData): void
+  (e: 'simulate'): void
+}>()
+
+// 本地可编辑模型
+const localNode = ref<SelectedNodeData | null>(null)
+const localEdge = ref<SelectedEdgeData | null>(null)
+const localZone = ref<SelectedZoneData | null>(null)
+
+// 深度监听 props 变化
+watch(
+  () => props.selectedNode,
+  (val) => {
+    if (val) {
+      localNode.value = JSON.parse(JSON.stringify(val))
+      localEdge.value = null
+      localZone.value = null
+    } else {
+      localNode.value = null
+    }
+  },
+  { immediate: true, deep: true }
+)
+
+watch(
+  () => props.selectedEdge,
+  (val) => {
+    if (val) {
+      localEdge.value = JSON.parse(JSON.stringify(val))
+      localNode.value = null
+      localZone.value = null
+    } else {
+      localEdge.value = null
+    }
+  },
+  { immediate: true, deep: true }
+)
+
+watch(
+  () => props.selectedZone,
+  (val) => {
+    if (val) {
+      localZone.value = JSON.parse(JSON.stringify(val))
+      localNode.value = null
+      localEdge.value = null
+    } else {
+      localZone.value = null
+    }
+  },
+  { immediate: true, deep: true }
+)
+
+// 触发大区底板更新
+const handleZoneChange = () => {
+  if (localZone.value) {
+    emit('updateZone', JSON.parse(JSON.stringify(localZone.value)))
+  }
+}
+
+// 触发节点更新
+const handleNodeChange = () => {
+  if (localNode.value) {
+    emit('updateNode', JSON.parse(JSON.stringify(localNode.value)))
+  }
+}
+
+// 触发链路更新
+const handleEdgeChange = () => {
+  if (localEdge.value) {
+    emit('updateEdge', JSON.parse(JSON.stringify(localEdge.value)))
+  }
+}
+
+// 新增 ACL 规则
+const handleAddAcl = () => {
+  if (!localNode.value) return
+  if (!localNode.value.acls) {
+    localNode.value.acls = []
+  }
+  const nextPriority = localNode.value.acls.length + 1
+  const newRule: AclRuleDTO = {
+    id: 'acl_' + Math.random().toString(36).substring(2, 6),
+    priority: nextPriority,
+    action: 'PERMIT',
+    srcIp: 'ANY',
+    destIp: 'ANY',
+    destPort: 80,
+    protocol: 'TCP',
+    description: '自定义访问规则'
+  }
+  localNode.value.acls.push(newRule)
+  handleNodeChange()
+}
+
+// 删除 ACL 规则
+const handleDeleteAcl = (index: number) => {
+  if (!localNode.value || !localNode.value.acls) return
+  localNode.value.acls.splice(index, 1)
+  handleNodeChange()
+}
+</script>
+
+<template>
+  <div class="property-inspector">
+    <div class="inspector-header">属性与安全策略检查器</div>
+
+    <div class="inspector-body">
+      <!-- 场景 1：未选中图元，展示默认说明 -->
+      <div v-if="!localNode && !localEdge && !localZone" class="empty-tip">
+        <div class="tip-icon">👈</div>
+        <div class="tip-title">未选中图元</div>
+        <p class="tip-text">请在画布中点击选中任意设备节点、物理链路或安全大区底板，以实时编辑其属性、安全策略或外观样式。</p>
+      </div>
+
+      <!-- 场景 2：选中了设备节点 -->
+      <div v-else-if="localNode" class="node-panel">
+        <div class="panel-section-title">
+          <span>🖥️ 设备属性配置</span>
+          <span class="type-tag">{{ localNode.type }}</span>
+        </div>
+
+        <div class="form-item">
+          <label>设备名称</label>
+          <input
+            v-model="localNode.name"
+            class="prop-input-full"
+            placeholder="设备名称"
+            @input="handleNodeChange"
+          />
+        </div>
+
+        <div class="form-item">
+          <label>所属大区</label>
+          <select
+            v-model="localNode.zone"
+            class="prop-select-full"
+            @change="handleNodeChange"
+          >
+            <option value="IT_ZONE">管理信息大区 (IT Zone)</option>
+            <option value="DMZ_ZONE">核心边界隔离区 (DMZ)</option>
+            <option value="OT_ZONE">生产控制大区 (OT Zone)</option>
+            <option value="PHY_ZONE">物理设备层 (Phy Zone)</option>
+          </select>
+        </div>
+
+        <div class="form-item">
+          <label>IP 地址</label>
+          <input
+            v-model="localNode.ip"
+            class="prop-input-full"
+            placeholder="如 192.168.1.10"
+            @input="handleNodeChange"
+          />
+        </div>
+
+        <div class="form-item">
+          <label>子网掩码</label>
+          <input
+            v-model="localNode.subnet"
+            class="prop-input-full"
+            placeholder="如 255.255.255.0"
+            @input="handleNodeChange"
+          />
+        </div>
+
+        <!-- 防火墙与网关专属：ACL 安全规则集 -->
+        <div v-if="localNode.type === 'FIREWALL' || localNode.type === 'GATEWAY'" class="acl-section">
+          <div class="divider"></div>
+          <div class="acl-head-bar">
+            <span class="acl-title">🛡️ ACL 过滤规则集</span>
+            <button class="btn-mini-add" @click="handleAddAcl">
+              <el-icon><Plus /></el-icon> 新增
+            </button>
+          </div>
+
+          <div v-if="!localNode.acls || localNode.acls.length === 0" class="no-acl-tip">
+            暂未配置规则，系统将执行默认放行 (Default Permit)。
+          </div>
+
+          <div v-else class="acl-cards-wrap">
+            <div
+              v-for="(rule, idx) in localNode.acls"
+              :key="rule.id"
+              class="acl-edit-card"
+            >
+              <div class="rule-top-line">
+                <span class="rule-idx">#{{ idx + 1 }}</span>
+                <select
+                  v-model="rule.action"
+                  :class="['action-select', rule.action === 'PERMIT' ? 'is-permit' : 'is-deny']"
+                  @change="handleNodeChange"
+                >
+                  <option value="PERMIT">PERMIT (放行)</option>
+                  <option value="DENY">DENY (阻断)</option>
+                </select>
+                <button class="btn-del-rule" title="删除规则" @click="handleDeleteAcl(idx)">
+                  <el-icon><Delete /></el-icon>
+                </button>
+              </div>
+
+              <div class="rule-inputs-row">
+                <div class="rule-field">
+                  <span class="field-label">端口</span>
+                  <input
+                    v-model.number="rule.destPort"
+                    type="number"
+                    class="rule-input-sm"
+                    placeholder="如 6030"
+                    @input="handleNodeChange"
+                  />
+                </div>
+                <div class="rule-field">
+                  <span class="field-label">协议</span>
+                  <select v-model="rule.protocol" class="rule-input-sm" @change="handleNodeChange">
+                    <option value="TCP">TCP</option>
+                    <option value="UDP">UDP</option>
+                    <option value="ICMP">ICMP</option>
+                    <option value="ANY">ANY</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="rule-desc-row">
+                <input
+                  v-model="rule.description"
+                  class="rule-input-desc"
+                  placeholder="规则白话描述..."
+                  @input="handleNodeChange"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 场景 3：选中了连线链路 -->
+      <div v-else-if="localEdge" class="edge-panel">
+        <div class="panel-section-title">
+          <span>⚡ 链路物理属性</span>
+        </div>
+
+        <div class="form-item">
+          <label>链路带宽</label>
+          <div class="input-unit-wrap">
+            <input
+              v-model="localEdge.bandwidth"
+              class="prop-input-sm"
+              @input="handleEdgeChange"
+            />
+            <span class="unit-text">Mbps</span>
+          </div>
+        </div>
+
+        <div class="form-item">
+          <label>单向延迟</label>
+          <div class="input-unit-wrap">
+            <input
+              v-model.number="localEdge.latencyMs"
+              type="number"
+              class="prop-input-sm"
+              @input="handleEdgeChange"
+            />
+            <span class="unit-text">ms</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 场景 4：选中了安全大区底板 -->
+      <div v-else-if="localZone" class="zone-panel">
+        <div class="panel-section-title">
+          <span>🔲 安全大区底板配置</span>
+        </div>
+
+        <div class="form-item">
+          <label>大区名称 / 标题</label>
+          <input
+            v-model="localZone.name"
+            class="prop-input-full"
+            placeholder="例如：IT信息大区 / 生产控制区"
+            @input="handleZoneChange"
+          />
+        </div>
+
+        <div class="form-item">
+          <label>主题与边框颜色</label>
+          <div class="color-picker-row">
+            <input
+              v-model="localZone.borderColor"
+              type="color"
+              class="color-input"
+              @change="handleZoneChange"
+            />
+            <input
+              v-model="localZone.borderColor"
+              class="prop-input-sm"
+              placeholder="#60a5fa"
+              @input="handleZoneChange"
+            />
+          </div>
+        </div>
+
+        <!-- 常用配色快捷色板 -->
+        <div class="form-item">
+          <label>快速预设色板</label>
+          <div class="preset-colors">
+            <span
+              v-for="color in ['#60a5fa', '#4ade80', '#f87171', '#facc15', '#c084fc', '#38bdf8']"
+              :key="color"
+              class="color-dot"
+              :style="{ background: color }"
+              :title="color"
+              @click="localZone.borderColor = color; handleZoneChange()"
+            ></span>
+          </div>
+        </div>
+
+        <div class="form-item">
+          <label>背景填充透明度</label>
+          <input
+            v-model="localZone.bgColor"
+            class="prop-input-full"
+            placeholder="rgba(96, 165, 250, 0.12)"
+            @input="handleZoneChange"
+          />
+        </div>
+
+        <div class="form-item">
+          <label>边框样式</label>
+          <select
+            v-model="localZone.isDashed"
+            class="prop-select-full"
+            @change="handleZoneChange"
+          >
+            <option :value="false">实线边框 (常规安全域)</option>
+            <option :value="true">虚线边框 (隔离/防护边界)</option>
+          </select>
+        </div>
+
+        <div class="form-item">
+          <label>标题字号</label>
+          <div class="input-unit-wrap">
+            <input
+              v-model.number="localZone.fontSize"
+              type="number"
+              min="9"
+              max="24"
+              class="prop-input-sm"
+              @input="handleZoneChange"
+            />
+            <span class="unit-text">px</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部操作按钮 -->
+    <div class="inspector-footer">
+      <button class="btn-simulate" @click="emit('simulate')">
+        <span>▶</span> 应用并测试连通性
+      </button>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.property-inspector {
+  width: 270px;
+  background: #1b2430;
+  border-left: 1px solid #2b394b;
+  display: flex;
+  flex-direction: column;
+}
+
+.inspector-header {
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #e2e8f0;
+  border-bottom: 1px solid #2b394b;
+}
+
+.inspector-body {
+  padding: 14px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.empty-tip {
+  text-align: center;
+  padding: 40px 10px;
+  color: #64748b;
+}
+.tip-icon { font-size: 28px; margin-bottom: 8px; }
+.tip-title { font-size: 13px; font-weight: 600; color: #94a3b8; margin-bottom: 6px; }
+.tip-text { font-size: 11px; line-height: 1.5; }
+
+.panel-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: #38bdf8;
+  margin-bottom: 12px;
+}
+
+.type-tag {
+  background: #243040;
+  color: #94a3b8;
+  border: 1px solid #334155;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-family: monospace;
+}
+
+.form-item {
+  margin-bottom: 12px;
+}
+
+.form-item label {
+  display: block;
+  font-size: 11px;
+  color: #8e9cae;
+  margin-bottom: 4px;
+}
+
+.prop-input-full, .prop-select-full {
+  width: 100%;
+  background: #111720;
+  border: 1px solid #2b394b;
+  border-radius: 4px;
+  padding: 6px 8px;
+  color: #fff;
+  font-size: 11px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.prop-input-full:focus, .prop-select-full:focus {
+  border-color: #38bdf8;
+}
+
+.input-unit-wrap {
+  display: flex;
+  align-items: center;
+  background: #111720;
+  border: 1px solid #2b394b;
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+
+.prop-input-sm {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 11px;
+  outline: none;
+  width: 100%;
+}
+
+.unit-text {
+  font-size: 10px;
+  color: #64748b;
+  margin-left: 4px;
+}
+
+.divider {
+  height: 1px;
+  background: #2b394b;
+  margin: 14px 0;
+}
+
+.acl-head-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.acl-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #ef4444;
+}
+
+.btn-mini-add {
+  background: #0284c7;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 10px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.btn-mini-add:hover { background: #0369a1; }
+
+.no-acl-tip {
+  font-size: 10px;
+  color: #64748b;
+  line-height: 1.4;
+  padding: 8px;
+  background: #111720;
+  border-radius: 4px;
+}
+
+.acl-cards-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.acl-edit-card {
+  background: #222d3d;
+  border: 1px solid #2b394b;
+  border-radius: 6px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rule-top-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rule-idx {
+  font-size: 10px;
+  font-weight: bold;
+  color: #94a3b8;
+}
+
+.action-select {
+  background: #111720;
+  border: 1px solid #334155;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: bold;
+  padding: 2px 4px;
+  outline: none;
+}
+
+.action-select.is-permit { color: #4ade80; border-color: #22c55e; }
+.action-select.is-deny { color: #f87171; border-color: #ef4444; }
+
+.btn-del-rule {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 12px;
+}
+.btn-del-rule:hover { color: #ef4444; }
+
+.rule-inputs-row {
+  display: flex;
+  gap: 8px;
+}
+
+.rule-field {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #111720;
+  border: 1px solid #2b394b;
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+
+.field-label {
+  font-size: 9px;
+  color: #64748b;
+}
+
+.rule-input-sm {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 10px;
+  outline: none;
+}
+
+.rule-desc-row {
+  width: 100%;
+}
+
+.rule-input-desc {
+  width: 100%;
+  background: #111720;
+  border: 1px solid #2b394b;
+  border-radius: 4px;
+  padding: 3px 6px;
+  color: #cbd5e1;
+  font-size: 10px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.inspector-footer {
+  padding: 12px 14px;
+  border-top: 1px solid #2b394b;
+  background: #141b24;
+}
+
+.btn-simulate {
+  width: 100%;
+  height: 36px;
+  background: #0f766e;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s;
+  box-shadow: 0 2px 6px rgba(15, 118, 110, 0.3);
+}
+
+.btn-simulate:hover {
+  background: #115e59;
+}
+
+.color-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.color-input {
+  width: 32px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #2b394b;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.preset-colors {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.color-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: transform 0.15s, border-color 0.15s;
+}
+
+.color-dot:hover {
+  transform: scale(1.15);
+  border-color: #ffffff;
+}
+</style>

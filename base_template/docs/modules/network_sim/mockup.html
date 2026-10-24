@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flowsint (仿真版) - 网络拓扑仿真平台</title>
+  <!-- 引入 AntV X6 生产 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@antv/x6/dist/x6.js"></script>
+  <style>
+    :root {
+      --bg-dark: #121820;
+      --header-bg: #18202b;
+      --sidebar-bg: #1b2430;
+      --card-bg: #222d3d;
+      --border-color: #2b394b;
+      --text-main: #e2e8f0;
+      --text-muted: #8e9cae;
+      --accent-cyan: #38bdf8;
+      --accent-teal: #14b8a6;
+      --accent-green: #22c55e;
+      --accent-red: #ef4444;
+      --accent-orange: #f97316;
+      --canvas-bg: #151d28;
+
+      /* 大区背景色 */
+      --zone-it: rgba(147, 197, 253, 0.15);
+      --zone-it-border: #60a5fa;
+      --zone-dmz: rgba(254, 202, 202, 0.18);
+      --zone-dmz-border: #f87171;
+      --zone-ot: rgba(187, 247, 208, 0.18);
+      --zone-ot-border: #4ade80;
+      --zone-phy: rgba(254, 240, 138, 0.18);
+      --zone-phy-border: #facc15;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* 顶部导航栏 */
+    header {
+      height: 48px;
+      background: var(--header-bg);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      z-index: 10;
+    }
+
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 15px;
+      color: #38bdf8;
+      letter-spacing: 0.5px;
+    }
+
+    .logo-icon {
+      font-size: 18px;
+    }
+
+    .brand-title {
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .brand-badge {
+      font-size: 11px;
+      color: var(--text-muted);
+      background: #243040;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border-color);
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .icon-btn {
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 14px;
+      transition: color 0.2s;
+    }
+    .icon-btn:hover { color: #fff; }
+
+    .user-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #0284c7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* 主界面工作区 */
+    .main-workspace {
+      flex: 1;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* 左侧设备库与垂直工具栏 */
+    .sidebar-left {
+      width: 170px;
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      z-index: 5;
+    }
+
+    .sidebar-header {
+      padding: 10px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border-color);
+      letter-spacing: 0.5px;
+    }
+
+    .device-grid {
+      padding: 10px 8px;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      overflow-y: auto;
+    }
+
+    .device-tile {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 8px 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: grab;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .device-tile:hover {
+      border-color: var(--accent-cyan);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+
+    .tile-icon {
+      font-size: 20px;
+    }
+
+    .tile-name {
+      font-size: 10px;
+      color: var(--text-main);
+      font-weight: 500;
+      line-height: 1.2;
+    }
+
+    /* 垂直画笔微型工具栏 */
+    .canvas-toolbox {
+      width: 38px;
+      background: #141b24;
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 8px 0;
+      gap: 8px;
+      z-index: 5;
+    }
+
+    .tool-item {
+      width: 26px;
+      height: 26px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+
+    .tool-item:hover, .tool-item.active {
+      background: #0284c7;
+      color: #fff;
+    }
+
+    .tool-divider {
+      width: 20px;
+      height: 1px;
+      background: var(--border-color);
+      margin: 4px 0;
+    }
+
+    /* 中间画布区 */
+    .center-canvas {
+      flex: 1;
+      background: var(--canvas-bg);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .canvas-tabbar {
+      height: 32px;
+      background: #151c26;
+      border-bottom: 1px solid var(--border-color);
+      padding: 0 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .canvas-tabbar .topo-title {
+      color: #fff;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .canvas-tab-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .canvas-tab-actions button {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .canvas-tab-actions button:hover { color: #fff; }
+
+    #x6-container {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    /* 悬浮链路报文流转气泡 */
+    .packet-bubble {
+      position: absolute;
+      background: #0f172a;
+      border: 1px solid #38bdf8;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 10px;
+      color: #38bdf8;
+      font-family: monospace;
+      font-weight: bold;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
+      pointer-events: none;
+      z-index: 10;
+      transition: all 0.3s ease;
+      display: none;
+    }
+
+    .status-badge-flow {
+      position: absolute;
+      border-radius: 12px;
+      padding: 2px 8px;
+      font-size: 10px;
+      font-weight: bold;
+      display: none;
+      align-items: center;
+      gap: 4px;
+      z-index: 10;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+    .badge-pass {
+      background: #14532d;
+      color: #4ade80;
+      border: 1px solid #22c55e;
+    }
+    .badge-block {
+      background: #7f1d1d;
+      color: #f87171;
+      border: 1px solid #ef4444;
+    }
+
+    /* 底部仿真日志控制台 */
+    .bottom-console {
+      height: 130px;
+      background: #0d1219;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      z-index: 6;
+    }
+
+    .console-bar {
+      height: 24px;
+      background: #151b24;
+      padding: 0 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .console-content {
+      flex: 1;
+      padding: 8px 12px;
+      overflow-y: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .log-line {
+      display: flex;
+      gap: 8px;
+    }
+    .log-time { color: #52637a; }
+    .log-info { color: #38bdf8; }
+    .log-trace { color: #818cf8; }
+    .log-success { color: #34d399; }
+    .log-danger { color: #f87171; font-weight: bold; }
+
+    /* 右侧属性检查器 */
+    .sidebar-right {
+      width: 250px;
+      background: var(--sidebar-bg);
+      border-left: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      z-index: 5;
+    }
+
+    .right-header {
+      padding: 10px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-main);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .right-body {
+      padding: 14px;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .prop-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      font-size: 11px;
+    }
+
+    .prop-row label {
+      color: var(--text-muted);
+    }
+
+    .prop-input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: #111720;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 3px 6px;
+      width: 130px;
+    }
+
+    .prop-input {
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-size: 11px;
+      width: 100%;
+      outline: none;
+      text-align: right;
+    }
+
+    .prop-unit {
+      color: #64748b;
+      font-size: 10px;
+    }
+
+    /* ACL 规则集卡片 */
+    .acl-rules-container {
+      margin-top: 14px;
+    }
+
+    .acl-item {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 8px 10px;
+      margin-bottom: 8px;
+      font-size: 11px;
+      transition: border-color 0.2s;
+    }
+
+    .acl-item.active-rule {
+      border-color: #f87171;
+      background: rgba(239, 68, 68, 0.1);
+    }
+
+    .acl-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .acl-tag-permit {
+      color: #4ade80;
+      font-weight: 700;
+      font-size: 10px;
+    }
+
+    .acl-tag-deny {
+      color: #f87171;
+      font-weight: 700;
+      font-size: 10px;
+    }
+
+    .acl-detail {
+      color: #cbd5e1;
+      font-size: 10px;
+      line-height: 1.4;
+    }
+
+    /* 底部操作按钮 */
+    .right-footer {
+      padding: 12px 14px;
+      border-top: 1px solid var(--border-color);
+      background: #141b24;
+    }
+
+    .btn-apply {
+      width: 100%;
+      height: 36px;
+      background: #0f766e;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+      box-shadow: 0 2px 6px rgba(15, 118, 110, 0.3);
+    }
+
+    .btn-apply:hover {
+      background: #115e59;
+    }
+
+    .btn-apply:active {
+      transform: scale(0.98);
+    }
+
+    /* 流动动画与撞墙拦截特效 */
+    @keyframes flowLight {
+      0% { stroke-dashoffset: 40; }
+      100% { stroke-dashoffset: 0; }
+    }
+
+    .edge-flowing {
+      stroke: #38bdf8 !important;
+      stroke-dasharray: 6, 6 !important;
+      animation: flowLight 1s linear infinite;
+    }
+
+    .edge-blocked {
+      stroke: #ef4444 !important;
+      stroke-dasharray: 4, 4 !important;
+      animation: flowLight 0.5s linear infinite;
+    }
+
+    .edge-blocked-x {
+      stroke: #ef4444 !important;
+      stroke-width: 3px !important;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 顶部导航栏 -->
+  <header>
+    <div class="brand-wrap">
+      <div class="brand-logo">
+        <span class="logo-icon">🔀</span>
+        <span class="brand-title">Flowsint</span>
+      </div>
+      <span class="brand-badge">(仿真版)</span>
+    </div>
+    <div class="header-right">
+      <span class="icon-btn" title="消息通知">🔔</span>
+      <div class="user-avatar" title="当前操作员">AD</div>
+    </div>
+  </header>
+
+  <!-- 主体工作区 -->
+  <div class="main-workspace">
+    <!-- 左侧设备库 -->
+    <div class="sidebar-left">
+      <div class="sidebar-header">设备库与工具</div>
+      <div class="device-grid">
+        <!-- 核心防火墙 -->
+        <div class="device-tile" draggable="true" ondragstart="onDragTile(event, 'FIREWALL', '核心防火墙', '🧱', '#ef4444')">
+          <div class="tile-icon" style="color: #ef4444;">🧱</div>
+          <div class="tile-name">核心防火墙</div>
+        </div>
+
+        <!-- 工业交换机 -->
+        <div class="device-tile" draggable="true" ondragstart="onDragTile(event, 'SWITCH', '工业交换机', '🔲', '#38bdf8')">
+          <div class="tile-icon" style="color: #38bdf8;">🔲</div>
+          <div class="tile-name">工业交换机</div>
+        </div>
+
+        <!-- 边缘网关 -->
+        <div class="device-tile" draggable="true" ondragstart="onDragTile(event, 'GATEWAY', '边缘网关', '⚙️', '#14b8a6')">
+          <div class="tile-icon" style="color: #14b8a6;">⚙️</div>
+          <div class="tile-name">边缘网关</div>
+        </div>
+
+        <!-- Neuron -->
+        <div class="device-tile" draggable="true" ondragstart="onDragTile(event, 'NEURON', 'Neuron网关', '🔄', '#22c55e')">
+          <div class="tile-icon" style="color: #22c55e;">🔄</div>
+          <div class="tile-name">Neuron</div>
+        </div>
+
+        <!-- 服务器 -->
+        <div class="device-tile" draggable="true" ondragstart="onDragTile(event, 'SERVER', '应用服务器', '🗄️', '#a855f7')">
+          <div class="tile-icon" style="color: #a855f7;">🗄️</div>
+          <div class="tile-name">服务器</div>
+        </div>
+
+        <!-- 终端设备 -->
+        <div class="device-tile" draggable="true" ondragstart="onDragTile(event, 'HOST', '研发办公PC', '💻', '#38bdf8')">
+          <div class="tile-icon" style="color: #38bdf8;">💻</div>
+          <div class="tile-name">终端设备</div>
+        </div>
+
+        <!-- TDengine -->
+        <div class="device-tile" draggable="true" ondragstart="onDragTile(event, 'TDENGINE', 'TDengine时序库', '🛢️', '#06b6d4')">
+          <div class="tile-icon" style="color: #06b6d4;">🛢️</div>
+          <div class="tile-name">TDengine</div>
+        </div>
+
+        <!-- 传感器 -->
+        <div class="device-tile" draggable="true" ondragstart="onDragTile(event, 'SENSOR', '温湿传感器', '🌡️', '#f59e0b')">
+          <div class="tile-icon" style="color: #f59e0b;">🌡️</div>
+          <div class="tile-name">传感设备</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 垂直画笔微型工具栏 -->
+    <div class="canvas-toolbox">
+      <div class="tool-item active" title="选择指针">↖</div>
+      <div class="tool-item" title="连线模式">╱</div>
+      <div class="tool-item" title="曲线模式">∿</div>
+      <div class="tool-item" title="文字备注">T</div>
+      <div class="tool-divider"></div>
+      <div class="tool-item" title="大区框选">⬚</div>
+      <div class="tool-item" title="删除图元">🗑</div>
+    </div>
+
+    <!-- 中间主画布区 -->
+    <div class="center-canvas">
+      <div class="canvas-tabbar">
+        <div class="topo-title">
+          <span>仿真拓扑视图：</span>
+          <span style="color: #38bdf8; font-weight: 600;">电力边缘采集系统</span>
+        </div>
+        <div class="canvas-tab-actions">
+          <button onclick="zoomFit()" title="适应画布">⛶</button>
+          <button onclick="zoomIn()" title="放大">🔍+</button>
+          <button onclick="zoomOut()" title="缩小">🔍-</button>
+          <button onclick="resetDemoTopology()" title="重置标准拓扑">↺ 默认拓扑</button>
+        </div>
+      </div>
+
+      <!-- X6 画布挂载节点 -->
+      <div id="x6-container"></div>
+
+      <!-- 仿真报文气泡与通断浮标 -->
+      <div class="packet-bubble" id="packet-bubble">ICMP Ping 报文</div>
+      <div class="status-badge-flow badge-pass" id="badge-pass">✔ 链路畅通</div>
+      <div class="status-badge-flow badge-block" id="badge-block">✖ 拒绝访问 (Deny)</div>
+
+      <!-- 底部控制台 -->
+      <div class="bottom-console">
+        <div class="console-bar">
+          <span>仿真日志输出 (Simulation Console)</span>
+          <span style="color: #34d399;">● 仿真核心引擎：Java 17 BFS + ACL Matcher</span>
+        </div>
+        <div class="console-content" id="console-logs">
+          <div class="log-line"><span class="log-time">&gt; [10:00:01]</span><span class="log-info">INFO: 初始化拓扑结构...</span></div>
+          <div class="log-line"><span class="log-time">&gt; [10:00:15]</span><span class="log-trace">TRACE: PC (192.168.1.10) 发起到 TDengine (10.1.1.5) 的 Ping 测试.</span></div>
+          <div class="log-line"><span class="log-time">&gt; [10:00:16]</span><span class="log-trace">TRACE: 数据包到达工业防火墙 (FW 01).</span></div>
+          <div class="log-line"><span class="log-time">&gt; [10:00:16]</span><span class="log-trace">TRACE: 检查 ACL 规则集... 匹配 Permit: IT_Zone -&gt; OT_Zone (Port 6030).</span></div>
+          <div class="log-line"><span class="log-time">&gt; [10:00:17]</span><span class="log-success">INFO: 路径连通，测试成功</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧属性与 ACL 检查器 -->
+    <div class="sidebar-right">
+      <div class="right-header">属性检查器</div>
+      <div class="right-body">
+        <div class="section-title">仿真拓扑图：IT (OT Zone)</div>
+        <div class="prop-row">
+          <label>当前焦点链路</label>
+          <span style="color: #38bdf8; font-size: 11px;">FW-01 ➔ TDengine</span>
+        </div>
+
+        <div style="height: 1px; background: var(--border-color); margin: 12px 0;"></div>
+
+        <div class="section-title">链路属性</div>
+        <div class="prop-row">
+          <label>带宽</label>
+          <div class="prop-input-wrap">
+            <input class="prop-input" value="1000" id="input-bandwidth" />
+            <span class="prop-unit">Mbps</span>
+          </div>
+        </div>
+        <div class="prop-row">
+          <label>延迟</label>
+          <div class="prop-input-wrap">
+            <input class="prop-input" value="2" id="input-latency" />
+            <span class="prop-unit">ms</span>
+          </div>
+        </div>
+
+        <div style="height: 1px; background: var(--border-color); margin: 12px 0;"></div>
+
+        <div class="section-title">ACL 规则集</div>
+        <div class="acl-rules-container">
+          <!-- 规则 1 -->
+          <div class="acl-item" id="rule-item-1">
+            <div class="acl-header">
+              <span style="font-weight: 600; color: #fff;">1. Permit</span>
+              <span class="acl-tag-permit">PERMIT</span>
+            </div>
+            <div class="acl-detail">
+              IT_Zone ➔ OT_Zone<br>
+              (TDengine Port 6030)
+            </div>
+          </div>
+
+          <!-- 规则 2 -->
+          <div class="acl-item" id="rule-item-2">
+            <div class="acl-header">
+              <span style="font-weight: 600; color: #fff;">2. Deny</span>
+              <span class="acl-tag-deny">DENY</span>
+            </div>
+            <div class="acl-detail">
+              IT_Zone ➔ OT_Zone<br>
+              (SSH Port 22)
+            </div>
+          </div>
+
+          <!-- 规则 3 -->
+          <div class="acl-item" id="rule-item-3">
+            <div class="acl-header">
+              <span style="font-weight: 600; color: #fff;">3. Deny (Default)</span>
+              <span class="acl-tag-deny">DENY</span>
+            </div>
+            <div class="acl-detail">
+              All ➔ All (默认阻断兜底)
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧底部主触发按钮 -->
+      <div class="right-footer">
+        <button class="btn-apply" onclick="executeFullSimulation()">
+          <span>▶</span> 应用并测试连通性
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let graph = null;
+    let currentFlowEdges = [];
+
+    // 初始化 X6 画布
+    window.onload = function () {
+      const container = document.getElementById('x6-container');
+      graph = new X6.Graph({
+        container: container,
+        autoResize: true,
+        background: { color: '#151d28' },
+        grid: {
+          size: 15,
+          visible: true,
+          type: 'mesh',
+          args: { color: '#1f2a3a', thickness: 1 },
+        },
+        panning: { enabled: true, eventTypes: ['leftMouseDown'], modifiers: 'ctrl' },
+        mousewheel: { enabled: true, modifiers: ['ctrl', 'meta'] },
+        connecting: {
+          snap: true,
+          allowBlank: false,
+          allowLoop: false,
+          highlight: true,
+          connector: 'rounded',
+          router: 'manhattan',
+          createEdge() {
+            return new X6.Shape.Edge({
+              attrs: {
+                line: {
+                  stroke: '#38bdf8',
+                  strokeWidth: 2,
+                  targetMarker: { name: 'classic', size: 7 },
+                },
+              },
+            });
+          },
+        },
+      });
+
+      // 拖拽注入支持
+      container.addEventListener('dragover', (e) => e.preventDefault());
+      container.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const dataStr = e.dataTransfer.getData('application/json');
+        if (!dataStr) return;
+        const item = JSON.parse(dataStr);
+        const rect = container.getBoundingClientRect();
+        createDeviceNode(item.type, item.name, item.icon, item.color, e.clientX - rect.left - 50, e.clientY - rect.top - 25);
+      });
+
+      // 载入视觉图中的完整拓扑
+      resetDemoTopology();
+    };
+
+    // 拖拽起始
+    function onDragTile(e, type, name, icon, color) {
+      e.dataTransfer.setData('application/json', JSON.stringify({ type, name, icon, color }));
+    }
+
+    // 创建安全大区 (Zone Group)
+    function createZoneBox(id, title, x, y, width, height, bgColor, borderColor, borderStyle = 'solid') {
+      return graph.addNode({
+        id: id,
+        x: x,
+        y: y,
+        width: width,
+        height: height,
+        zIndex: 1,
+        shape: 'html',
+        html: () => {
+          const div = document.createElement('div');
+          div.style.cssText = `
+            width: ${width}px;
+            height: ${height}px;
+            background: ${bgColor};
+            border: 2px ${borderStyle} ${borderColor};
+            border-radius: 8px;
+            padding: 8px 12px;
+            pointer-events: none;
+            box-sizing: border-box;
+          `;
+          div.innerHTML = `<span style="font-size: 11px; font-weight: 600; color: ${borderColor};">${title}</span>`;
+          return div;
+        },
+      });
+    }
+
+    // 创建设备节点
+    function createDeviceNode(type, name, icon, color, x, y, subtext = '') {
+      const id = 'dev_' + Math.random().toString(36).substr(2, 6);
+      return graph.addNode({
+        id: id,
+        x: x,
+        y: y,
+        width: 110,
+        height: 60,
+        zIndex: 10,
+        shape: 'html',
+        html: () => {
+          const wrap = document.createElement('div');
+          wrap.style.cssText = `
+            width: 110px;
+            height: 60px;
+            background: #1e293b;
+            border: 1.5px solid ${color};
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            padding: 6px 8px;
+            gap: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            cursor: pointer;
+          `;
+          wrap.innerHTML = `
+            <div style="font-size: 22px;">${icon}</div>
+            <div style="overflow: hidden;">
+              <div style="font-size: 11px; font-weight: 600; color: #fff; white-space: nowrap; text-overflow: ellipsis;">${name}</div>
+              <div style="font-size: 9px; color: #94a3b8; font-family: monospace;">${subtext || type}</div>
+            </div>
+          `;
+          return wrap;
+        },
+        data: { type, name, color },
+        ports: {
+          groups: {
+            top: { position: 'top', attrs: { circle: { r: 3, magnet: true, stroke: '#38bdf8', fill: '#0f172a' } } },
+            bottom: { position: 'bottom', attrs: { circle: { r: 3, magnet: true, stroke: '#38bdf8', fill: '#0f172a' } } },
+            left: { position: 'left', attrs: { circle: { r: 3, magnet: true, stroke: '#38bdf8', fill: '#0f172a' } } },
+            right: { position: 'right', attrs: { circle: { r: 3, magnet: true, stroke: '#38bdf8', fill: '#0f172a' } } },
+          },
+          items: [{ id: 'p_l', group: 'left' }, { id: 'p_r', group: 'right' }, { id: 'p_t', group: 'top' }, { id: 'p_b', group: 'bottom' }]
+        }
+      });
+    }
+
+    // 默认载入视觉稿中的完整“电力边缘采集系统”拓扑
+    function resetDemoTopology() {
+      if (!graph) return;
+      graph.clearCells();
+
+      // 1. 绘制 4 大安全区域底板
+      createZoneBox('zone_it', '管理信息大区 (IT Zone)', 30, 30, 230, 260, 'rgba(147, 197, 253, 0.1)', '#60a5fa');
+      createZoneBox('zone_dmz', '核心边界隔离区 (DMZ)', 290, 30, 160, 260, 'rgba(254, 202, 202, 0.12)', '#f87171', 'dashed');
+      createZoneBox('zone_ot', '生产控制大区 (OT Zone)', 480, 30, 260, 220, 'rgba(187, 247, 208, 0.12)', '#4ade80');
+      createZoneBox('zone_phy', '物理设备层', 480, 270, 260, 100, 'rgba(254, 240, 138, 0.12)', '#facc15');
+
+      // 2. 注入各分区内的设备
+      // IT Zone
+      const pc = createDeviceNode('HOST', '研发办公PC', '💻', '#38bdf8', 50, 140, '192.168.1.10');
+      const grafana = createDeviceNode('SERVER', 'Grafana看板', '🖥️', '#38bdf8', 120, 70, '(Server)');
+      const itSw = createDeviceNode('SWITCH', 'IT交换机', '🔲', '#38bdf8', 160, 140, 'SW-01');
+
+      // DMZ Zone
+      const fw = createDeviceNode('FIREWALL', '工业核心防火墙', '🧱', '#ef4444', 315, 140, '(Firewall)');
+
+      // OT Zone
+      const tdengine = createDeviceNode('TDENGINE', 'TDengine时序库', '🛢️', '#06b6d4', 590, 60, '(Server)');
+      const mqtt = createDeviceNode('SERVER', 'MQTT Broker', '📟', '#10b981', 590, 130, '(Server)');
+      const neuron = createDeviceNode('NEURON', 'Neuron网关', '🔄', '#22c55e', 590, 190, '(Gateway)');
+
+      // 物理设备层
+      const s1 = createDeviceNode('SENSOR', '烟雾传感器', '🌡️', '#f59e0b', 500, 300, '(Sensor)');
+      const s2 = createDeviceNode('SENSOR', '温湿传感器', '🌡️', '#f59e0b', 620, 300, '(Sensor)');
+
+      // 3. 构建拓扑连线
+      graph.addEdge({ source: { cell: pc.id, port: 'p_r' }, target: { cell: itSw.id, port: 'p_l' }, attrs: { line: { stroke: '#38bdf8', strokeWidth: 2 } } });
+      graph.addEdge({ source: { cell: grafana.id, port: 'p_b' }, target: { cell: itSw.id, port: 'p_t' }, attrs: { line: { stroke: '#38bdf8', strokeWidth: 2 } } });
+      
+      const eMain = graph.addEdge({
+        id: 'edge_it_fw',
+        source: { cell: itSw.id, port: 'p_r' },
+        target: { cell: fw.id, port: 'p_l' },
+        attrs: { line: { stroke: '#38bdf8', strokeWidth: 2.5 } }
+      });
+
+      const eFwOut = graph.addEdge({
+        id: 'edge_fw_ot',
+        source: { cell: fw.id, port: 'p_r' },
+        target: { cell: mqtt.id, port: 'p_l' },
+        attrs: { line: { stroke: '#38bdf8', strokeWidth: 2.5 } }
+      });
+
+      graph.addEdge({ source: { cell: mqtt.id, port: 'p_t' }, target: { cell: tdengine.id, port: 'p_b' }, attrs: { line: { stroke: '#38bdf8', strokeWidth: 2 } } });
+      graph.addEdge({ source: { cell: neuron.id, port: 'p_t' }, target: { cell: mqtt.id, port: 'p_b' }, attrs: { line: { stroke: '#38bdf8', strokeWidth: 2 } } });
+
+      graph.zoomToFit({ padding: 30 });
+      appendLog('INFO: 电力边缘采集系统拓扑加载成功。包含 IT Zone、DMZ、OT Zone 与物理设备层。', 'info');
+    }
+
+    // 运行视觉稿中的高保真仿真测试
+    function executeFullSimulation() {
+      const bubble = document.getElementById('packet-bubble');
+      const badgePass = document.getElementById('badge-pass');
+      const badgeBlock = document.getElementById('badge-block');
+      badgePass.style.display = 'none';
+      badgeBlock.style.display = 'none';
+
+      appendLog('------------------------------------------------------------', 'info');
+      appendLog('TRACE: 开始执行连通性仿真：研发办公PC ➔ 目标: TDengine时序库 (Port: 6030)', 'trace');
+
+      // 激活流行动画
+      const e1 = graph.getCellById('edge_it_fw');
+      const e2 = graph.getCellById('edge_fw_ot');
+
+      if (e1 && e2) {
+        // 第一阶段：IT 交换机到防火墙
+        e1.attr('line/class', 'edge-flowing');
+        bubble.style.display = 'block';
+        bubble.style.left = '235px';
+        bubble.style.top = '145px';
+        bubble.innerText = 'ICMP Ping 报文 (Port: 6030)';
+
+        setTimeout(() => {
+          appendLog('TRACE: 数据包到达工业核心防火墙 (FW 01)...', 'trace');
+          appendLog('TRACE: 遍历 ACL 规则集：命中规则 1 [Permit: IT_Zone -> OT_Zone (TDengine Port 6030)]', 'info');
+
+          // 第二阶段：穿过防火墙并到达 OT Zone
+          e2.attr('line/class', 'edge-flowing');
+          badgePass.style.display = 'flex';
+          badgePass.style.left = '415px';
+          badgePass.style.top = '120px';
+
+          appendLog('INFO: 防火墙放行，数据包顺利穿透边界隔离区抵达 OT 生产控制大区！', 'success');
+          appendLog('INFO: 往返时延: 2ms | 丢包率: 0.00% | 链路畅通', 'success');
+        }, 1200);
+      }
+    }
+
+    // 日志写入
+    function appendLog(msg, type = 'info') {
+      const box = document.getElementById('console-logs');
+      const now = new Date();
+      const timeStr = `[${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}]`;
+      const div = document.createElement('div');
+      div.className = 'log-line';
+      div.innerHTML = `<span class="log-time">&gt; ${timeStr}</span><span class="log-${type}">${msg}</span>`;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function zoomIn() { graph && graph.zoom(0.1); }
+    function zoomOut() { graph && graph.zoom(-0.1); }
+    function zoomFit() { graph && graph.zoomToFit({ padding: 30 }); }
+  </script>
+</body>
+</html>

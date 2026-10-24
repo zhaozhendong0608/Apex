@@ -60,7 +60,7 @@ const themeOptions: { label: string; value: ThemeType }[] = [
         <div class="user-info">
           <el-avatar :size="30">{{ userInfo?.nickname?.charAt(0) || 'A' }}</el-avatar>
           <span class="nickname">{{ userInfo?.nickname || '管理员' }}</span>
-          <el-button type="text" class="logout-btn" @click="handleLogout">
+          <el-button link class="logout-btn" @click="handleLogout">
             <el-icon><SwitchButton /></el-icon>
             退出
           </el-button>
@@ -86,10 +86,20 @@ const themeOptions: { label: string; value: ThemeType }[] = [
               <span>角色权限管理</span>
             </el-menu-item>
           </el-sub-menu>
+          <el-sub-menu index="/modules">
+            <template #title>
+              <el-icon><Connection /></el-icon>
+              <span>仿真实验平台</span>
+            </template>
+            <el-menu-item index="/network-sim">
+              <el-icon><Share /></el-icon>
+              <span>网络拓扑仿真</span>
+            </el-menu-item>
+          </el-sub-menu>
         </el-menu>
       </aside>
 
-      <main class="app-content">
+      <main class="app-content" :class="{ 'is-fullscreen': route.path.includes('/network-sim/designer') }">
         <router-view />
       </main>
     </div>
@@ -184,5 +194,11 @@ const themeOptions: { label: string; value: ThemeType }[] = [
   padding: 24px;
   background: var(--bg-body);
   overflow-y: auto;
+  position: relative;
+}
+
+.app-content.is-fullscreen {
+  padding: 0 !important;
+  overflow: hidden !important;
 }
 </style>
