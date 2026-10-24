@@ -51,10 +51,21 @@ public class TopoNode implements Serializable {
     private String subnet;
 
     /**
+     * 默认网关 (如 192.168.1.1)
+     */
+    private String gateway;
+
+    /**
      * 该节点配置的 ACL 安全访问控制规则链
      */
     @Builder.Default
     private List<AclRule> acls = new ArrayList<>();
+
+    /**
+     * 该路由器/三层核心设备配置的静态路由表 (Routing Table)
+     */
+    @Builder.Default
+    private List<RouteEntry> routes = new ArrayList<>();
 
     /**
      * 节点设备宕机/断电故障状态 (true: 宕机离线, false: 正常运行)

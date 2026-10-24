@@ -372,8 +372,10 @@ onMounted(async () => {
       zone: data.zone || 'IT_ZONE',
       ip: data.ip || subText,
       subnet: data.subnet || '255.255.255.0',
+      gateway: data.gateway || '',
       disabled: Boolean(data.disabled),
-      acls: data.acls || []
+      acls: data.acls || [],
+      routes: data.routes || []
     }
   })
 
@@ -531,6 +533,7 @@ onMounted(async () => {
 
         let inheritedIp: string | undefined
         let inheritedZone: string | undefined
+        let inheritedGateway: string | undefined
 
         if (matchedZone) {
           const zData = matchedZone.getData() || {}
@@ -543,6 +546,7 @@ onMounted(async () => {
           inheritedZone = matchedZone.id.includes('it') ? 'IT_ZONE' :
                           matchedZone.id.includes('dmz') ? 'DMZ_ZONE' :
                           matchedZone.id.includes('ot') ? 'OT_ZONE' : 'PHY_ZONE'
+          inheritedGateway = zData.gateway || `${prefix}.1`
 
           // 自动分配该大区内未占用的末位 IP (Host ID)
           const existingIps = graph.getNodes()
@@ -555,12 +559,13 @@ onMounted(async () => {
             hostId++
           }
           inheritedIp = `${prefix}.${hostId}`
-          addLog(`INFO: 设备 [${item.name}] 落在 [${(matchedZone.getAttrs()?.label as any)?.text || matchedZone.id}]，自动继承网段 ${prefix}.0/24，智能分配 IP: ${inheritedIp}`, 'info')
+          addLog(`INFO: 设备 [${item.name}] 落在 [${(matchedZone.getAttrs()?.label as any)?.text || matchedZone.id}]，自动继承网段 ${prefix}.0/24 (网关: ${inheritedGateway})，智能分配 IP: ${inheritedIp}`, 'info')
         }
 
         createDeviceNode(item.type, item.name, item.icon, item.color, dropX, dropY, {
           ip: inheritedIp,
-          zone: inheritedZone
+          zone: inheritedZone,
+          gateway: inheritedGateway
         })
         addLog(`INFO: 已向画布添加设备节点 [${item.name}]`, 'info')
         refreshAvailableNodes()
@@ -602,8 +607,10 @@ const handleUpdateNode = (updated: SelectedNodeData) => {
       zone: updated.zone,
       ip: updated.ip,
       subnet: updated.subnet,
+      gateway: updated.gateway,
       disabled: isFault,
-      acls: updated.acls
+      acls: updated.acls,
+      routes: updated.routes || []
     })
 
     // 2. 实时刷新 SVG 图元上的文字与副标题 IP 以及故障外观
@@ -781,8 +788,10 @@ const createDeviceNode = (
   options: {
     ip?: string
     subnet?: string
+    gateway?: string
     zone?: string
     acls?: any[]
+    routes?: any[]
     subtext?: string
   } = {}
 ) => {
@@ -806,6 +815,12 @@ const createDeviceNode = (
     ['SWITCH', 'PLC', 'NEURON', 'TDENGINE'].includes(type) ? 'OT_ZONE' : 'PHY_ZONE'
   )
 
+  const defaultGw = options.gateway || (
+    defaultZone === 'IT_ZONE' ? '192.168.1.1' :
+    defaultZone === 'DMZ_ZONE' ? '10.0.0.1' :
+    defaultZone === 'OT_ZONE' ? '172.16.1.1' : '172.16.2.1'
+  )
+
   const defaultAcls = options.acls || (
     type === 'FIREWALL' ? [
       { id: 'acl_fw_1', priority: 1, action: 'PERMIT', destPort: 6030, protocol: 'TCP', description: '放行TDengine时序写入与查询' },
@@ -821,6 +836,13 @@ const createDeviceNode = (
     ] : []
   )
 
+  const defaultRoutes = options.routes || (
+    type === 'ROUTER' ? [
+      { id: 'rt_route_1', destSubnet: '172.16.1.0', mask: '255.255.255.0', nextHopIp: '10.0.0.1', description: '前往OT核心生产网段(下一跳边界防火墙)' },
+      { id: 'rt_route_2', destSubnet: '0.0.0.0', mask: '0.0.0.0', nextHopIp: '10.0.0.1', description: '默认缺省路由网关' }
+    ] : []
+  )
+
   return graph.addNode({
     id,
     x,
@@ -833,8 +855,10 @@ const createDeviceNode = (
       name,
       ip: defaultIp,
       subnet: defaultSubnet,
+      gateway: defaultGw,
       zone: defaultZone,
-      acls: defaultAcls
+      acls: defaultAcls,
+      routes: defaultRoutes
     },
     markup: [
       { tagName: 'rect', selector: 'body' },

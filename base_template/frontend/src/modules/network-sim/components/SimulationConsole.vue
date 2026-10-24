@@ -60,10 +60,47 @@ const handleTriggerRun = () => {
     protocol: protocol.value || 'TCP'
   })
 }
+
+// 控制台上下拖拽改变高度逻辑 (默认 160px，支持 100px ~ 600px 自由伸缩)
+const consoleHeight = ref<number>(160)
+let startY = 0
+let startH = 0
+
+const onResizeMouseDown = (e: MouseEvent) => {
+  e.preventDefault()
+  startY = e.clientY
+  startH = consoleHeight.value
+
+  const onMouseMove = (moveEvt: MouseEvent) => {
+    // 鼠标往上拖(moveEvt.clientY变小)，高度增加(startY - moveEvt.clientY)
+    const deltaY = startY - moveEvt.clientY
+    let newHeight = startH + deltaY
+    if (newHeight < 100) newHeight = 100
+    if (newHeight > 600) newHeight = 600
+    consoleHeight.value = newHeight
+  }
+
+  const onMouseUp = () => {
+    window.removeEventListener('mousemove', onMouseMove)
+    window.removeEventListener('mouseup', onMouseUp)
+  }
+
+  window.addEventListener('mousemove', onMouseMove)
+  window.addEventListener('mouseup', onMouseUp)
+}
 </script>
 
 <template>
-  <div class="bottom-console">
+  <div class="bottom-console" :style="{ height: `${consoleHeight}px` }">
+    <!-- 顶部边界自由拖拽调整高度手柄条 -->
+    <div
+      class="resizer-handle"
+      title="按住鼠标上下拖拽，调整控制台大小"
+      @mousedown="onResizeMouseDown"
+    >
+      <div class="resizer-bar"></div>
+    </div>
+
     <!-- 顶部综合操作与演练参数栏 -->
     <div class="console-bar">
       <div class="sim-controls">
@@ -129,11 +166,49 @@ const handleTriggerRun = () => {
 
 <style scoped>
 .bottom-console {
-  height: 155px;
+  position: relative;
   background: #0d1219;
   border-top: 1px solid #2b394b;
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
+  z-index: 20;
+}
+
+/* 顶部拖拽调高手柄条 */
+.resizer-handle {
+  width: 100%;
+  height: 6px;
+  cursor: ns-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  transition: background 0.2s;
+  position: absolute;
+  top: -3px;
+  left: 0;
+  z-index: 30;
+}
+
+.resizer-handle:hover, .resizer-handle:active {
+  background: rgba(56, 189, 248, 0.35);
+}
+
+.resizer-bar {
+  width: 48px;
+  height: 2px;
+  background: #475569;
+  border-radius: 1px;
+  transition: all 0.2s;
+}
+
+.resizer-handle:hover .resizer-bar,
+.resizer-handle:active .resizer-bar {
+  background: #38bdf8;
+  width: 72px;
+  height: 3px;
+  box-shadow: 0 0 8px #38bdf8;
 }
 
 .console-bar {

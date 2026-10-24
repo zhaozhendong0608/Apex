@@ -9,6 +9,14 @@ export interface AclRuleDTO {
   description?: string
 }
 
+export interface RouteEntryDTO {
+  id: string
+  destSubnet: string
+  mask: string
+  nextHopIp: string
+  description?: string
+}
+
 export interface TopoNodeDTO {
   id: string
   name: string
@@ -16,7 +24,9 @@ export interface TopoNodeDTO {
   zone?: string
   ip: string
   subnet?: string
+  gateway?: string
   acls?: AclRuleDTO[]
+  routes?: RouteEntryDTO[]
 }
 
 export interface TopoEdgeDTO {

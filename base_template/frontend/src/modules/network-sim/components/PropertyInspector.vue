@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { Plus, Delete } from '@element-plus/icons-vue'
-import type { AclRuleDTO } from '../types'
+import type { AclRuleDTO, RouteEntryDTO } from '../types'
 
 export interface SelectedNodeData {
   id: string
@@ -10,8 +10,10 @@ export interface SelectedNodeData {
   zone: string
   ip: string
   subnet: string
+  gateway?: string
   disabled?: boolean
   acls: AclRuleDTO[]
+  routes?: RouteEntryDTO[]
 }
 
 export interface SelectedEdgeData {
@@ -174,6 +176,30 @@ const handleDeleteAcl = (index: number) => {
   localNode.value.acls.splice(index, 1)
   handleNodeChange()
 }
+
+// 新增静态路由表项 (Routing Entry)
+const handleAddRoute = () => {
+  if (!localNode.value) return
+  if (!localNode.value.routes) {
+    localNode.value.routes = []
+  }
+  const newRoute: RouteEntryDTO = {
+    id: 'rt_' + Math.random().toString(36).substring(2, 6),
+    destSubnet: '172.16.1.0',
+    mask: '255.255.255.0',
+    nextHopIp: '10.0.0.1',
+    description: '下发静态路由'
+  }
+  localNode.value.routes.push(newRoute)
+  handleNodeChange()
+}
+
+// 删除静态路由表项
+const handleDeleteRoute = (index: number) => {
+  if (!localNode.value || !localNode.value.routes) return
+  localNode.value.routes.splice(index, 1)
+  handleNodeChange()
+}
 </script>
 
 <template>
@@ -248,6 +274,19 @@ const handleDeleteAcl = (index: number) => {
             placeholder="如 255.255.255.0"
             @input="handleNodeChange"
           />
+        </div>
+
+        <div class="form-item">
+          <label>默认网关 (Default Gateway)</label>
+          <input
+            v-model="localNode.gateway"
+            class="prop-input-full"
+            placeholder="如 192.168.1.1"
+            @input="handleNodeChange"
+          />
+          <div class="ip-sub-hint">
+            🌐 跨子网通信的首跳设备 IP，通常指向本大区核心路由器或三层网关。
+          </div>
         </div>
 
         <!-- 工业应急故障演练注入 -->
@@ -331,6 +370,79 @@ const handleDeleteAcl = (index: number) => {
                   v-model="rule.description"
                   class="rule-input-desc"
                   placeholder="规则白话描述..."
+                  @input="handleNodeChange"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 路由器与核心三层设备：静态路由表 (Routing Table) 配置面板 -->
+        <div v-if="['ROUTER', 'SWITCH', 'FIREWALL'].includes(localNode.type)" class="acl-section">
+          <div class="divider"></div>
+          <div class="acl-head-bar">
+            <span class="acl-title">🌐 静态路由表 (Routing Table)</span>
+            <button class="btn-mini-add" @click="handleAddRoute">
+              <el-icon><Plus /></el-icon> 新增路由
+            </button>
+          </div>
+
+          <div v-if="!localNode.routes || localNode.routes.length === 0" class="no-acl-tip">
+            暂未配置静态路由，默认采用直连网络广播与二层交换。
+          </div>
+
+          <div v-else class="acl-cards-wrap">
+            <div
+              v-for="(rt, idx) in localNode.routes"
+              :key="rt.id"
+              class="acl-edit-card route-card"
+            >
+              <div class="rule-top-line">
+                <span class="rule-idx">R{{ idx + 1 }}</span>
+                <span class="route-tag">STATIC</span>
+                <button class="btn-del-rule" title="删除此路由" @click="handleDeleteRoute(idx)">
+                  <el-icon><Delete /></el-icon>
+                </button>
+              </div>
+
+              <div class="rule-inputs-row">
+                <div class="rule-field">
+                  <span class="field-label">目的网段</span>
+                  <input
+                    v-model="rt.destSubnet"
+                    class="rule-input-sm"
+                    placeholder="如 172.16.1.0"
+                    @input="handleNodeChange"
+                  />
+                </div>
+                <div class="rule-field">
+                  <span class="field-label">子网掩码</span>
+                  <input
+                    v-model="rt.mask"
+                    class="rule-input-sm"
+                    placeholder="255.255.255.0"
+                    @input="handleNodeChange"
+                  />
+                </div>
+              </div>
+
+              <div class="rule-inputs-row">
+                <div class="rule-field" style="width: 100%;">
+                  <span class="field-label">下一跳 IP (Next Hop)</span>
+                  <input
+                    v-model="rt.nextHopIp"
+                    class="rule-input-sm"
+                    placeholder="如 10.0.0.1 (出口网关)"
+                    @input="handleNodeChange"
+                  />
+                </div>
+              </div>
+
+              <div class="rule-desc-row">
+                <input
+                  v-model="rt.description"
+                  class="rule-input-desc"
+                  placeholder="路由描述，如：通往OT控制区..."
                   @input="handleNodeChange"
                 />
               </div>
@@ -770,6 +882,22 @@ const handleDeleteAcl = (index: number) => {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.acl-edit-card.route-card {
+  background: #172230;
+  border-color: #0284c7;
+}
+
+.route-tag {
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid #0284c7;
+  color: #38bdf8;
+  font-size: 9px;
+  font-family: monospace;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: bold;
 }
 
 .rule-top-line {

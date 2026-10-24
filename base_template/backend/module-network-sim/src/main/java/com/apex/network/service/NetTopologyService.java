@@ -185,19 +185,28 @@ public class NetTopologyService {
                 String nodeName = "未命名设备";
                 String nodeType = "HOST";
                 String ip = "192.168.1.1";
+                String subnet = "255.255.255.0";
+                String gateway = null;
                 String zone = "IT_ZONE";
                 boolean nodeDisabled = false;
                 List<AclRule> acls = new ArrayList<>();
+                List<RouteEntry> routes = new ArrayList<>();
 
                 if (data != null) {
                     nodeName = data.getString("name");
                     nodeType = data.getString("type");
                     ip = data.getString("ip");
+                    subnet = data.getString("subnet") != null ? data.getString("subnet") : "255.255.255.0";
+                    gateway = data.getString("gateway");
                     zone = data.getString("zone");
                     nodeDisabled = Boolean.TRUE.equals(data.getBoolean("disabled"));
                     JSONArray aclArr = data.getJSONArray("acls");
                     if (aclArr != null) {
                         acls = aclArr.toJavaList(AclRule.class);
+                    }
+                    JSONArray routeArr = data.getJSONArray("routes");
+                    if (routeArr != null) {
+                        routes = routeArr.toJavaList(RouteEntry.class);
                     }
                 } else if (attrs != null && attrs.getJSONObject("title") != null) {
                     nodeName = attrs.getJSONObject("title").getString("text");
@@ -209,7 +218,10 @@ public class NetTopologyService {
                         .type(nodeType != null ? nodeType : "HOST")
                         .zone(zone)
                         .ip(ip != null ? ip : "192.168.1.1")
+                        .subnet(subnet)
+                        .gateway(gateway)
                         .acls(acls)
+                        .routes(routes)
                         .disabled(nodeDisabled)
                         .build());
             }
