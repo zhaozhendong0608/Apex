@@ -68,7 +68,7 @@ Apex/                                                       # 🚀 顶层工作�
 │   ├── 📄 tier2_legacy_arch.md                              # (tier2_legacy_arch.md)
 │   ├── 📄 tier2_modules.md                                  # [第二层：宏观业务大模块总览层] 大模块矩阵索引表 (tier2_modules.md) [DEMO 示例 / 样例模板]
 │   ├── 📄 tier3_handover.md                                 # [第三层：微观原子任务层] 历史交接黑匣子 (tier3_handover.md) [DEMO 示例 / 样例模板]
-│   └── 📄 tier3_status.md                                   # 📋 [第三层：微观原子任务层] 实时任务看板 (tier3_status.md) [DEMO 示例 / 样例模板]
+│   └── 📄 tier3_status.md                                   # 🏭 工业全景网络仿真与拓扑排版系统性优化实施计划
 ├── 🧠 .cursorrules                                          # 🧠 AI 行为约束与数字路由表
 ├── 🧠 .windsurfrules                                        # 🧠 IDE 规则适配文件
 ├── 📖 README.md                                             # 📖 项目门面与使用指南
@@ -122,7 +122,12 @@ Apex/                                                       # 🚀 顶层工作�
 │   │   ├── 📁 test-cases/
 │   │   │   ├── 📄 network-sim-testcase.md                   # 🧪 [TEST-NET-01] 网络拓扑仿真核心接口与算法测试说明书 (Test Case Matrix)
 │   │   │   └── 📄 sys_platform-testcase.md                  # 🧪 TC-SYS-PLATFORM-V1.0: 通用后台管理平台测试说明书 (测试用例矩阵)
-│   │   └── 📄 user-manual.md                                # (软著申报参考)
+│   │   ├── 📄 user-manual.md                                # (软著申报参考)
+│   │   └── 📁 相关文件/
+│   │       ├── 📄 1200MW大型抽水蓄能电站全景工业网络资产与拓扑测试表.csv
+│   │       ├── 📄 1200MW大型抽水蓄能电站全景工业网络资产与拓扑测试表.xls
+│   │       ├── 📄 500kV智能变电站全景工业网络资产与拓扑测试表.csv
+│   │       └── 📄 500kV智能变电站全景工业网络资产与拓扑测试表.xls
 │   ├── 📁 frontend/                                         # (Frontend)
 │   │   ├── 📖 README.md                                     # 📖 项目门面与使用指南
 │   │   ├── 📄 index.html

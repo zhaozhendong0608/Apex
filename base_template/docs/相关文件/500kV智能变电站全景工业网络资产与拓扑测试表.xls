@@ -1,0 +1,394 @@
+<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+ <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
+  <Author>Apex Power Grid Network System</Author>
+  <Created>2026-10-24T21:35:00Z</Created>
+  <Title>500kV智能变电站全景工业网络资产与拓扑配置</Title>
+ </DocumentProperties>
+ <Styles>
+  <Style ss:ID="HeaderStyle">
+   <Font ss:Bold="1" ss:Color="#FFFFFF" ss:FontName="微软雅黑" ss:Size="11"/>
+   <Interior ss:Color="#0F172A" ss:Pattern="Solid"/>
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#334155"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#334155"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#334155"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#334155"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="DataStyle">
+   <Font ss:FontName="微软雅黑" ss:Size="10" ss:Color="#1E293B"/>
+   <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="NumberStyle">
+   <Font ss:FontName="微软雅黑" ss:Size="10" ss:Color="#1E293B"/>
+   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+   </Borders>
+  </Style>
+ </Styles>
+
+ <!-- 工作表1：500kV变电站各安全分区设备清单 -->
+ <Worksheet ss:Name="1.变电站设备资产清单">
+  <Table ss:DefaultRowHeight="22">
+   <Column ss:Width="110"/>
+   <Column ss:Width="180"/>
+   <Column ss:Width="120"/>
+   <Column ss:Width="130"/>
+   <Column ss:Width="130"/>
+   <Column ss:Width="130"/>
+   <Column ss:Width="260"/>
+   <Row ss:StyleID="HeaderStyle" ss:Height="26">
+    <Cell><Data ss:Type="String">所属大区(必填)</Data></Cell>
+    <Cell><Data ss:Type="String">设备名称(必填)</Data></Cell>
+    <Cell><Data ss:Type="String">设备类型(必填)</Data></Cell>
+    <Cell><Data ss:Type="String">IP地址(必填)</Data></Cell>
+    <Cell><Data ss:Type="String">子网掩码</Data></Cell>
+    <Cell><Data ss:Type="String">默认网关</Data></Cell>
+    <Cell><Data ss:Type="String">备注说明</Data></Cell>
+   </Row>
+
+   <!-- 生产控制大区 (安全I区)：实时控制与保护 -->
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">OT_ZONE</Data></Cell>
+    <Cell><Data ss:Type="String">I区核心工业交换机</Data></Cell>
+    <Cell><Data ss:Type="String">SWITCH</Data></Cell>
+    <Cell><Data ss:Type="String">172.16.10.1</Data></Cell>
+    <Cell><Data ss:Type="String">255.255.255.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="String">赫斯曼网管型冗余环网交换机 (主干控制)</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">OT_ZONE</Data></Cell>
+    <Cell><Data ss:Type="String">500kV主变保护测控装置</Data></Cell>
+    <Cell><Data ss:Type="String">PLC</Data></Cell>
+    <Cell><Data ss:Type="String">172.16.10.11</Data></Cell>
+    <Cell><Data ss:Type="String">255.255.255.0</Data></Cell>
+    <Cell><Data ss:Type="String">172.16.10.1</Data></Cell>
+    <Cell><Data ss:Type="String">南瑞继保 RCS-978 变压器电气量微机保护测控装置</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">OT_ZONE</Data></Cell>
+    <Cell><Data ss:Type="String">220kV出线保护测控装置</Data></Cell>
+    <Cell><Data ss:Type="String">PLC</Data></Cell>
+    <Cell><Data ss:Type="String">172.16.10.12</Data></Cell>
+    <Cell><Data ss:Type="String">255.255.255.0</Data></Cell>
+    <Cell><Data ss:Type="String">172.16.10.1</Data></Cell>
+    <Cell><Data ss:Type="String">国电南自线路光纤差动保护装置</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">OT_ZONE</Data></Cell>
+    <Cell><Data ss:Type="String">智能合并单元MU</Data></Cell>
+    <Cell><Data ss:Type="String">PLC</Data></Cell>
+    <Cell><Data ss:Type="String">172.16.10.21</Data></Cell>
+    <Cell><Data ss:Type="String">255.255.255.0</Data></Cell>
+    <Cell><Data ss:Type="String">172.16.10.1</Data></Cell>
+    <Cell><Data ss:Type="String">过程层电子式互感器模拟量采集与点对点转发</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">OT_ZONE</Data></Cell>
+    <Cell><Data ss:Type="String">智能终端智能箱</Data></Cell>
+    <Cell><Data ss:Type="String">PLC</Data></Cell>
+    <Cell><Data ss:Type="String">172.16.10.22</Data></Cell>
+    <Cell><Data ss:Type="String">255.255.255.0</Data></Cell>
+    <Cell><Data ss:Type="String">172.16.10.1</Data></Cell>
+    <Cell><Data ss:Type="String">断路器跳闸合闸控制回路接口箱</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">OT_ZONE</Data></Cell>
+    <Cell><Data ss:Type="String">远动通信管理机RTU</Data></Cell>
+    <Cell><Data ss:Type="String">SERVER</Data></Cell>
+    <Cell><Data ss:Type="String">172.16.10.5</Data></Cell>
+    <Cell><Data ss:Type="String">255.255.255.0</Data></Cell>
+    <Cell><Data ss:Type="String">172.16.10.1</Data></Cell>
+    <Cell><Data ss:Type="String">IEC 60870-5-104 调度规约双向通信上报节点</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">OT_ZONE</Data></Cell>
+    <Cell><Data ss:Type="String">北斗GPS主时钟对时服务器</Data></Cell>
+    <Cell><Data ss:Type="String">SERVER</Data></Cell>
+    <Cell><Data ss:Type="String">172.16.10.8</Data></Cell>
+    <Cell><Data ss:Type="String">255.255.255.0</Data></Cell>
+    <Cell><Data ss:Type="String">172.16.10.1</Data></Cell>
+    <Cell><Data ss:Type="String">IEEE 1588 PTP / SNTP 站控微秒级对时基准</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">OT_ZONE</Data></Cell>
+    <Cell><Data ss:Type="String">SCADA站控主机A</Data></Cell>
+    <Cell><Data ss:Type="String">SERVER</Data></Cell>
+    <Cell><Data ss:Type="String">172.16.10.30</Data></Cell>
+    <Cell><Data ss:Type="String">255.255.255.0</Data></Cell>
+    <Cell><Data ss:Type="String">172.16.10.1</Data></Cell>
+    <Cell><Data ss:Type="String">监控主机主用节点 (国产凝思系统)</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">OT_ZONE</Data></Cell>
+    <Cell><Data ss:Type="String">主控室工程师工作站</Data></Cell>
+    <Cell><Data ss:Type="String">HOST</Data></Cell>
+    <Cell><Data ss:Type="String">172.16.10.88</Data></Cell>
+    <Cell><Data ss:Type="String">255.255.255.0</Data></Cell>
+    <Cell><Data ss:Type="String">172.16.10.1</Data></Cell>
+    <Cell><Data ss:Type="String">变电站现场保护定值下发与逻辑整定工作站</Data></Cell>
+   </Row>
+
+   <!-- 生产非控制大区 (安全II区)：在线监测与数据记录 -->
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">OT_ZONE</Data></Cell>
+    <Cell><Data ss:Type="String">II区监测工业交换机</Data></Cell>
+    <Cell><Data ss:Type="String">SWITCH</Data></Cell>
+    <Cell><Data ss:Type="String">172.16.20.1</Data></Cell>
+    <Cell><Data ss:Type="String">255.255.255.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="String">安全II区在线状态监测网络骨干交换机</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">OT_ZONE</Data></Cell>
+    <Cell><Data ss:Type="String">变压器油色谱监测采集主机</Data></Cell>
+    <Cell><Data ss:Type="String">SERVER</Data></Cell>
+    <Cell><Data ss:Type="String">172.16.20.15</Data></Cell>
+    <Cell><Data ss:Type="String">255.255.255.0</Data></Cell>
+    <Cell><Data ss:Type="String">172.16.20.1</Data></Cell>
+    <Cell><Data ss:Type="String">变压器溶解气体与微水在线分析装置主机</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">OT_ZONE</Data></Cell>
+    <Cell><Data ss:Type="String">故障录波与网络报文记录仪</Data></Cell>
+    <Cell><Data ss:Type="String">TDENGINE</Data></Cell>
+    <Cell><Data ss:Type="String">172.16.20.50</Data></Cell>
+    <Cell><Data ss:Type="String">255.255.255.0</Data></Cell>
+    <Cell><Data ss:Type="String">172.16.20.1</Data></Cell>
+    <Cell><Data ss:Type="String">高频故障暂态波形与时序数据记录系统</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">OT_ZONE</Data></Cell>
+    <Cell><Data ss:Type="String">变电站安全审计与入侵防御探针</Data></Cell>
+    <Cell><Data ss:Type="String">SERVER</Data></Cell>
+    <Cell><Data ss:Type="String">172.16.20.99</Data></Cell>
+    <Cell><Data ss:Type="String">255.255.255.0</Data></Cell>
+    <Cell><Data ss:Type="String">172.16.20.1</Data></Cell>
+    <Cell><Data ss:Type="String">网络安全监测装置，抓取镜像流量与恶意指令</Data></Cell>
+   </Row>
+
+   <!-- 隔离安全边界 (安全隔离区 / DMZ) -->
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">DMZ_ZONE</Data></Cell>
+    <Cell><Data ss:Type="String">I区II区横向逻辑强隔离防火墙</Data></Cell>
+    <Cell><Data ss:Type="String">FIREWALL</Data></Cell>
+    <Cell><Data ss:Type="String">10.10.1.1</Data></Cell>
+    <Cell><Data ss:Type="String">255.255.255.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="String">国家电网等保合规要求：I/II区横向物理/逻辑阻断</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">DMZ_ZONE</Data></Cell>
+    <Cell><Data ss:Type="String">正向物理单向安全隔离网闸</Data></Cell>
+    <Cell><Data ss:Type="String">GAP</Data></Cell>
+    <Cell><Data ss:Type="String">10.10.2.1</Data></Cell>
+    <Cell><Data ss:Type="String">255.255.255.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="String">生产控制区(I/II)向管理信息区(III)单向传输光开关</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">DMZ_ZONE</Data></Cell>
+    <Cell><Data ss:Type="String">电力调度边界硬件加密机</Data></Cell>
+    <Cell><Data ss:Type="String">FIREWALL</Data></Cell>
+    <Cell><Data ss:Type="String">10.10.3.1</Data></Cell>
+    <Cell><Data ss:Type="String">255.255.255.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="String">纵向加密认证装置 (国密SM2/SM3/SM4加密隧道)</Data></Cell>
+   </Row>
+
+   <!-- 管理信息大区 (安全III/IV区 / IT_ZONE) -->
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">IT_ZONE</Data></Cell>
+    <Cell><Data ss:Type="String">变电站IT汇聚路由器</Data></Cell>
+    <Cell><Data ss:Type="String">ROUTER</Data></Cell>
+    <Cell><Data ss:Type="String">192.168.100.1</Data></Cell>
+    <Cell><Data ss:Type="String">255.255.255.0</Data></Cell>
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="String">华为三层骨干汇聚路由器，联通调度内网与办公外网</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">IT_ZONE</Data></Cell>
+    <Cell><Data ss:Type="String">变电站综合管理信息交换机</Data></Cell>
+    <Cell><Data ss:Type="String">SWITCH</Data></Cell>
+    <Cell><Data ss:Type="String">192.168.100.2</Data></Cell>
+    <Cell><Data ss:Type="String">255.255.255.0</Data></Cell>
+    <Cell><Data ss:Type="String">192.168.100.1</Data></Cell>
+    <Cell><Data ss:Type="String">站房办公网与动环监控二层交换机</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">IT_ZONE</Data></Cell>
+    <Cell><Data ss:Type="String">辅助综合动环监控服务器</Data></Cell>
+    <Cell><Data ss:Type="String">SERVER</Data></Cell>
+    <Cell><Data ss:Type="String">192.168.100.10</Data></Cell>
+    <Cell><Data ss:Type="String">255.255.255.0</Data></Cell>
+    <Cell><Data ss:Type="String">192.168.100.1</Data></Cell>
+    <Cell><Data ss:Type="String">站房门禁、消防、温湿度、六氟化硫气体泄漏监控主机</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">IT_ZONE</Data></Cell>
+    <Cell><Data ss:Type="String">变电站站务办公管理终端</Data></Cell>
+    <Cell><Data ss:Type="String">HOST</Data></Cell>
+    <Cell><Data ss:Type="String">192.168.100.80</Data></Cell>
+    <Cell><Data ss:Type="String">255.255.255.0</Data></Cell>
+    <Cell><Data ss:Type="String">192.168.100.1</Data></Cell>
+    <Cell><Data ss:Type="String">站长巡检工作台电脑 (日常巡检填报/交接班)</Data></Cell>
+   </Row>
+  </Table>
+ </Worksheet>
+
+ <!-- 工作表2：电站物理网络拓扑互联链路 -->
+ <Worksheet ss:Name="2.变电站拓扑互联链路">
+  <Table ss:DefaultRowHeight="22">
+   <Column ss:Width="200"/>
+   <Column ss:Width="200"/>
+   <Column ss:Width="130"/>
+   <Column ss:Width="130"/>
+   <Row ss:StyleID="HeaderStyle" ss:Height="26">
+    <Cell><Data ss:Type="String">源设备名称(必填)</Data></Cell>
+    <Cell><Data ss:Type="String">目标设备名称(必填)</Data></Cell>
+    <Cell><Data ss:Type="String">链路带宽(Mbps)</Data></Cell>
+    <Cell><Data ss:Type="String">链路延迟(ms)</Data></Cell>
+   </Row>
+
+   <!-- I区内部链路 -->
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">I区核心工业交换机</Data></Cell>
+    <Cell><Data ss:Type="String">500kV主变保护测控装置</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">100</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">1</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">I区核心工业交换机</Data></Cell>
+    <Cell><Data ss:Type="String">220kV出线保护测控装置</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">100</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">1</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">500kV主变保护测控装置</Data></Cell>
+    <Cell><Data ss:Type="String">智能合并单元MU</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">100</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">1</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">500kV主变保护测控装置</Data></Cell>
+    <Cell><Data ss:Type="String">智能终端智能箱</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">100</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">1</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">I区核心工业交换机</Data></Cell>
+    <Cell><Data ss:Type="String">远动通信管理机RTU</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">1000</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">2</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">I区核心工业交换机</Data></Cell>
+    <Cell><Data ss:Type="String">北斗GPS主时钟对时服务器</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">1000</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">1</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">I区核心工业交换机</Data></Cell>
+    <Cell><Data ss:Type="String">SCADA站控主机A</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">1000</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">2</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">I区核心工业交换机</Data></Cell>
+    <Cell><Data ss:Type="String">主控室工程师工作站</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">1000</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">2</Data></Cell>
+   </Row>
+
+   <!-- II区内部链路 -->
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">II区监测工业交换机</Data></Cell>
+    <Cell><Data ss:Type="String">变压器油色谱监测采集主机</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">1000</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">2</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">II区监测工业交换机</Data></Cell>
+    <Cell><Data ss:Type="String">故障录波与网络报文记录仪</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">1000</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">2</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">II区监测工业交换机</Data></Cell>
+    <Cell><Data ss:Type="String">变电站安全审计与入侵防御探针</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">1000</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">2</Data></Cell>
+   </Row>
+
+   <!-- 跨区安全互联边界 -->
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">I区核心工业交换机</Data></Cell>
+    <Cell><Data ss:Type="String">I区II区横向逻辑强隔离防火墙</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">1000</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">2</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">I区II区横向逻辑强隔离防火墙</Data></Cell>
+    <Cell><Data ss:Type="String">II区监测工业交换机</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">1000</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">2</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">远动通信管理机RTU</Data></Cell>
+    <Cell><Data ss:Type="String">电力调度边界硬件加密机</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">1000</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">3</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">II区监测工业交换机</Data></Cell>
+    <Cell><Data ss:Type="String">正向物理单向安全隔离网闸</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">1000</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">5</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">正向物理单向安全隔离网闸</Data></Cell>
+    <Cell><Data ss:Type="String">变电站IT汇聚路由器</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">1000</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">2</Data></Cell>
+   </Row>
+
+   <!-- 管理信息大区 (IT区) 内部互联 -->
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">变电站IT汇聚路由器</Data></Cell>
+    <Cell><Data ss:Type="String">变电站综合管理信息交换机</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">1000</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">2</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">变电站综合管理信息交换机</Data></Cell>
+    <Cell><Data ss:Type="String">辅助综合动环监控服务器</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">1000</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">2</Data></Cell>
+   </Row>
+   <Row ss:StyleID="DataStyle">
+    <Cell><Data ss:Type="String">变电站综合管理信息交换机</Data></Cell>
+    <Cell><Data ss:Type="String">变电站站务办公管理终端</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">1000</Data></Cell>
+    <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">2</Data></Cell>
+   </Row>
+  </Table>
+ </Worksheet>
+</Workbook>

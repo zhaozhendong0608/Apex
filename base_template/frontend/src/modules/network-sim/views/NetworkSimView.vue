@@ -9,6 +9,7 @@ import { ElMessage, type MessageHandler } from 'element-plus'
 import DevicePalette, { type DeviceItem } from '../components/DevicePalette.vue'
 import PropertyInspector, { type SelectedNodeData, type SelectedEdgeData, type SelectedZoneData } from '../components/PropertyInspector.vue'
 import SimulationConsole, { type LogItem } from '../components/SimulationConsole.vue'
+import ImportTopologyModal from '../components/ImportTopologyModal.vue'
 import { getTopologyDetailApi, saveTopologyApi, runSimulationApi } from '../api/topology'
 
 // 消息提示防重叠防遮挡管理
@@ -741,18 +742,22 @@ const loadTopologyFromBackend = async (id: number) => {
     const res = await getTopologyDetailApi(id)
     topoName.value = res.data.name
     if (res.data.canvasData && graph) {
-      const data = JSON.parse(res.data.canvasData)
-      if (data.cells && data.cells.length > 0) {
-        graph.fromJSON(data)
-        graph.zoomToFit({ padding: 30 })
-        addLog(`INFO: 成功从数据库载入拓扑方案 [${res.data.name}] (包含 ${data.cells.length} 个图元)`, 'success')
-        return
+      try {
+        const data = JSON.parse(res.data.canvasData)
+        if (data.cells && data.cells.length > 0) {
+          graph.fromJSON(data)
+          graph.zoomToFit({ padding: 30 })
+          addLog(`INFO: 成功从数据库载入拓扑方案 [${res.data.name}] (包含 ${data.cells.length} 个图元)`, 'success')
+          return
+        }
+      } catch (parseErr) {
+        console.warn('解析历史画布数据失败，初始化为空画布', parseErr)
       }
     }
-    loadDemoTopology()
+    // 全新创建的拓扑：保持纯净空白画布，不强制填充默认 Demo
+    addLog(`INFO: 已打开全新拓扑方案 [${res.data.name}]。当前画布为空白，请从左侧拖拽资产或使用上方“📥 逆向导入”！`, 'info')
   } catch (error: any) {
-    ElMessage.error('加载拓扑失败，载入默认模板')
-    loadDemoTopology()
+    ElMessage.error(error.message || '加载拓扑详情失败')
   }
 }
 
@@ -1067,7 +1072,12 @@ const createDeviceNode = (
           }
         }
       },
-      items: [{ id: 'p_l', group: 'left' }, { id: 'p_r', group: 'right' }, { id: 'p_t', group: 'top' }, { id: 'p_b', group: 'bottom' }]
+      items: [
+        { id: 'p_l', group: 'left' },
+        { id: 'p_r', group: 'right' },
+        { id: 'p_t', group: 'top' },
+        { id: 'p_b', group: 'bottom' }
+      ]
     }
   })
 }
@@ -1483,6 +1493,725 @@ const handleExportPng = () => {
     ElMessage.error(err.message || '导出拓扑图失败')
   }
 }
+
+// 逆向导入弹窗引用
+const importModalRef = ref<InstanceType<typeof ImportTopologyModal> | null>(null)
+
+const handleOpenImportModal = () => {
+  importModalRef.value?.open()
+}
+
+// 接收逆向解析的数据并自动在画布上完成排版、生成大区底板与建立连线
+const handleApplyImportedData = (data: { nodes: any[]; edges: any[]; zones: any[] }) => {
+  if (!graph) return
+
+  // 1. 清空画布
+  graph.clearCells()
+  resetEdgeStyles()
+  selectedNode.value = null
+  selectedEdge.value = null
+  selectedZone.value = null
+
+  // 2. 纯动态提取所有大区，并按标准工业安全分区顺序智能排序：IT (管理) -> DMZ (隔离) -> OT (生产) -> PHY (物理)
+  const zoneMap = new Map<string, any[]>()
+  data.nodes.forEach(n => {
+    const z = n.zone || 'DEFAULT_ZONE'
+    if (!zoneMap.has(z)) zoneMap.set(z, [])
+    zoneMap.get(z)!.push(n)
+  })
+
+  // 工业标准大区排列权重：确保视觉流向从左至右自自然然
+  const getZoneOrderWeight = (z: string) => {
+    const u = z.toUpperCase()
+    if (u.includes('IT') || u.includes('MANAGE') || u.includes('OFFICE')) return 1
+    if (u.includes('DMZ') || u.includes('ISOLAT') || u.includes('GAP')) return 2
+    if (u.includes('OT') || u.includes('PROD') || u.includes('CONTROL')) return 3
+    if (u.includes('PHY') || u.includes('FIELD') || u.includes('SENSOR')) return 4
+    return 5
+  }
+
+  const sortedZones = Array.from(zoneMap.keys()).sort((a, b) => getZoneOrderWeight(a) - getZoneOrderWeight(b))
+
+  // 工业调色板（按大区类型智能匹配，兼顾自定义大区）
+  const getZonePalette = (z: string) => {
+    const u = z.toUpperCase()
+    if (u.includes('IT')) return { border: '#3b82f6', bg: 'rgba(59, 130, 246, 0.08)' } // 科技蓝
+    if (u.includes('DMZ') || u.includes('ISOLAT')) return { border: '#f87171', bg: 'rgba(239, 68, 68, 0.08)' } // 警示红
+    if (u.includes('OT') || u.includes('PROD')) return { border: '#22c55e', bg: 'rgba(34, 197, 94, 0.08)' } // 安全绿
+    if (u.includes('PHY') || u.includes('FIELD')) return { border: '#eab308', bg: 'rgba(234, 179, 8, 0.08)' } // 现场黄
+    return { border: '#a855f7', bg: 'rgba(168, 85, 247, 0.08)' }
+  }
+
+  // 3. 构建大区内拓扑邻接关系，建立清晰的“工业组织层级树 (Hierarchical Tree)”
+  // 核心思想：根节点（交换机/网关）在顶部 -> 站控/监控服务在二层 -> 机组LCU及其附属设备（调速/励磁/球阀）在下方成树形分支平行展开
+  const zoneEdgeMap = new Map<string, Array<{ src: string; dst: string }>>()
+  data.edges.forEach(e => {
+    const srcNode = data.nodes.find(n => n.name === e.srcName)
+    const dstNode = data.nodes.find(n => n.name === e.dstName)
+    if (srcNode && dstNode && srcNode.zone === dstNode.zone) {
+      const z = srcNode.zone || 'DEFAULT_ZONE'
+      if (!zoneEdgeMap.has(z)) zoneEdgeMap.set(z, [])
+      zoneEdgeMap.get(z)!.push({ src: e.srcName, dst: e.dstName })
+    }
+  })
+
+  let currentStartX = 60
+  const nodeNameToCellMap = new Map<string, any>()
+
+  sortedZones.forEach(zKey => {
+    const zoneNodes = zoneMap.get(zKey) || []
+    const pal = getZonePalette(zKey)
+
+    // 动态提取子网前缀
+    const firstIp = zoneNodes.find(n => n.ip)?.ip || '192.168.1.10'
+    const ipPrefix = firstIp.split('.').slice(0, 3).join('.')
+    const isDmz = zKey.toUpperCase().includes('DMZ') || zKey.toUpperCase().includes('ISOLAT')
+
+    // 工业组织层级树划分 (Hierarchical Tree Structure)：
+    // Level 0 (网络骨干层): 骨干交换机、路由器、防火墙、网闸
+    // Level 1 (站控服务与公用系统): 监控服务器、工作站、时钟源、数据库、公用系统(SFC/GIS/厂用电/排水等)
+    // Level 2 (机组主控树): 1#~4# 机组LCU主PLC (作为机组分支树的根)
+
+
+    // 1. 构建该大区内部的拓扑树深度 (DAG 拓扑层级计算)
+    // 根据 data.edges 中的真实连接关系，计算每个节点相对于大区入口的真实层级深度 (level)
+    const inDegree = new Map<string, number>()
+    const adjList = new Map<string, string[]>()
+    zoneNodes.forEach(n => {
+      inDegree.set(n.name, 0)
+      adjList.set(n.name, [])
+    })
+
+    // 统计大区内链路
+    data.edges.forEach(e => {
+      if (adjList.has(e.srcName) && adjList.has(e.dstName)) {
+        adjList.get(e.srcName)!.push(e.dstName)
+        inDegree.set(e.dstName, (inDegree.get(e.dstName) || 0) + 1)
+      }
+    })
+
+    // 寻找大区根节点（SWITCH/ROUTER 核心设备一律作为 Level 0 核心骨干层！）
+    const nodeLevelMap = new Map<string, number>()
+    const queue: string[] = []
+
+    // 核心网络骨干设备（SWITCH、ROUTER、FIREWALL、GAP）一律锁定在 Level 0 核心总线层，绝不因双网互联而降级！
+    zoneNodes.forEach(n => {
+      const t = (n.type || 'HOST').toUpperCase()
+      if (['ROUTER', 'SWITCH'].includes(t)) {
+        nodeLevelMap.set(n.name, 0)
+        queue.push(n.name)
+      } else if (['FIREWALL', 'GAP'].includes(t) && isDmz) {
+        nodeLevelMap.set(n.name, 0)
+        queue.push(n.name)
+      }
+    })
+
+    // 针对工业生产大区(OT)与IT大区的科学三层物理分层，彻底消灭14台设备挤在同一行的极度狭长扁条：
+    // Level 0: 核心骨干交换机与路由器 (SWITCH, ROUTER)
+    // Level 1: 监控服务器、操作员站、工程师工作站、北斗对时 (SERVER, HOST)
+    // Level 2: 全厂公用控制PLC (SFC/GIS/厂用电/排水/储气等全厂公用控制单元)
+    // Level 3+: 1#~4# 发电机组现地控制屏柜 (LCU 及机组辅机)
+    zoneNodes.forEach(n => {
+      const t = (n.type || 'HOST').toUpperCase()
+      if (['SWITCH', 'ROUTER'].includes(t)) {
+        nodeLevelMap.set(n.name, 0)
+      } else if (['SERVER', 'TDENGINE', 'HOST'].includes(t)) {
+        nodeLevelMap.set(n.name, 1)
+      } else {
+        // 公用PLC/传感器/网关等现场设备归入 Level 2
+        nodeLevelMap.set(n.name, 2)
+      }
+    })
+
+    // 针对 OT 区机组特殊处理：将 1#~4# 机组辅机按机组树归纳
+    // 关键修正：强化正则表达式支持匹配“1号主进水球阀”、“1号机组调速器”等所有机组辅机！
+    const unitMap = new Map<string, { lcu: any; subs: any[] }>()
+    const regularLevelGroups = new Map<number, any[]>()
+
+    zoneNodes.forEach(node => {
+      const name = node.name || ''
+      const matchUnit = name.match(/([0-9一二三四1-4]+)号?(?:机组|主进水|可逆)/)
+      if (matchUnit) {
+        const unitId = matchUnit[1]
+        if (!unitMap.has(unitId)) unitMap.set(unitId, { lcu: null, subs: [] })
+        const grp = unitMap.get(unitId)!
+        if (name.includes('LCU') || name.includes('主PLC')) {
+          if (!grp.lcu) grp.lcu = node
+          else grp.subs.push(node)
+        } else {
+          grp.subs.push(node)
+        }
+      } else {
+        const lvl = nodeLevelMap.get(node.name) || 0
+        if (!regularLevelGroups.has(lvl)) regularLevelGroups.set(lvl, [])
+        regularLevelGroups.get(lvl)!.push(node)
+      }
+    })
+
+    // 单张设备卡片规格
+    const itemWidth = 155
+    const itemHeight = 60
+    const gapX = 45 // 列间距
+    const gapY = 60 // 层级行距
+
+    // 计算大区最大并排设备数
+    let maxColsInAnyLevel = unitMap.size
+    regularLevelGroups.forEach(nodes => {
+      if (nodes.length > maxColsInAnyLevel) maxColsInAnyLevel = nodes.length
+    })
+    const effectiveCols = Math.max(maxColsInAnyLevel, 1)
+
+    // 大区底板宽度：预留充足内边距 (左右各留 80px)
+    const zoneWidth = Math.max(340, effectiveCols * itemWidth + (effectiveCols - 1) * gapX + 160)
+
+    // 创建当前大区设备渲染辅助函数
+    const renderNode = (node: any, x: number, y: number) => {
+      const typeUpper = (node.type || 'HOST').toUpperCase()
+      const icon = typeUpper === 'HOST' ? '💻' :
+                   typeUpper === 'SERVER' ? '🖥️' :
+                   typeUpper === 'ROUTER' ? '🌐' :
+                   typeUpper === 'FIREWALL' ? '🧱' :
+                   typeUpper === 'GAP' ? '🛡️' :
+                   typeUpper === 'SWITCH' ? '🔲' :
+                   typeUpper === 'PLC' ? '🎛️' :
+                   typeUpper === 'TDENGINE' ? '🛢️' :
+                   typeUpper === 'NEURON' ? '🔄' : '🌡️'
+
+      const color = typeUpper === 'FIREWALL' ? '#ef4444' :
+                    typeUpper === 'GAP' ? '#f97316' :
+                    typeUpper === 'TDENGINE' ? '#06b6d4' :
+                    typeUpper === 'PLC' ? '#8b5cf6' :
+                    typeUpper === 'ROUTER' ? '#38bdf8' :
+                    typeUpper === 'SWITCH' ? '#0ea5e9' :
+                    typeUpper === 'NEURON' ? '#22c55e' : '#38bdf8'
+
+      const cell = createDeviceNode(typeUpper, node.name, icon, color, x, y, {
+        ip: node.ip,
+        subnet: node.subnet || '255.255.255.0',
+        gateway: node.gateway || '',
+        zone: zKey,
+        acls: node.acls || [],
+        routes: node.routes || []
+      })
+
+      if (cell) {
+        nodeNameToCellMap.set(node.name, cell)
+      }
+    }
+
+    // =========================================================================
+    // 【通用工业拓扑聚类引擎 (Universal Industrial Topology Engine)】
+    // 彻底废除任何业务硬编码（如 SFC、水情、球阀、GIS 等特定名词）！
+    // 核心图论逻辑：
+    // 1. 骨干交换/路由识别：具有网络汇聚特征的核心节点
+    // 2. 父系领地聚类 (Parent Pod Clustering)：依据实际 edge 连接矩阵，将直连从属节点归入对应父节点集群
+    // 3. 边界网关自动提升：自动探测跨大区通信节点，置于面向相邻大区的高位侧，消灭长途大圆弧
+    // 4. 通用屏柜单元识别：通过通用正则匹配 X号/屏柜/Bay 单元，自动生成辅机现地屏柜
+    // =========================================================================
+    const isProdZone = zKey.toUpperCase().includes('OT') || zKey.toUpperCase().includes('PROD') || zKey.toUpperCase().includes('FIELD')
+
+    if (isProdZone) {
+      // 1. 自动提取当前大区内的骨干网络设备 (SWITCH / ROUTER)
+      const coreSwitches = zoneNodes.filter(n => {
+        const t = (n.type || '').toUpperCase()
+        return t === 'SWITCH' || t === 'ROUTER'
+      })
+
+      // 2. 通用屏柜/单元识别（匹配如 1号机组、2号机组、1号主变、5011断路器等工业单元）
+      const unitMap = new Map<string, { lcu: any; subs: any[] }>()
+      const nonUnitNodes: any[] = []
+
+      zoneNodes.forEach(node => {
+        const name = node.name || ''
+        const matchUnit = name.match(/([0-9一二三四1-4]+)号?(?:机组|主变|主进水|可逆|线路|母线|间隔)/)
+        if (matchUnit) {
+          const unitId = matchUnit[1]
+          if (!unitMap.has(unitId)) unitMap.set(unitId, { lcu: null, subs: [] })
+          const grp = unitMap.get(unitId)!
+          // 单元主控节点判定：名称含 LCU/主PLC/测控/保护，或该单元第一个节点
+          if (name.includes('LCU') || name.includes('主PLC') || name.includes('保护测控') || name.includes('主保护')) {
+            if (!grp.lcu) grp.lcu = node
+            else grp.subs.push(node)
+          } else {
+            grp.subs.push(node)
+          }
+        } else {
+          nonUnitNodes.push(node)
+        }
+      })
+
+      // 修正：确保每个单元都有 lcu
+      unitMap.forEach(grp => {
+        if (!grp.lcu && grp.subs.length > 0) {
+          grp.lcu = grp.subs.shift()
+        }
+      })
+
+      // 3. 建立父子连接关系表 (基于真实连线数据动态分析)
+      // 计算每个非单元节点与各核心交换机的连接强度
+      const nodeDirectParentMap = new Map<string, string>() // nodeName -> parentSwitchName
+      const crossZoneNodes = new Set<string>() // 跨大区连接的节点（需高位对齐）
+
+      data.edges.forEach(e => {
+        const srcNode = zoneNodes.find(n => n.name === e.srcName)
+        const dstNode = zoneNodes.find(n => n.name === e.dstName)
+        const isSrcInZone = Boolean(srcNode)
+        const isDstInZone = Boolean(dstNode)
+
+        // 探测跨大区节点
+        if (isSrcInZone && !isDstInZone) crossZoneNodes.add(e.srcName)
+        if (!isSrcInZone && isDstInZone) crossZoneNodes.add(e.dstName)
+
+        // 内部从属连接
+        if (isSrcInZone && isDstInZone) {
+          if (coreSwitches.some(sw => sw.name === e.srcName)) {
+            nodeDirectParentMap.set(e.dstName, e.srcName)
+          } else if (coreSwitches.some(sw => sw.name === e.dstName)) {
+            nodeDirectParentMap.set(e.srcName, e.dstName)
+          }
+        }
+      })
+
+      // 4. 自动分仓 (Pods)：将核心交换机及其从属节点归类到对应父系领地 (Pods)
+      // 如果存在双网核心交换机 (如A网、B网)，将它们归入主控中枢仓 Pod 1；其余交换机（如II区交换机）各自独立成仓
+      interface Pod {
+        id: string
+        title: string
+        switches: any[]
+        nodes: any[]
+        color: string
+        bg: string
+      }
+
+      const pods: Pod[] = []
+      const assignedNodeNames = new Set<string>()
+
+      // 寻找是否存在双网核心交换机（名称含 A网/B网 或 I区）
+      const swA = coreSwitches.find(n => n.name.includes('A网') || (n.name.includes('I区') && !n.name.includes('II区')))
+      const swB = coreSwitches.find(n => n.name.includes('B网'))
+
+      if (swA) {
+        const dualSwitches = swB ? [swA, swB] : [swA]
+        dualSwitches.forEach(sw => assignedNodeNames.add(sw.name))
+        // 收集归属于主控中枢的节点（排除现场公用PLC，现场公用设备沉底形成独立公用系统岛）
+        const podNodes: any[] = []
+        nonUnitNodes.forEach(node => {
+          if (dualSwitches.some(sw => sw.name === node.name)) return
+          const pName = nodeDirectParentMap.get(node.name)
+          const isDirectSw = dualSwitches.some(sw => sw.name === pName)
+          const isServerOrHost = ['SERVER', 'HOST'].includes((node.type || '').toUpperCase())
+
+          // 如果是站控服务/工作站/RTU，或者是直连交换机且非现场PLC
+          if (isDirectSw && isServerOrHost) {
+            podNodes.push(node)
+            assignedNodeNames.add(node.name)
+          } else if (!pName && isServerOrHost && !node.name.includes('II区') && !node.name.includes('监测')) {
+            podNodes.push(node)
+            assignedNodeNames.add(node.name)
+          }
+        })
+
+        pods.push({
+          id: 'pod_main_control',
+          title: `🏛️ 生产控制网络核心集群 (${swB ? '双网冗余' : '核心骨干'})`,
+          switches: dualSwitches,
+          nodes: podNodes,
+          color: '#38bdf8',
+          bg: 'rgba(56, 189, 248, 0.04)'
+        })
+      }
+
+      // 剩余交换机各自建立独立从属集群（如 II区状态感知交换机）
+      coreSwitches.forEach(sw => {
+        if (assignedNodeNames.has(sw.name)) return
+        assignedNodeNames.add(sw.name)
+
+        const podNodes: any[] = []
+        nonUnitNodes.forEach(node => {
+          if (assignedNodeNames.has(node.name)) return
+          const pName = nodeDirectParentMap.get(node.name)
+          if (pName === sw.name || (!pName && (node.name.includes('II区') || node.name.includes('监测') || node.name.includes('色谱')))) {
+            podNodes.push(node)
+            assignedNodeNames.add(node.name)
+          }
+        })
+
+        pods.push({
+          id: `pod_${sw.name}`,
+          title: `📡 ${sw.name} 从属业务专区`,
+          switches: [sw],
+          nodes: podNodes,
+          color: '#a855f7',
+          bg: 'rgba(168, 85, 247, 0.04)'
+        })
+      })
+
+      // 剩余未关联的公共非机组节点（如全厂公用控制PLC或未划分终端）
+      const remainingCommonNodes = nonUnitNodes.filter(n => !assignedNodeNames.has(n.name))
+
+      // 5. 动态计算空间布局：
+      // 【真正的太阳与九大行星星型/放射轨道发散布局 (Solar Star Radial Dispersion)】：
+      // 核心父节点（交换机）就是太阳圆心 (CenterX, CenterY)！
+      // 从属子节点如九大行星般围绕核心发散环绕分布在轨道半径上；连线为两点直射的射线光束！
+      const podGap = 100
+      let podsTotalWidth = 0
+      const podLayoutInfos: Array<{
+        pod: Pod
+        centerX: number
+        centerY: number
+        radius: number
+        width: number
+        height: number
+      }> = []
+
+      pods.forEach((pod) => {
+        const n = pod.nodes.length
+        // 根据子节点数量自适应计算行星轨道半径
+        // 节点越多，轨道半径适度拉大，确保节点卡片之间有足够周向间隙
+        const radius = n <= 4 ? 200 : n <= 8 ? 260 : 320
+        const podWidth = Math.max(680, radius * 2 + itemWidth + 80)
+        const podHeight = radius * 2 + itemHeight + 100
+        podLayoutInfos.push({
+          pod,
+          centerX: 0, // 稍后在整体排版中赋予绝对X
+          centerY: 40 + podHeight / 2, // 太阳中心点绝对Y
+          radius,
+          width: podWidth,
+          height: podHeight
+        })
+      })
+
+      podsTotalWidth = podLayoutInfos.reduce((acc, p) => acc + p.width, 0) + Math.max(podLayoutInfos.length - 1, 0) * podGap
+      const unitsWidth = unitMap.size * (itemWidth + 24) + Math.max(unitMap.size - 1, 0) * gapX
+      const commonWidth = remainingCommonNodes.length * itemWidth + Math.max(remainingCommonNodes.length - 1, 0) * gapX
+
+      const zoneWidth = Math.max(1360, podsTotalWidth + 140, unitsWidth + 160, commonWidth + 160)
+      const podsStartX = currentStartX + (zoneWidth - podsTotalWidth) / 2
+
+      let currentPodLeft = podsStartX
+      let maxPodBottomY = 85
+
+      // 绘制各个星系 Pod 及其内部设备
+      podLayoutInfos.forEach((info) => {
+        const pod = info.pod
+        const podX = currentPodLeft
+        const podTopY = 85
+        const podCenterX = podX + info.width / 2
+        const podCenterY = podTopY + info.height / 2
+        info.centerX = podCenterX
+        info.centerY = podCenterY
+
+        // 5.1 绘制太阳核心（父节点交换机）
+        const isDual = pod.switches.length >= 2
+        if (isDual) {
+          // 双星系统（双交换机，例如 A网 / B网），位于星系圆心左右紧挨对称分布
+          const dualGap = 16
+          const sw1_X = podCenterX - itemWidth - dualGap / 2
+          const sw2_X = podCenterX + dualGap / 2
+          const swY = podCenterY - itemHeight / 2
+          if (pod.switches[0]) renderNode(pod.switches[0], sw1_X, swY)
+          if (pod.switches[1]) renderNode(pod.switches[1], sw2_X, swY)
+        } else {
+          // 单星系统（单交换机，绝对圆心！）
+          const swX = podCenterX - itemWidth / 2
+          const swY = podCenterY - itemHeight / 2
+          if (pod.switches[0]) renderNode(pod.switches[0], swX, swY)
+        }
+
+        // 5.2 绘制九大行星环绕子节点（基于极坐标角度均匀发散）：
+        // 避开正左与正右极窄侧，若有跨区节点优先置于左侧偏上方（角度在 160°~200°）
+        const sortedNodes = [...pod.nodes].sort((a, b) => (crossZoneNodes.has(b.name) ? 1 : 0) - (crossZoneNodes.has(a.name) ? 1 : 0))
+        const nodeCount = sortedNodes.length
+
+        if (nodeCount > 0) {
+          // 在 360 度圆周上均匀分布，或者半环发散
+          // 为避免节点卡片在顶部和底部发生轻微重叠，按椭圆轨道比例放缩 (rx = radius * 1.15, ry = radius * 0.95)
+          const rx = info.radius * 1.18
+          const ry = info.radius * 0.95
+
+          sortedNodes.forEach((node, idx) => {
+            // 起始角从 -90° (正上方12点钟) 开始顺时针旋转
+            const angle = -Math.PI / 2 + (idx * (2 * Math.PI) / nodeCount)
+            const nodeX = podCenterX + rx * Math.cos(angle) - itemWidth / 2
+            const nodeY = podCenterY + ry * Math.sin(angle) - itemHeight / 2
+            renderNode(node, nodeX, nodeY)
+          })
+        }
+
+        const podBottom = podTopY + info.height
+        if (podBottom > maxPodBottomY) {
+          maxPodBottomY = podBottom
+        }
+
+        // 生成该 Pod 的专属物理领地底板 (Subzone Box)
+        graph!.addNode({
+          id: `subzone_${zKey.toLowerCase()}_${pod.id}`,
+          x: podX,
+          y: podTopY,
+          width: info.width,
+          height: info.height,
+          zIndex: 2,
+          data: { name: pod.title, isSubZone: true },
+          markup: [{ tagName: 'rect', selector: 'body' }, { tagName: 'text', selector: 'label' }],
+          attrs: {
+            body: {
+              fill: pod.bg,
+              stroke: pod.color,
+              strokeWidth: 1.5,
+              strokeDasharray: '4 4',
+              rx: 12,
+              ry: 12
+            },
+            label: {
+              text: pod.title,
+              fill: pod.color,
+              fontSize: 11,
+              fontWeight: 600,
+              textAnchor: 'start',
+              textVerticalAnchor: 'top',
+              refX: 16,
+              refY: 12
+            }
+          }
+        })
+
+        currentPodLeft += info.width + podGap
+      })
+
+      let otCursorY = maxPodBottomY + 45
+
+      // 6. 绘制全厂公用/公用控制单元 (若存在未分入单元的公共节点)
+      if (remainingCommonNodes.length > 0) {
+        const cWidth = remainingCommonNodes.length * itemWidth + (remainingCommonNodes.length - 1) * gapX
+        const cStart = currentStartX + (zoneWidth - cWidth) / 2
+        const subCommonId = `subzone_${zKey.toLowerCase()}_common`
+        const subCommonTitle = `⚙️ 全厂公用系统/辅助控制单元 (Common Utilities)`
+        const subCommonWidth = cWidth + 40
+        const subCommonHeight = itemHeight + 48
+
+        graph!.addNode({
+          id: subCommonId,
+          x: cStart - 20,
+          y: otCursorY - 10,
+          width: subCommonWidth,
+          height: subCommonHeight,
+          zIndex: 2,
+          data: { name: subCommonTitle, isSubZone: true },
+          markup: [{ tagName: 'rect', selector: 'body' }, { tagName: 'text', selector: 'label' }],
+          attrs: {
+            body: {
+              fill: 'rgba(234, 179, 8, 0.04)',
+              stroke: 'rgba(234, 179, 8, 0.4)',
+              strokeWidth: 1.5,
+              strokeDasharray: '4 4',
+              rx: 6,
+              ry: 6
+            },
+            label: {
+              text: subCommonTitle,
+              fill: '#facc15',
+              fontSize: 10,
+              fontWeight: 600,
+              textAnchor: 'start',
+              textVerticalAnchor: 'top',
+              refX: 12,
+              refY: 8
+            }
+          }
+        })
+
+        const commonNodeY = otCursorY + 18
+        remainingCommonNodes.forEach((node, i) => {
+          renderNode(node, cStart + i * (itemWidth + gapX), commonNodeY)
+        })
+        otCursorY += itemHeight + 65
+      }
+
+      // 7. 绘制通用机组/单元控制屏柜 (LCU / Bay Units)
+      if (unitMap.size > 0) {
+        const unitsArray = Array.from(unitMap.entries())
+        const unitColWidth = itemWidth + 24
+        const totalUnitsWidth = unitsArray.length * unitColWidth + (unitsArray.length - 1) * gapX
+        const unitsStartX = currentStartX + (zoneWidth - totalUnitsWidth) / 2
+
+        let maxSubCount = 0
+        unitsArray.forEach(([_, grp]) => {
+          if (grp.subs.length > maxSubCount) maxSubCount = grp.subs.length
+        })
+
+        const unitTotalRows = 1 + maxSubCount
+        const subZoneHeight = unitTotalRows * itemHeight + (unitTotalRows - 1) * gapY + 45
+        const subZoneY = otCursorY - 10
+
+        unitsArray.forEach(([unitId, _], colIndex) => {
+          const subBoxX = unitsStartX + colIndex * (unitColWidth + gapX)
+          const subZoneId = `subzone_${zKey.toLowerCase()}_unit_${unitId}`
+          const subZoneTitle = `⚡ ${unitId}号单元现地控制屏柜 (Bay Unit)`
+
+          graph!.addNode({
+            id: subZoneId,
+            x: subBoxX,
+            y: subZoneY,
+            width: unitColWidth,
+            height: subZoneHeight,
+            zIndex: 2,
+            data: { name: subZoneTitle, isSubZone: true },
+            markup: [{ tagName: 'rect', selector: 'body' }, { tagName: 'text', selector: 'label' }],
+            attrs: {
+              body: {
+                fill: 'rgba(139, 92, 246, 0.05)',
+                stroke: 'rgba(168, 85, 247, 0.45)',
+                strokeWidth: 1.5,
+                strokeDasharray: '4 4',
+                rx: 6,
+                ry: 6
+              },
+              label: {
+                text: subZoneTitle,
+                fill: '#c084fc',
+                fontSize: 10,
+                fontWeight: 600,
+                textAnchor: 'start',
+                textVerticalAnchor: 'top',
+                refX: 10,
+                refY: 8
+              }
+            }
+          })
+        })
+
+        const lcuY = otCursorY + 22
+        unitsArray.forEach(([_, grp], colIndex) => {
+          const nodeX = unitsStartX + colIndex * (unitColWidth + gapX) + 12
+          if (grp.lcu) renderNode(grp.lcu, nodeX, lcuY)
+        })
+
+        for (let sIdx = 0; sIdx < maxSubCount; sIdx++) {
+          const subRowY = lcuY + (sIdx + 1) * (itemHeight + gapY)
+          unitsArray.forEach(([_, grp], colIndex) => {
+            const nodeX = unitsStartX + colIndex * (unitColWidth + gapX) + 12
+            const subNode = grp.subs[sIdx]
+            if (subNode) renderNode(subNode, nodeX, subRowY)
+          })
+        }
+
+        otCursorY = subZoneY + subZoneHeight + 20
+      }
+
+      // 创建整个生产大区的外层底板
+      const zoneHeight = Math.max(380, otCursorY + 30)
+      const zoneTitle = `${zKey} (${ipPrefix}.0/24)`
+      createZoneBox(`zone_${zKey.toLowerCase()}`, zoneTitle, currentStartX, 40, zoneWidth, zoneHeight, pal.bg, pal.border, isDmz, {
+        subnetPrefix: ipPrefix,
+        gateway: `${ipPrefix}.1`
+      })
+
+      currentStartX += zoneWidth + 120
+      return
+    }
+
+    // 非 OT 大区（如 IT / DMZ）保持标准的树形自适应居中排版：
+    let cursorY = isDmz ? 110 : 75
+    const sortedLevels = Array.from(regularLevelGroups.keys()).sort((a, b) => a - b)
+    sortedLevels.forEach(lvl => {
+      let items = regularLevelGroups.get(lvl)!
+      const totalWidth = items.length * itemWidth + (items.length - 1) * gapX
+      const startX = currentStartX + (zoneWidth - totalWidth) / 2
+      items.forEach((node, i) => {
+        const nx = startX + i * (itemWidth + gapX)
+        renderNode(node, nx, cursorY)
+      })
+      cursorY += itemHeight + gapY
+    })
+
+    // 创建底板
+    const zoneHeight = Math.max(380, cursorY + 30)
+    const zoneTitle = `${zKey} (${ipPrefix}.0/24)`
+    createZoneBox(`zone_${zKey.toLowerCase()}`, zoneTitle, currentStartX, 40, zoneWidth, zoneHeight, pal.bg, pal.border, isDmz, {
+      subnetPrefix: ipPrefix,
+      gateway: `${ipPrefix}.1`
+    })
+
+    currentStartX += zoneWidth + 120
+  })
+
+  // 4. 工业级纯两点绝对直线直连（两点之间无任何折线、绝无中间控制拐点！）：
+  data.edges.forEach(edgeItem => {
+    const srcCell = nodeNameToCellMap.get(edgeItem.srcName)
+    const dstCell = nodeNameToCellMap.get(edgeItem.dstName)
+
+    if (srcCell && dstCell) {
+      const srcPos = srcCell.getPosition()
+      const dstPos = dstCell.getPosition()
+
+      const deltaY = dstPos.y - srcPos.y
+      const absY = Math.abs(deltaY)
+
+      // 工业级链路工程规范分色与辨识：
+      let lineColor = '#00d2ff'
+      let isDashed = false
+      let strokeWidth = 1.8
+
+      const isHeartbeat = absY <= 30 && (/A网|B网/.test(edgeItem.srcName) && /A网|B网/.test(edgeItem.dstName))
+      const isCrossZone = (edgeItem.srcName.includes('网闸') || edgeItem.dstName.includes('网闸')) ||
+                          (edgeItem.srcName.includes('防火墙') || edgeItem.dstName.includes('防火墙')) ||
+                          (edgeItem.srcName.includes('加密') || edgeItem.dstName.includes('加密'))
+      const isNetworkB = edgeItem.srcName.includes('B网') || edgeItem.dstName.includes('B网')
+      const isZoneII = edgeItem.srcName.includes('II区') || edgeItem.dstName.includes('II区')
+      const isUnitBus = /机组.*PLC/.test(edgeItem.srcName) && /机组|球阀|调速|励磁/.test(edgeItem.dstName)
+
+      if (isHeartbeat) {
+        lineColor = '#eab308'
+        isDashed = true
+        strokeWidth = 2.5
+      } else if (isCrossZone) {
+        lineColor = '#f43f5e'
+        strokeWidth = 2.2
+      } else if (isNetworkB) {
+        lineColor = '#f59e0b' // 工业B网黄色
+        strokeWidth = 1.8
+      } else if (isZoneII) {
+        lineColor = '#a855f7' // II区专属紫色
+        strokeWidth = 1.8
+      } else if (isUnitBus) {
+        lineColor = '#10b981' // 机组辅机现场总线绿色
+        strokeWidth = 1.6
+      } else {
+        lineColor = '#00d2ff' // A网默认青蓝
+      }
+
+      graph!.addEdge({
+        source: { cell: srcCell.id },
+        target: { cell: dstCell.id },
+        zIndex: 5,
+        router: null, // 关键：彻底废除任何正交或折线路由器，确保中间绝无折线！
+        connector: {
+          name: 'normal' // 纯直线（Direct line between two points）
+        },
+        attrs: {
+          line: {
+            stroke: lineColor,
+            strokeWidth: strokeWidth,
+            strokeDasharray: isDashed ? '4 3' : '0',
+            targetMarker: {
+              name: 'classic',
+              size: 5
+            }
+          }
+        },
+        data: {
+          bandwidth: edgeItem.bw || '1000',
+          latencyMs: edgeItem.lat ?? 2
+        }
+      })
+    }
+  })
+
+  graph.zoomToFit({ padding: 50 })
+  refreshAvailableNodes()
+  addLog(`SUCCESS: 工业组织层级树拓扑生成完毕！共创建 ${data.nodes.length} 台设备、${data.edges.length} 条互联链路`, 'success')
+  showToast('success', `🎉 工业组织层级树拓扑构建成功！共生成 ${data.nodes.length} 台设备与 ${data.edges.length} 条规范单向弧线`)
+}
 </script>
 
 <template>
@@ -1500,6 +2229,9 @@ const handleExportPng = () => {
       <div class="view-actions">
         <button class="btn-action-primary" :disabled="saving" @click="handleSaveTopology">
           💾 {{ saving ? '保存中...' : '保存拓扑' }}
+        </button>
+        <button class="btn-action-import" title="批量导入资产表格(Excel/CSV)或Cisco配置" @click="handleOpenImportModal">
+          📥 逆向导入
         </button>
         <button class="btn-action-export" title="导出当前拓扑为高清PNG图片" @click="handleExportPng">
           📸 导出拓扑图
@@ -1617,6 +2349,12 @@ const handleExportPng = () => {
         />
       </transition>
     </div>
+
+    <!-- 工业资产与拓扑逆向一键导入模态框 -->
+    <ImportTopologyModal
+      ref="importModalRef"
+      @import-success="handleApplyImportedData"
+    />
   </div>
 </template>
 
@@ -1710,6 +2448,27 @@ const handleExportPng = () => {
   border-color: #38bdf8;
   color: #7dd3fc;
   box-shadow: 0 0 6px rgba(56, 189, 248, 0.3);
+}
+
+.btn-action-import {
+  background: #1e293b;
+  border: 1px solid #10b981;
+  color: #34d399;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s;
+}
+
+.btn-action-import:hover {
+  background: #064e3b;
+  border-color: #34d399;
+  color: #a7f3d0;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.4);
 }
 
 .view-actions button {

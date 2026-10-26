@@ -1,103 +1,54 @@
-# 📋 [第三层：微观原子任务层] 实时任务看板 (tier3_status.md) [DEMO 示例 / 样例模板]
+# 🏭 工业全景网络仿真与拓扑排版系统性优化实施计划
 
-> 🏛️ **【三层记忆金字塔 - 第三层：微观原子任务看板 (看现在与未来)】**
-> 💡 **使用与读取规约**：本文件由底层 Python 脚本 board.py 确切管控。记载当下唯一正在进行的 ACTIVE 焦点任务以及排队中的 TODO 任务，只维护当下的最新进度状态。
-
----
-
-<!-- SECTION:ACTIVE:START -->
-## 🔴 进行中 (ACTIVE)
-
-<!-- SECTION:ACTIVE:END -->
-
-<!-- SECTION:TODO:START -->
-## ⚪ 待办中 (TODO)
-
-### 🌟 第一优先级 (优先做 - 核心体验与工业合规亮点)
-- 
-
-### ⏳ 第二优先级 (以后做 - 二期进阶扩展)
-- [Task-301] 多方案拓扑场景对比与版本快照 (整改前 vs 整改后连通性矩阵对比)
-- [Task-302] 预置工业攻防演练剧本库 (震网病毒渗透、勒索软件横向移动拦截、APT跨区渗透演示)
-- [Task-303] 真实工业交换机/路由器网络配置（Cisco/Huawei 格式配置或 CSV）资产逆向导入
-
-### ❌ 明确放弃项 (不必做 - 避免过度设计)
-- ❌ 接入复杂的底层服务器/设备瞬时时序指标采集图表（如假 CPU/内存曲线）
-- ❌ 完整实现 OSPF/BGP 等底层复杂动态路由洪泛协议状态机
-- ❌ 浏览器端应用层报文深度内容抓包过滤（DPI/HTTP Payload）
+根据对当前大型抽蓄/智能变电站导入呈现效果的深度评审，针对“大区内部挤公交、A/B冗余网交叉打架、跨区长线悬空、长宽比严重失衡”四大痛点，制定以下具备先后依赖的敏捷解决路线图。
 
 ---
 
-<!-- SECTION:TODO:END -->
+## 🎯 任务全景路线图 (Roadmap)
 
-<!-- SECTION:DONE:START -->
-## 🟢 已完成 (DONE)
+```mermaid
+graph TD
+    T1[任务一: 机组子集群透明容器 Sub-Zone 嵌套] --> T2[任务二: A/B双重化冗余总线镜像规整]
+    T2 --> T3[任务三: 跨区边界关口对齐与光纤隔离带强化]
+    T3 --> T4[任务四: 画布长宽比黄金矩阵与智能分屏聚焦]
+```
 
-[Task-207] [S2-Muscle] 路由器与核心三层设备：静态路由表 (LPM) 与分支隔离日志 (Done: 2026-10-24)
-- **Status**: DONE
-- **功能目标**: 实现基于最长前缀匹配 (LPM) 的静态路由转发决策，前端支持可视增删查改路由条目；实现 PathState 分支日志完全隔离机制，杜绝弃用分支日志污染。
-- **涉及文件**: `backend/module-network-sim/engine/BfsRoutingEngine.java`, `frontend/src/modules/network-sim/components/PropertyInspector.vue`
+---
 
-[Task-101] [S1-Bone] 通用平台数据表与认证API骨架 (Done: 2026-10-07)
-- **Status**: DONE
-- **功能目标**: 实现管理员开户用户表、角色表、菜单表及登录JWT认证API
-- **涉及文件**: base_template/docs/modules/sys_platform/prd-sys-platform-v1.0.md
+### 📌 任务一：机组子集群透明容器（Sub-Zone 嵌套底板）
+* **解决痛点**：OT 生产大区内 20+ 台设备混在一起，缺乏机组现地屏柜物理单元感。
+* **实施方案**：
+  1. 在 `unitMap`（1#~4#机组）计算出各机组独立包围盒后，自动为每个机组生成半透明轻量卡槽底板（例如：`1号机组LCU控制屏柜`、`2号机组控制单元`）；
+  2. 底板使用虚线圆角框（`strokeDasharray: [4, 4]`），背景微透（`rgba(139, 92, 246, 0.05)`），顶部带小字标签；
+  3. 将机组主 LCU 与下挂的调速器、励磁、球阀完全纳入子底板内部。
+* **交付成效**：一眼识别 4 棵并列的机组独立工业单元，彻底告别“大通铺挤公交”。
 
-[Task-102] [API实现] 统一认证与管理员开户Controller/Service开发 (Done: 2026-10-07)
-- **Status**: DONE
-- **功能目标**: 基于DLD契约完成Login与User/Role核心接口编写
-- **涉及文件**: base_template/docs/modules/sys_platform/dld-sys-platform-v1.0.md
+---
 
-[Task-103] [前端实现] Vue3管理平台前端搭建与登录开户界面开发 (Done: 2026-10-07)
-- **Status**: DONE
-- **功能目标**: 基于DLD与mockup.html开发Vue3+Vite+Element Plus前端工程及登录与统一开户页面
-- **涉及文件**: base_template/frontend/
+### 📌 任务二：A/B 双重化冗余骨干总线（左右对称/上下双总线规整）
+* **解决痛点**：A网交换机与B网交换机挤在一起横排，导致 A网与B网的下垂连线相互穿透交叉。
+* **实施方案**：
+  1. 识别具有 `A网/B网`、`主用/备用`、`双重化` 属性的核心交换/监控主机对；
+  2. 采用标准电力二次自动化规范的**对称总线布局**：
+     * **方案 A（左右镜像）**：A网系统居左侧，B网系统居右侧，中间留出双机热备心跳通道；
+     * **方案 B（双母线错峰）**：A网为上总线，B网下移 20px 形成错峰下垂，双网连线各走专属端口通道，彻底杜绝空中十字交叉。
+* **交付成效**：真正展现国家电网/南网高可靠性“双重化保护与容错”架构。
 
-[Task-104] [SysPlatform全栈] 补齐SpringBoot启动类、全量消灭Mock假数据与MySQL/Lombok规范重构 (Done: 2026-10-07)
-- **Status**: DONE
-- **功能目标**: 完成Spring Boot 3启动类与pom.xml配置、消灭全量Controller硬编码假数据、连接MySQL 8.0数据库及官网标准Lombok 1.18.38代码精简
-- **涉及文件**: base_template/backend/
+---
 
-[Task-201] [S1-Bone] Maven多模块重构与通用基础设施抽取 (Done: 2026-10-24)
-- **Status**: DONE
-- **功能目标**: 重构后端为Maven多模块结构(父POM/platform-common/platform-server/module-network-sim骨架)
-- **涉及文件**: backend/pom.xml, backend/platform-common/, backend/platform-server/
+### 📌 任务三：跨区边界关口对齐与等保隔离光纤通道
+* **解决痛点**：IT到DMZ再到OT的连线长达千像素，在空白区域硬拉一条悬空直线，毫无物理隔离与安全边界感。
+* **实施方案**：
+  1. **边界关口置边吸附**：将防火墙、单向网闸、纵向加密认证装置自动布局在大区的右边缘/左边缘边界线上；
+  2. **隔离区安全走廊渲染**：在 IT ➔ DMZ ➔ OT 之间的大区空隙处，绘制专业工业“安全隔离带”背景网格与光纤干道标识；
+  3. 跨区连线严格作为“安全通信摆渡通道”，赋予不同的光纤脉冲流光特效（例如纯激光单向传输）。
+* **交付成效**：等保 2.0 工业安全隔离要求一目了然，极具专业演示与实战汇报说服力。
 
-[Task-202] [S1-Bone] 网络拓扑数据结构设计与纯Java BFS+ACL算法单测 (Done: 2026-10-24)
-- **Status**: DONE
-- **功能目标**: 在module-network-sim中定义Graph/Node/Edge/AclRule并用JUnit跑通BFS寻路与拦截
-- **涉及文件**: backend/module-network-sim/src/test/java/
+---
 
-[Task-203] [S2-Muscle] 前端引入AntV X6与网络拓扑仿真独立模块搭建 (Done: 2026-10-24)
-- **Status**: DONE
-- **功能目标**: 在Vue3前端安装AntV X6，创建modules/network-sim，实现设备拖拽与画布连线
-- **涉及文件**: base_template/frontend/src/modules/network-sim/
-
-[Task-204] [S2-Muscle] 前后端联调：拓扑图MySQL保存加载与连通性动态演示 (Done: 2026-10-24)
-- **Status**: DONE
-- **功能目标**: 完成net_topology表持久化API，打通前端测试连通性按钮与后端BFS引擎，动态高亮数据包流动轨迹
-- **涉及文件**: backend/module-network-sim/controller/, frontend/src/modules/network-sim/views/
-
-[Task-205] [S2-Muscle] 前端拓扑方案管理列表页与路由打通 (Done: 2026-10-24)
-- **Status**: DONE
-- **功能目标**: 创建TopologyListView支持拓扑方案增删改查分页，点击【设计拓扑】携带ID跳转到全屏画布工作台
-- **涉及文件**: frontend/src/modules/network-sim/views/TopologyListView.vue
-
-[Task-206] [S2-Muscle] 画布工作台根据ID加载与实时保存，打通BFS动态连通性仿真 (Done: 2026-10-24)
-- **Status**: DONE
-- **功能目标**: 画布支持根据路由query中id读取真实JSON，修改后点击保存回写数据库，连通性测试调用后端BFS接口
-- **涉及文件**: frontend/src/modules/network-sim/views/NetworkSimView.vue
-
-[Task-208] [S3-Skin] 画布动态流水线光效与阻断视觉强化 (Done: 2026-10-24)
-- **Status**: DONE
-- **功能目标**: 寻路成功后点亮链路流动粒子光效（流光顺畅流动）；阻断时在拦截节点打上红色脉冲警告圈 🚨 并悬浮展示放行/拦截原因气泡。
-- **涉及文件**: `frontend/src/modules/network-sim/views/NetworkSimView.vue`, `SimulationConsole.vue`
-
-[Task-209] [S2-Muscle] NAT 网络地址转换 (SNAT/DNAT) 仿真 (Done: 2026-10-24)
-  - **功能目标**: 边界防火墙/网关支持配置 SNAT 私网源地址伪装与 DNAT 端口映射，数据包过境时执行五元组转换并输出 `[NAT TRANSLATION]` 仿真日志。
-  - **涉及文件**: `backend/module-network-sim/engine/`, `frontend/src/modules/network-sim/components/PropertyInspector.vue`
-- [Task-210] [S2-Muscle] 工业网络等保与合规审计报告一键生成
-  - **功能目标**: 顶部工作台增加“合规评估报告”弹窗与一键导出（PDF/Markdown），自动化评估全网资产、大区隔离合规性、网闸物理隔离有效性及高危端口（22/3389）暴露审计。
-  - **涉及文件**: `frontend/src/modules/network-sim/views/NetworkSimView.vue`
-
-<!-- SECTION:DONE:END -->
+### 📌 任务四：画布长宽比黄金矩阵与智能分屏聚焦（避免压扁）
+* **解决痛点**：全屏 `zoomToFit` 呈现出 5:1 的狭长扁条，字小看不清。
+* **实施方案**：
+  1. 优化大区排列结构，当检测到大区数量 ≥ 3 且单个大区特别宽时，支持**工业 16:9 矩阵自适应折行**（如上层 IT/DMZ 管理层，下层 OT 生产区全景横向铺开）；
+  2. 实现“分区点击一键聚焦平滑缩放（Focus Zone）”，双击某个大区时平滑平移居中并放大至最佳阅读比例。
+* **交付成效**：首屏加载比例饱满震撼，字体清晰可见，交互流畅灵动。

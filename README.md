@@ -32,7 +32,7 @@ Apex/                                 # 🚀 顶层工作区 (IDE 打开的根�
 │   ├── 📄 tier2_legacy_arch.md        # (tier2_legacy_arch.md)
 │   ├── 📄 tier2_modules.md            # [第二层：宏观业务大模块总览层] 大模块矩阵索引表 (tier2_modules.md) [DEMO 示例 / 样例模板]
 │   ├── 📄 tier3_handover.md           # [第三层：微观原子任务层] 历史交接黑匣子 (tier3_handover.md) [DEMO 示例 / 样例模板]
-│   └── 📄 tier3_status.md             # 📋 [第三层：微观原子任务层] 实时任务看板 (tier3_status.md) [DEMO 示例 / 样例模板]
+│   └── 📄 tier3_status.md             # 🏭 工业全景网络仿真与拓扑排版系统性优化实施计划
 ├── 🧠 .cursorrules                    # 🧠 AI 行为约束与数字路由表
 ├── 🧠 .windsurfrules                  # 🧠 IDE 规则适配文件
 ├── 📖 README.md                       # 📖 项目门面与使用指南
