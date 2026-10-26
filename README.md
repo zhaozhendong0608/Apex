@@ -28,7 +28,7 @@ Apex/                                 # 🚀 顶层工作区 (IDE 打开的根�
 ├── 🧠 .ai/                            # ⚙️ 统一工作流控制中心 (三层记忆金字塔)
 │   ├── 🛠️ scripts/                   # 🛠️ 自动化控制与分析脚本库
 │   ├── 📜 sop/                        # 📜 全套 00~06 数字 SOP 规则矩阵
-│   ├── 📄 tier1_snapshot.md           # [第一层：极简快照名片层] 项目动态快照 (tier1_snapshot.md) [DEMO 示例 / 样例模板]
+│   ├── 📄 tier1_snapshot.md           # [第一层：极简快照名片层] 项目动态快照 (tier1_snapshot.md)
 │   ├── 📄 tier2_legacy_arch.md        # (tier2_legacy_arch.md)
 │   ├── 📄 tier2_modules.md            # [第二层：宏观业务大模块总览层] 大模块矩阵索引表 (tier2_modules.md) [DEMO 示例 / 样例模板]
 │   ├── 📄 tier3_handover.md           # [第三层：微观原子任务层] 历史交接黑匣子 (tier3_handover.md) [DEMO 示例 / 样例模板]
@@ -42,11 +42,28 @@ Apex/                                 # 🚀 顶层工作区 (IDE 打开的根�
 │   ├── 🧠 .cursorrules                # 🧠 AI 行为约束与数字路由表
 │   ├── 🧠 .windsurfrules              # 🧠 IDE 规则适配文件
 │   ├── 📖 README.md                   # 📖 项目门面与使用指南
-│   ├── 📁 backend/
+│   ├── 📁 backend/                    # (Backend)
 │   ├── 📁 docs/                       # 📁 本工程 PRD / 架构 / 设计文档
-│   └── 📁 frontend/
-├── 🛠️ scripts/                       # 🛠️ 自动化控制与分析脚本库
-│   └── 📁 tests/
+│   ├── 📁 frontend/                   # (Frontend)
+│   └── 🛠️ scripts/                   # 🛠️ 自动化控制与分析脚本库
+├── 📁 docs/                           # 📁 本工程 PRD / 架构 / 设计文档
+│   ├── 📄 01-requirements.md          # 🧭 系统需求全景地图 (Requirements Map)
+│   ├── 🎨 design/                     # 🎨 UI 视觉规范与设计 Token
+│   ├── 📁 handovers/
+│   ├── 📦 modules/                    # 📦 业务大模块 PRD 与交互原型
+│   ├── 📁 postmortems/
+│   └── 📁 test-cases/
+├── 📁 station-device-simulator/       # (Station Device Simulator) 架构方案与开发指引
+│   ├── 📖 README.md                   # 📖 项目门面与使用指南
+│   ├── 📁 lib/
+│   ├── 📄 pom.xml
+│   ├── 📁 simulator-core/
+│   ├── 📁 simulator-metadata-mysql/
+│   ├── 📁 simulator-metadata-spi/
+│   ├── 📁 simulator-sink-jsdb/
+│   ├── 📁 simulator-sink-spi/
+│   ├── 📁 simulator-starter/
+│   └── 📁 simulator-ui/               # + Vite
 ├── 📄 workflow_guide.html
 └── 📄 工作流问题待办.md                      # 📋 Apex 工作流问题诊断与优化待办清单 (Workflow Issue & Action Plan)
 ```

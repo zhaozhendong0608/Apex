@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.jtech.simulator</groupId>
+    <artifactId>station-device-simulator</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>station-device-simulator</name>
+    <description>独立电站设备模拟服务 (Station Device Simulator)</description>
+
+    <modules>
+        <module>simulator-metadata-spi</module>
+        <module>simulator-metadata-mysql</module>
+        <module>simulator-core</module>
+        <module>simulator-sink-spi</module>
+        <module>simulator-sink-jsdb</module>
+        <module>simulator-starter</module>
+    </modules>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.2.4</version>
+        <relativePath/>
+    </parent>
+
+    <properties>
+        <java.version>17</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <mybatis-plus.version>3.5.7</mybatis-plus.version>
+        <fastjson.version>1.2.83</fastjson.version>
+        <lombok.version>1.18.38</lombok.version>
+        <mysql.version>8.0.33</mysql.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- 模块内依赖统一版本管理 -->
+            <dependency>
+                <groupId>com.jtech.simulator</groupId>
+                <artifactId>simulator-metadata-spi</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.jtech.simulator</groupId>
+                <artifactId>simulator-metadata-mysql</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.jtech.simulator</groupId>
+                <artifactId>simulator-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.jtech.simulator</groupId>
+                <artifactId>simulator-sink-spi</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.jtech.simulator</groupId>
+                <artifactId>simulator-sink-jsdb</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- MyBatis-Plus -->
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+                <version>${mybatis-plus.version}</version>
+            </dependency>
+
+            <!-- Fastjson (极生底层驱动强依赖) -->
+            <dependency>
+                <groupId>com.alibaba</groupId>
+                <artifactId>fastjson</artifactId>
+                <version>${fastjson.version}</version>
+            </dependency>
+
+            <!-- 极生本地 Jar 引用 -->
+            <dependency>
+                <groupId>com.jsdb</groupId>
+                <artifactId>jsdb</artifactId>
+                <version>1.0.0</version>
+                <scope>system</scope>
+                <systemPath>${project.basedir}/../lib/jsdb-1.0.0.jar</systemPath>
+            </dependency>
+            <dependency>
+                <groupId>org.python</groupId>
+                <artifactId>pydk</artifactId>
+                <version>1.0.0</version>
+                <scope>system</scope>
+                <systemPath>${project.basedir}/../lib/pydk-1.0.0.jar</systemPath>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
+                    <encoding>UTF-8</encoding>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

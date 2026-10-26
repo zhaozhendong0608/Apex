@@ -6,22 +6,22 @@
 ---
 
 ## 📌 1. 项目身份与基本信息
-- **项目名称**：通用后台管理平台 (SysPlatform)
-- **核心技术栈**：Java 17 / Spring Boot 3 / Vue 3 / Vite / MySQL 8.0
+- **工程名称**：独立电站设备数据模拟服务 (station-device-simulator)
+- **技术栈**：Java 17 / Spring Boot 3.2.4 / MyBatis-Plus / JSDB (极生) / Vue 3
 
 ---
 
 ## 🏆 2. 已稳固里程碑 (MAX 3 行)
-- **[Milestone-1.3]** SysPlatform 全栈后端/前端真实代码全量构建归档 (Task-104) 🟢
-- **[Milestone-1.4]** 升级扩展全套 Skill 技能体系（新建 `code-quality-reviewer` 与 `poc-tech-prototype`）并落地防迷路导航卡片协议与 HTML 自动同步 🟢
+- **[Milestone-1.4]** 升级扩展全套 Skill 技能体系（新建代码审查与原型架构等专家）🟢
+- **[Milestone-2.0]** 完成独立电站模拟服务全栈交付（Task-000~005）：基于 REA 逆向绑定 TDBAPI 规约，实现物理因果孪生算法、多模块工程及可视化控制台 🟢
 
 ---
 
 ## 🎯 3. 当前活跃状态 (ACTIVE Focus)
-- **[Task-NONE]** 技能体系与防迷路导航指示牌已落盘归档，准备规划新一轮业务模块需求 (可通过发 1 启动)
+- **[Task-IDLE]** 模拟器所有核心模块与单元测试全绿灯验收完成，处于待命状态。
 
 ---
 
 ## ⚠️ 4. 核心架构约束
-1. **统一开户模式**：禁止前台自由注册，所有账号均由 `admin` 在后台开户。
-2. **测试先行 & 看门狗**：改动绑定 DLD/Testcase 契约，单次改动控制范围，禁止假 Mock。
+1. **只读保护**：对 MySQL `etl_badger` 数据库严格开启 `readOnly: true`，绝不修改主库元数据。
+2. **极生安全批次**：严格执行单点并发规约，每 50 批执行一次 `commit/merge`，防 P-014 驱动指针污染。

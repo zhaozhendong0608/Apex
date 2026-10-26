@@ -11,5 +11,8 @@
 | :--- | :--- | :--- | :--- | :--- |
 | `auth` | 认证与权限 | 🟢 已上线 | [prd-auth-v1.md](docs/modules/auth/prd-auth-v1.md) | 用户登录、JWT 签发、权限控制 |
 | `sys_platform` | 通用管理平台 | 🟡 规划中 | [prd-sys-platform-v1.0.md](base_template/docs/modules/sys_platform/prd-sys-platform-v1.0.md) | 管理员开户、用户管理、RBAC 权限、动态菜单与站内通知 |
+| `simulator_console` | 模拟器监控与评判控制台 | 🟢 已交付上线 | [prd-simulator-console-v1.0.md](docs/modules/simulator_console/prd-simulator-console-v1.0.md) | 实时物理波形曲线大盘、极生发送流水、动态故障突变注入与分析平台评判结果对比 |
+
 | `demo` | DEMO 样例模块 | 🟢 已上线 | [prd-demo-v1.md](docs/modules/demo/prd-demo-v1.md) | 业务样例示范与模版结构展示 |
+
 

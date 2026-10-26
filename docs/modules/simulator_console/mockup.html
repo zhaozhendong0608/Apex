@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>电站设备模拟器 - 工业物理数字孪生与诊断评判控制台</title>
+  <!-- Chart.js 绘制工业时序多通道波形 -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg-primary: #0A0F1D;
+      --bg-secondary: #121A2D;
+      --bg-card: #18233C;
+      --border-color: #2D3D5D;
+      --text-main: #F8FAFC;
+      --text-muted: #94A3B8;
+      --accent-cyan: #38BDF8;
+      --accent-green: #10B981;
+      --accent-amber: #F59E0B;
+      --accent-red: #EF4444;
+      --accent-purple: #A855F7;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* 侧边导航 */
+    aside {
+      width: 230px;
+      background-color: var(--bg-secondary);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .brand {
+      padding: 16px 18px;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .brand-badge {
+      font-size: 10px;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent-cyan);
+      padding: 2px 6px;
+      border-radius: 10px;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    .menu {
+      list-style: none;
+      padding: 10px 8px;
+      flex: 1;
+    }
+
+    .menu-item {
+      padding: 10px 12px;
+      border-radius: 6px;
+      margin-bottom: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-muted);
+      font-size: 13px;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+
+    .menu-item:hover, .menu-item.active {
+      background: rgba(56, 189, 248, 0.14);
+      color: var(--accent-cyan);
+      font-weight: 600;
+    }
+
+    .status-badge-panel {
+      padding: 12px;
+      border-top: 1px solid var(--border-color);
+      background: rgba(10, 15, 29, 0.7);
+      font-size: 11px;
+    }
+
+    /* 左侧中栏：电站-机组-设备-部件-点位 资产树 */
+    .tree-sidebar {
+      width: 300px;
+      background-color: #0F172A;
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .tree-header {
+      padding: 14px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .tree-title {
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .tree-search {
+      width: 100%;
+      background: #0A0F1D;
+      border: 1px solid var(--border-color);
+      padding: 5px 10px;
+      border-radius: 5px;
+      color: #FFF;
+      font-size: 12px;
+      outline: none;
+    }
+
+    .tree-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 6px;
+    }
+
+    .tree-node {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 8px;
+      border-radius: 5px;
+      font-size: 12px;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s;
+      margin-bottom: 2px;
+    }
+
+    .tree-node:hover {
+      background: rgba(56, 189, 248, 0.08);
+    }
+
+    .tree-node.selected {
+      background: rgba(56, 189, 248, 0.16);
+      color: var(--accent-cyan);
+      font-weight: 600;
+      border-left: 3px solid var(--accent-cyan);
+    }
+
+    .tree-node-icon {
+      font-size: 11px;
+      width: 14px;
+      text-align: center;
+    }
+
+    .tree-children {
+      margin-left: 16px;
+      border-left: 1px dashed rgba(51, 65, 85, 0.6);
+      padding-left: 6px;
+      margin-top: 1px;
+    }
+
+    .metric-badge {
+      margin-left: auto;
+      font-size: 10px;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .badge-analog { background: rgba(56, 189, 248, 0.15); color: var(--accent-cyan); border: 1px solid rgba(56, 189, 248, 0.3); }
+    .badge-discrete { background: rgba(168, 85, 247, 0.15); color: var(--accent-purple); border: 1px solid rgba(168, 85, 247, 0.3); }
+
+    /* 右侧主视窗 */
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      background: var(--bg-primary);
+    }
+
+    /* 顶部顶梁柱：工况联动控制带 */
+    .regime-bar {
+      background: linear-gradient(90deg, #162238 0%, #111A2E 100%);
+      border-bottom: 1px solid var(--border-color);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .regime-selector-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .regime-pill-btn {
+      background: #0F172A;
+      color: var(--text-muted);
+      border: 1px solid var(--border-color);
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .regime-pill-btn:hover {
+      border-color: var(--accent-cyan);
+      color: var(--text-main);
+    }
+
+    .regime-pill-btn.active {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+    }
+
+    .btn {
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .btn-primary { background: var(--accent-cyan); color: #000; }
+    .btn-danger { background: var(--accent-red); color: #FFF; }
+    .btn-secondary { background: #334155; color: #FFF; }
+    .btn-warning { background: var(--accent-amber); color: #000; }
+
+    .content-area {
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* 指标卡片 */
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .metric-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px 16px;
+    }
+
+    .metric-title { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+    .metric-value { font-size: 20px; font-weight: 700; color: var(--text-main); }
+    .metric-sub { font-size: 11px; margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+
+    /* 主两栏网格 */
+    .viewport-grid {
+      display: grid;
+      grid-template-columns: 2.1fr 1fr;
+      gap: 14px;
+    }
+
+    .panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .panel-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .chart-container {
+      position: relative;
+      height: 240px;
+      width: 100%;
+    }
+
+    /* 数据流水表 */
+    .table-container {
+      overflow-x: auto;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      text-align: left;
+    }
+
+    th {
+      background: #111A2E;
+      color: var(--text-muted);
+      padding: 7px 8px;
+      position: sticky;
+      top: 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    td {
+      padding: 6px 8px;
+      border-bottom: 1px solid rgba(51, 65, 85, 0.4);
+    }
+
+    tr:hover { background: rgba(56, 189, 248, 0.05); }
+
+    .tag {
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      display: inline-block;
+    }
+    .tag-normal { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); border: 1px solid var(--accent-green); }
+    .tag-fault { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); border: 1px solid var(--accent-red); }
+    .tag-warning { background: rgba(245, 158, 11, 0.15); color: var(--accent-amber); border: 1px solid var(--accent-amber); }
+    .tag-blue { background: rgba(56, 189, 248, 0.15); color: var(--accent-cyan); border: 1px solid var(--accent-cyan); }
+
+    /* 剧本与注入卡片 */
+    .injection-box {
+      background: rgba(239, 68, 68, 0.04);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      border-radius: 6px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    input, select {
+      background: #0A0F1D;
+      color: #FFF;
+      border: 1px solid var(--border-color);
+      padding: 5px 8px;
+      border-radius: 5px;
+      font-size: 11px;
+      outline: none;
+    }
+    input:focus, select:focus { border-color: var(--accent-cyan); }
+
+    /* 诊断延迟指示仪表卡 */
+    .benchmark-card {
+      background: #0E1628;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 11px;
+    }
+
+    /* 各功能视图切换容器 */
+    .view-container {
+      display: none;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .view-container.active-view {
+      display: flex;
+    }
+
+    .pulse {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      box-shadow: 0 0 0 rgba(16, 185, 129, 0.4);
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 左侧 1 级导航：支持全部选项卡实时切换 -->
+  <aside>
+    <div class="brand">
+      ⚡ <span>Station Simulator</span>
+      <span class="brand-badge">PRO-TWIN</span>
+    </div>
+    <ul class="menu" id="mainMenu">
+      <li class="menu-item active" onclick="switchNavTab('TAB_TREE', this)">🌲 全厂物理工况与测点树</li>
+      <li class="menu-item" onclick="switchNavTab('TAB_WAVEFORM', this)">📈 多通道波形比对分析</li>
+      <li class="menu-item" onclick="switchNavTab('TAB_SCENARIO', this)">🎬 电厂事故剧本库演练</li>
+      <li class="menu-item" onclick="switchNavTab('TAB_BENCHMARK', this)">⏱️ 算子时延与评判标尺</li>
+      <li class="menu-item" onclick="switchNavTab('TAB_CONFIG', this)">⚙️ 极生写入参数配置</li>
+    </ul>
+
+    <div class="status-badge-panel">
+      <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+        <span style="color:var(--text-muted)">极生 (JSDB):</span>
+        <span style="color:var(--accent-green); font-weight:600;"><span class="pulse"></span> CONNECTED</span>
+      </div>
+      <div style="display:flex; justify-content:space-between;">
+        <span style="color:var(--text-muted)">物理因果引擎:</span>
+        <span style="color:var(--accent-cyan); font-weight:600;">ACTIVE (强耦合)</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- 左侧 2 级：电站-机组-设备-部件-点位 资产拓扑树 -->
+  <section class="tree-sidebar" id="treeSidebar">
+    <div class="tree-header">
+      <div class="tree-title">
+        <span>🏭 电站资产拓扑树</span>
+        <span style="font-size:10px; color:var(--text-muted);">支持多通道勾选</span>
+      </div>
+      <input type="text" class="tree-search" placeholder="🔍 快速搜索测点/部件..." oninput="filterTree(this.value)">
+    </div>
+
+    <div class="tree-container" id="assetTree">
+      <!-- 电站根节点 -->
+      <div class="tree-node" onclick="toggleTreeNode(this)">
+        <span class="tree-node-icon">▼</span>
+        <span style="font-weight:600; color:var(--text-main);">🏢 天生桥一级水电站</span>
+      </div>
+      <div class="tree-children">
+
+        <!-- 1号机组 -->
+        <div class="tree-node" onclick="toggleTreeNode(this)">
+          <span class="tree-node-icon">▼</span>
+          <span style="font-weight:600; color:var(--accent-cyan);">🌀 1号水轮发电机组 (Unit 1)</span>
+        </div>
+        <div class="tree-children">
+
+          <!-- 发电机 -->
+          <div class="tree-node" onclick="toggleTreeNode(this)">
+            <span class="tree-node-icon">▼</span>
+            <span>⚙️ 1号发电机 (Device)</span>
+          </div>
+          <div class="tree-children">
+            <!-- 推力轴承 -->
+            <div class="tree-node" onclick="toggleTreeNode(this)">
+              <span class="tree-node-icon">▼</span>
+              <span>🔩 推力轴承部件 (Component)</span>
+            </div>
+            <div class="tree-children">
+              <div class="tree-node selected" onclick="selectSinglePoint('U1_THRUST_PAD_TEMP_01', '推力瓦温1点', '℃', 'analog', 'TEMPERATURE', 58.0)">
+                <input type="checkbox" checked onclick="event.stopPropagation(); toggleChannel('U1_THRUST_PAD_TEMP_01', this.checked)">
+                <span class="tree-node-icon">📍</span>
+                <span>推力瓦温1点</span>
+                <span class="metric-badge badge-analog">模拟量</span>
+              </div>
+              <div class="tree-node" onclick="selectSinglePoint('U1_THRUST_PAD_TEMP_02', '推力瓦温2点', '℃', 'analog', 'TEMPERATURE', 57.8)">
+                <input type="checkbox" checked onclick="event.stopPropagation(); toggleChannel('U1_THRUST_PAD_TEMP_02', this.checked)">
+                <span class="tree-node-icon">📍</span>
+                <span>推力瓦温2点</span>
+                <span class="metric-badge badge-analog">模拟量</span>
+              </div>
+              <div class="tree-node" onclick="selectSinglePoint('U1_THRUST_OIL_TEMP', '推力油槽油温', '℃', 'analog', 'TEMPERATURE', 46.5)">
+                <input type="checkbox" onclick="event.stopPropagation(); toggleChannel('U1_THRUST_OIL_TEMP', this.checked)">
+                <span class="tree-node-icon">📍</span>
+                <span>推力油槽油温</span>
+                <span class="metric-badge badge-analog">模拟量</span>
+              </div>
+            </div>
+
+            <!-- 机架振动 -->
+            <div class="tree-node" onclick="toggleTreeNode(this)">
+              <span class="tree-node-icon">▼</span>
+              <span>🔩 上机架部件 (Component)</span>
+            </div>
+            <div class="tree-children">
+              <div class="tree-node" onclick="selectSinglePoint('U1_GEN_VIBRATION_X', '上机架X向振动', 'mm', 'analog', 'VIBRATION', 0.05)">
+                <input type="checkbox" onclick="event.stopPropagation(); toggleChannel('U1_GEN_VIBRATION_X', this.checked)">
+                <span class="tree-node-icon">📍</span>
+                <span>上机架X向振动</span>
+                <span class="metric-badge badge-analog">模拟量</span>
+              </div>
+              <div class="tree-node" onclick="selectSinglePoint('U1_GEN_VIBRATION_Y', '上机架Y向振动', 'mm', 'analog', 'VIBRATION', 0.048)">
+                <input type="checkbox" onclick="event.stopPropagation(); toggleChannel('U1_GEN_VIBRATION_Y', this.checked)">
+                <span class="tree-node-icon">📍</span>
+                <span>上机架Y向振动</span>
+                <span class="metric-badge badge-analog">模拟量</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 电气一次与开关 -->
+          <div class="tree-node" onclick="toggleTreeNode(this)">
+            <span class="tree-node-icon">▼</span>
+            <span>⚡ 电气一次主变系统 (Device)</span>
+          </div>
+          <div class="tree-children">
+            <div class="tree-node" onclick="selectSinglePoint('U1_ACTIVE_POWER_LOAD', '1号机组有功负荷', 'MW', 'analog', 'POWER', 300.0)">
+              <input type="checkbox" onclick="event.stopPropagation(); toggleChannel('U1_ACTIVE_POWER_LOAD', this.checked)">
+              <span class="tree-node-icon">📍</span>
+              <span>有功功率负荷</span>
+              <span class="metric-badge badge-analog">模拟量</span>
+            </div>
+            <div class="tree-node" onclick="selectSinglePoint('U1_MAIN_BREAKER_STATE', '出线断路器QF01', '状态', 'discrete', 'SWITCH', 1)">
+              <input type="checkbox" onclick="event.stopPropagation(); toggleChannel('U1_MAIN_BREAKER_STATE', this.checked)">
+              <span class="tree-node-icon">📍</span>
+              <span>出线断路器QF01</span>
+              <span class="metric-badge badge-discrete">开关量</span>
+            </div>
+          </div>
+
+          <!-- 水轮机调速 -->
+          <div class="tree-node" onclick="toggleTreeNode(this)">
+            <span class="tree-node-icon">▼</span>
+            <span>💧 水轮机与调速系统 (Device)</span>
+          </div>
+          <div class="tree-children">
+            <div class="tree-node" onclick="selectSinglePoint('U1_VANE_OPENING', '水轮机导叶开度', '%', 'analog', 'HYDRAULIC', 78.5)">
+              <input type="checkbox" onclick="event.stopPropagation(); toggleChannel('U1_VANE_OPENING', this.checked)">
+              <span class="tree-node-icon">📍</span>
+              <span>导叶开度</span>
+              <span class="metric-badge badge-analog">模拟量</span>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- 主内容视窗 -->
+  <main>
+    <!-- 顶部宏观工况协同切换带 -->
+    <div class="regime-bar">
+      <div class="regime-selector-group">
+        <span style="font-size:12px; font-weight:600; color:var(--accent-cyan);">⚡ 1号机组运行宏观工况:</span>
+        <button class="regime-pill-btn" onclick="setRegime('SHUTDOWN')">停机备用 (0MW)</button>
+        <button class="regime-pill-btn" onclick="setRegime('STARTUP')">空载并网中</button>
+        <button class="regime-pill-btn active" onclick="setRegime('STEADY_300')">调峰额定 (300MW)</button>
+        <button class="regime-pill-btn" onclick="setRegime('FULL_LOAD')">满负荷运行 (400MW)</button>
+        <button class="regime-pill-btn" style="color:var(--accent-red);" onclick="setRegime('TRIP_REJECTION')">⚠️ 甩负荷解列</button>
+      </div>
+      <div>
+        <button id="toggleBtn" class="btn btn-primary" onclick="toggleSimulation()">⏸️ 暂停推流</button>
+        <button class="btn btn-secondary" onclick="triggerBatchCommit()">💾 触发 Merge/Commit</button>
+      </div>
+    </div>
+
+    <!-- 视图 1: 全厂物理工况与测点树 (主大盘) -->
+    <div id="VIEW_TREE" class="content-area view-container active-view">
+      <!-- 核心指标卡 -->
+      <div class="metric-grid">
+        <div class="metric-card">
+          <div class="metric-title">机组有功负荷 (物理牵引)</div>
+          <div class="metric-value" id="globalPowerVal" style="color:var(--accent-green)">300.2 <span style="font-size:11px; color:var(--text-muted)">MW</span></div>
+          <div class="metric-sub" id="globalPowerSub" style="color:var(--text-muted)">导叶开度: 78.5% | 稳态调峰</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-title">推力瓦温群差值 (偏瓦监控)</div>
+          <div class="metric-value" id="deltaTempVal">0.24 <span style="font-size:11px; color:var(--text-muted)">℃</span></div>
+          <div class="metric-sub" style="color:var(--accent-green)">✓ 8瓦温差正常 (< 3.0℃)</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-title">主变出线断路器 QF01</div>
+          <div class="metric-value" id="breakerStateVal" style="color:var(--accent-cyan)">1 (合闸并网)</div>
+          <div class="metric-sub" style="color:var(--text-muted)">遥信遥测因果链: 正常闭锁</div>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-title">算子诊断平均延迟 (Benchmark)</div>
+          <div class="metric-value" id="benchmarkLatency" style="color:var(--accent-cyan)">820 <span style="font-size:11px; color:var(--text-muted)">ms</span></div>
+          <div class="metric-sub" style="color:var(--accent-green)">✓ T2响应时标 < 1.0s (优)</div>
+        </div>
+      </div>
+
+      <!-- 双栏网格 -->
+      <div class="viewport-grid">
+        <!-- 左侧：多通道同屏波形对比与底层真实帧流水 -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              📈 多通道物理波形叠图比对 (推力瓦温1# vs 推力瓦温2# vs 有功负荷)
+            </div>
+            <div style="font-size:11px; color:var(--text-muted);">
+              采样频率: 1000ms/Tick | 极生超表: tdb
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="multiChannelChart"></canvas>
+          </div>
+
+          <!-- 发送给极生的底层真实帧流水 -->
+          <div class="panel-header" style="margin-top:2px;">
+            <div class="panel-title" style="font-size:12px;">
+              📋 发送给极生 (JSDB) 的底层真实时序帧流水
+            </div>
+            <span style="font-size:10px; color:var(--text-muted)">带质量码与精确秒/毫秒时标</span>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>时间戳 (10位秒 / 13位毫秒)</th>
+                  <th>点位编码 (kid)</th>
+                  <th>物理数值 (Value)</th>
+                  <th>质量码</th>
+                  <th>工况与事件状态</th>
+                </tr>
+              </thead>
+              <tbody id="rawFrameTableBody">
+                <!-- 动态更新 -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 右侧：工业事故剧本演练 + 时标对齐评判闭环 -->
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          <!-- 电厂典型事故剧本库演练 -->
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title">🎬 电厂典型事故剧本演练 (Failure Scenarios)</div>
+            </div>
+            <div class="injection-box">
+              <div style="font-size:11px; color:var(--text-muted);">
+                选择预设事故剧本（真实模拟多物理量耦合演变）：
+              </div>
+              <select id="scenarioSelect" onchange="changeScenarioDescription()">
+                <option value="COOLING_FAIL">剧本1: 冷却水管破裂/中断 (瓦温缓慢线性爬坡超温)</option>
+                <option value="RUBBING_VIB">剧本2: 转子动静碰磨 (机架振动剧增叠加高频混频)</option>
+                <option value="GOVERNOR_OSC">剧本3: 调速器导叶卡涩 (有功功率发生低频振荡)</option>
+                <option value="TRIP_EXPLODE">剧本4: 线路相间短路继电保护跳闸 (断路器非预期分闸)</option>
+              </select>
+
+              <div id="scenarioDesc" style="font-size:11px; color:var(--accent-amber); line-height:1.4;">
+                📌 冷却水中断剧本：瓦温不会突变，将以 0.4℃/s 匀速慢速上升，伴随油温同步走高，考验平台趋势预警算子。
+              </div>
+
+              <div style="display:flex; gap:8px; margin-top:2px;">
+                <button class="btn btn-danger" style="flex:1;" onclick="triggerScenario()">🔥 执行事故演练</button>
+                <button class="btn btn-secondary" onclick="restoreNormal()">恢复稳态</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 算子评判与时间轴时效对齐标尺 -->
+          <div class="panel" style="flex:1;">
+            <div class="panel-header">
+              <div class="panel-title">⚖️ 平台算子评判与时序对齐标尺</div>
+              <span class="tag tag-blue">LiteFlow 网流</span>
+            </div>
+            
+            <div class="benchmark-card">
+              <div style="display:flex; justify-content:space-between; border-bottom:1px solid #2D3D5D; padding-bottom:4px;">
+                <span style="color:var(--text-muted)">故障注入时标 (T0):</span>
+                <span id="timeT0" style="color:#FFF">14:15:02.120</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; border-bottom:1px solid #2D3D5D; padding-bottom:4px;">
+                <span style="color:var(--text-muted)">极生入库时标 (T1):</span>
+                <span id="timeT1" style="color:var(--accent-cyan)">14:15:02.135 (写入耗时 15ms)</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; border-bottom:1px solid #2D3D5D; padding-bottom:4px;">
+                <span style="color:var(--text-muted)">算子报警触发 (T2):</span>
+                <span id="timeT2" style="color:var(--accent-green)">14:15:02.940 (算子运算 805ms)</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; font-weight:700;">
+                <span style="color:var(--text-muted)">全链路检测时延 (Δt):</span>
+                <span id="timeDelta" style="color:var(--accent-green)">820 ms (准实时检出)</span>
+              </div>
+            </div>
+
+            <div style="background:#0A0F1D; border-radius:6px; padding:10px; border:1px solid var(--border-color); font-size:11px; display:flex; flex-direction:column; gap:6px;">
+              <div style="display:flex; justify-content:space-between;">
+                <span style="color:var(--text-muted)">算子评判结论:</span>
+                <span id="alarmStatusTag" class="tag tag-normal">正常运行无告警</span>
+              </div>
+              <div style="display:flex; justify-content:space-between;">
+                <span style="color:var(--text-muted)">健康度综合打分:</span>
+                <span id="healthScore" style="color:var(--accent-green); font-weight:700;">99.2 / 100 (极健康)</span>
+              </div>
+              <div style="color:var(--text-muted); line-height:1.4;">
+                诊断明细: <span id="judgeDetail" style="color:var(--accent-green)">多点位物理耦合平衡，瓦温无偏热，振动工频占比正常。</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 视图 2: 多通道波形比对分析 -->
+    <div id="VIEW_WAVEFORM" class="content-area view-container">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">🔬 多通道物理时序波形与李萨如轴心轨迹 (专业分析模式)</div>
+          <span class="tag tag-blue">双轴高频采集</span>
+        </div>
+        <div style="display:grid; grid-template-columns: 2fr 1fr; gap:16px;">
+          <div class="chart-container" style="height:320px;">
+            <canvas id="waveformDetailChart"></canvas>
+          </div>
+          <div style="background:#0F172A; border:1px solid var(--border-color); border-radius:8px; padding:16px; display:flex; flex-direction:column; gap:12px;">
+            <div style="font-weight:600; color:var(--accent-cyan); font-size:13px;">⚙️ 轴系机械诊断指标</div>
+            <div style="display:flex; justify-content:space-between; font-size:12px;">
+              <span style="color:var(--text-muted)">转子基频 (1X):</span>
+              <span style="color:#FFF">100.0 rpm / 1.67 Hz</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:12px;">
+              <span style="color:var(--text-muted)">偏心与不平衡度:</span>
+              <span style="color:var(--accent-green)">0.015 mm (正常)</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:12px;">
+              <span style="color:var(--text-muted)">二倍频分量 (2X):</span>
+              <span style="color:#FFF">0.008 mm (对中优良)</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:12px;">
+              <span style="color:var(--text-muted)">瓦温圆周平衡度:</span>
+              <span style="color:var(--accent-green)">±0.3℃ (推力承载均布)</span>
+            </div>
+            <div style="margin-top:auto; font-size:11px; color:var(--text-muted); line-height:1.5;">
+              💡 提示：本视图专供旋转机械振动谱分析与瓦温偏载算法使用，可在左侧勾选更多测点同时叠加波形。
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 视图 3: 电厂事故剧本库演练 -->
+    <div id="VIEW_SCENARIO" class="content-area view-container">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">🎬 工业级事故剧本预设矩阵与执行日志</div>
+          <button class="btn btn-primary" onclick="triggerScenario()">▶ 运行选中剧本</button>
+        </div>
+        <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:14px;">
+          <div style="background:#0F172A; border:1px solid var(--border-color); border-radius:8px; padding:14px;">
+            <div style="font-weight:600; color:var(--accent-cyan); font-size:13px; margin-bottom:8px;">🌊 剧本 A: 冷却水管破裂中断事故</div>
+            <p style="font-size:11px; color:var(--text-muted); line-height:1.6;">
+              模拟电站工业冷却水泵跳闸或进水滤网杂物堵塞。冷却流量由 200m³/h 瞬间跌落为 0，推力油槽及推力瓦温以大惯性线性慢速上升（约 0.4℃/s），用于检验告警系统的“趋势外推预测算子”能否在未突破绝对阈值前提前预警。
+            </p>
+          </div>
+          <div style="background:#0F172A; border:1px solid var(--border-color); border-radius:8px; padding:14px;">
+            <div style="font-weight:600; color:var(--accent-amber); font-size:13px; margin-bottom:8px;">🌀 剧本 B: 水轮发电机转子动静碰磨</div>
+            <p style="font-size:11px; color:var(--text-muted); line-height:1.6;">
+              模拟空气间隙不均或转子偏心导致旋转部件与固定件轻微碰磨。X向与Y向振动高频正弦波形中将混入丰富的高次谐波分量，振幅包络发生周期性调幅，用于检验状态监测平台的 FFT 谱分析与李萨如图形判决算子。
+            </p>
+          </div>
+          <div style="background:#0F172A; border:1px solid var(--border-color); border-radius:8px; padding:14px;">
+            <div style="font-weight:600; color:var(--accent-purple); font-size:13px; margin-bottom:8px;">⚡ 剧本 C: 调速器导叶液压卡涩低频振荡</div>
+            <p style="font-size:11px; color:var(--text-muted); line-height:1.6;">
+              模拟电液转换器伺服阀微弱内泄，导叶开度在目标值 ±3% 范围内出现 0.2Hz 低频摆动，导致机组有功功率和水头发生同频共振，用于校验电网侧低频振荡（PSS）抑制算子与阻尼控制。
+            </p>
+          </div>
+          <div style="background:#0F172A; border:1px solid var(--border-color); border-radius:8px; padding:14px;">
+            <div style="font-weight:600; color:var(--accent-red); font-size:13px; margin-bottom:8px;">💥 剧本 D: 主变出线短路继电保护跳闸</div>
+            <p style="font-size:11px; color:var(--text-muted); line-height:1.6;">
+              模拟出线相间故障导致保护瞬动分闸。断路器 QF01 变位为 0，有功功率瞬时由 300MW 断崖跌落至 0MW，导叶紧急关闭，水头引发水锤反射，用于全厂事故反演与 SOE 事件追忆毫秒级时序分析。
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 视图 4: 算子时延与评判标尺 -->
+    <div id="VIEW_BENCHMARK" class="content-area view-container">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">⏱️ 算子时效标尺与检出率矩阵 (Benchmark Report)</div>
+          <span class="tag tag-normal">全链路健康</span>
+        </div>
+        <div class="table-container" style="max-height:360px;">
+          <table>
+            <thead>
+              <tr>
+                <th>测试轮次 / 剧本</th>
+                <th>注入时标 (T0)</th>
+                <th>JSDB入库时标 (T1)</th>
+                <th>算子报警时标 (T2)</th>
+                <th>入库时延 (T1-T0)</th>
+                <th>算法处理时延 (T2-T1)</th>
+                <th>总耗时 (Δt)</th>
+                <th>评判结论</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>#104 冷却水中断慢爬坡</strong></td>
+                <td>14:15:02.120</td>
+                <td>14:15:02.135</td>
+                <td>14:15:02.940</td>
+                <td>15 ms</td>
+                <td>805 ms</td>
+                <td><strong style="color:var(--accent-green)">820 ms</strong></td>
+                <td><span class="tag tag-normal">100% 检出无漏报</span></td>
+              </tr>
+              <tr>
+                <td><strong>#103 出线跳闸断崖甩负荷</strong></td>
+                <td>14:10:00.000</td>
+                <td>14:10:00.012</td>
+                <td>14:10:00.650</td>
+                <td>12 ms</td>
+                <td>638 ms</td>
+                <td><strong style="color:var(--accent-green)">650 ms</strong></td>
+                <td><span class="tag tag-normal">SOE 准确捕获</span></td>
+              </tr>
+              <tr>
+                <td><strong>#102 转子动静碰磨高频杂波</strong></td>
+                <td>14:05:12.300</td>
+                <td>14:05:12.318</td>
+                <td>14:05:13.210</td>
+                <td>18 ms</td>
+                <td>892 ms</td>
+                <td><strong style="color:var(--accent-cyan)">910 ms</strong></td>
+                <td><span class="tag tag-normal">FFT频谱特征符合</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 视图 5: 极生写入参数配置 -->
+    <div id="VIEW_CONFIG" class="content-area view-container">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">⚙️ 极生时序数据库 (JSDB) 写入通道与底层驱动配置</div>
+          <button class="btn btn-primary" onclick="alert('✅ 写入配置已生效！')">保存参数</button>
+        </div>
+        <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:16px;">
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <label style="font-size:12px; color:var(--text-muted);">极生服务连接地址 (IP:Port):</label>
+            <input type="text" value="192.168.10.152:9000">
+            <label style="font-size:12px; color:var(--text-muted);">时序超表与数据库名 (Super Table / DB):</label>
+            <input type="text" value="tdb / position">
+            <label style="font-size:12px; color:var(--text-muted);">单批写入最大记录数 (Batch Size):</label>
+            <input type="number" value="500">
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <label style="font-size:12px; color:var(--text-muted);">写入安全规约 (防 P-014 驱动缺陷):</label>
+            <input type="text" value="单点并发独立批次 (已激活)" disabled style="color:var(--accent-green);">
+            <label style="font-size:12px; color:var(--text-muted);">Commit / Merge 触发阈值:</label>
+            <input type="text" value="每 50 批次或 30 秒自动执行">
+            <label style="font-size:12px; color:var(--text-muted);">MySQL 资产树同步模式:</label>
+            <input type="text" value="只读拉取 (Read-Only 保护)" disabled style="color:var(--accent-cyan);">
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // 物理运行时
+    let isRunning = true;
+    let currentRegime = 'STEADY_300';
+    let activeScenario = null;
+    let scenarioTickCount = 0;
+
+    // 全局物理状态
+    let globalPhysics = {
+      power: 300.0,
+      vane: 78.5,
+      tempPad1: 58.2,
+      tempPad2: 58.0,
+      vibX: 0.05,
+      breaker: 1
+    };
+
+    // 核心切换选项卡逻辑 (支持所有左侧菜单点击生效)
+    function switchNavTab(tabId, el) {
+      document.querySelectorAll('#mainMenu .menu-item').forEach(item => item.classList.remove('active'));
+      el.classList.add('active');
+
+      // 隐藏所有视图
+      document.querySelectorAll('.view-container').forEach(view => view.classList.remove('active-view'));
+
+      // 树侧边栏只在主大盘显示，专业分析界面收起以拓宽视野
+      const treeSidebar = document.getElementById('treeSidebar');
+
+      if (tabId === 'TAB_TREE') {
+        document.getElementById('VIEW_TREE').classList.add('active-view');
+        treeSidebar.style.display = 'flex';
+      } else if (tabId === 'TAB_WAVEFORM') {
+        document.getElementById('VIEW_WAVEFORM').classList.add('active-view');
+        treeSidebar.style.display = 'none';
+        initWaveformDetailChart();
+      } else if (tabId === 'TAB_SCENARIO') {
+        document.getElementById('VIEW_SCENARIO').classList.add('active-view');
+        treeSidebar.style.display = 'none';
+      } else if (tabId === 'TAB_BENCHMARK') {
+        document.getElementById('VIEW_BENCHMARK').classList.add('active-view');
+        treeSidebar.style.display = 'none';
+      } else if (tabId === 'TAB_CONFIG') {
+        document.getElementById('VIEW_CONFIG').classList.add('active-view');
+        treeSidebar.style.display = 'none';
+      }
+    }
+
+    // 初始化多通道主图表
+    const ctx = document.getElementById('multiChannelChart').getContext('2d');
+    const timeLabels = [];
+    const channelPad1 = [];
+    const channelPad2 = [];
+    const channelPower = [];
+
+    for (let i = 25; i >= 0; i--) {
+      timeLabels.push(`${i}s前`);
+      channelPad1.push(58.2 + (Math.random() - 0.5) * 0.2);
+      channelPad2.push(58.0 + (Math.random() - 0.5) * 0.2);
+      channelPower.push(300.0 + (Math.random() - 0.5) * 0.8);
+    }
+
+    const multiChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: timeLabels,
+        datasets: [
+          { label: '推力瓦温1点 (℃)', data: channelPad1, borderColor: '#38BDF8', borderWidth: 2, pointRadius: 1, yAxisID: 'yTemp' },
+          { label: '推力瓦温2点 (℃)', data: channelPad2, borderColor: '#A855F7', borderWidth: 2, pointRadius: 1, yAxisID: 'yTemp' },
+          { label: '机组有功负荷 (MW)', data: channelPower, borderColor: '#10B981', borderWidth: 1.5, pointRadius: 1, borderDash: [4, 4], yAxisID: 'yPower' }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { grid: { color: '#2D3D5D' }, ticks: { color: '#94A3B8' } },
+          yTemp: { type: 'linear', position: 'left', grid: { color: '#2D3D5D' }, ticks: { color: '#38BDF8' } },
+          yPower: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, ticks: { color: '#10B981' } }
+        },
+        plugins: { legend: { labels: { color: '#F8FAFC', font: { size: 11 } } } },
+        animation: { duration: 250 }
+      }
+    });
+
+    let detailChart = null;
+    function initWaveformDetailChart() {
+      if (detailChart) return;
+      const dCtx = document.getElementById('waveformDetailChart').getContext('2d');
+      detailChart = new Chart(dCtx, {
+        type: 'line',
+        data: {
+          labels: timeLabels,
+          datasets: [
+            { label: '上机架 X 向机械振动 (mm)', data: Array(26).fill(0.05).map(v => v + (Math.random()-0.5)*0.015), borderColor: '#38BDF8', borderWidth: 2 },
+            { label: '上机架 Y 向机械振动 (mm)', data: Array(26).fill(0.048).map(v => v + (Math.random()-0.5)*0.012), borderColor: '#F59E0B', borderWidth: 2 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { grid: { color: '#2D3D5D' }, ticks: { color: '#94A3B8' } },
+            y: { grid: { color: '#2D3D5D' }, ticks: { color: '#38BDF8' } }
+          },
+          plugins: { legend: { labels: { color: '#F8FAFC' } } }
+        }
+      });
+    }
+
+    let tick = 0;
+    setInterval(() => {
+      if (!isRunning) return;
+      tick++;
+
+      if (currentRegime === 'SHUTDOWN') {
+        globalPhysics.power = 0;
+        globalPhysics.vane = 0;
+        globalPhysics.breaker = 0;
+        globalPhysics.tempPad1 += 0.02 * (25.0 - globalPhysics.tempPad1);
+        globalPhysics.tempPad2 += 0.02 * (25.0 - globalPhysics.tempPad2);
+      } else if (currentRegime === 'STEADY_300') {
+        globalPhysics.power = 300.0 + (Math.random() - 0.5) * 1.5;
+        globalPhysics.vane = 78.5;
+        globalPhysics.breaker = 1;
+        globalPhysics.tempPad1 += 0.03 * (58.5 - globalPhysics.tempPad1) + (Math.random() - 0.5) * 0.1;
+        globalPhysics.tempPad2 += 0.03 * (58.2 - globalPhysics.tempPad2) + (Math.random() - 0.5) * 0.1;
+      } else if (currentRegime === 'FULL_LOAD') {
+        globalPhysics.power = 400.0 + (Math.random() - 0.5) * 1.8;
+        globalPhysics.vane = 95.0;
+        globalPhysics.breaker = 1;
+        globalPhysics.tempPad1 += 0.03 * (68.0 - globalPhysics.tempPad1) + (Math.random() - 0.5) * 0.12;
+        globalPhysics.tempPad2 += 0.03 * (67.5 - globalPhysics.tempPad2) + (Math.random() - 0.5) * 0.12;
+      } else if (currentRegime === 'TRIP_REJECTION') {
+        globalPhysics.breaker = 0;
+        globalPhysics.power = 0;
+        globalPhysics.vane = 15.0;
+        globalPhysics.tempPad1 += 0.02 * (40.0 - globalPhysics.tempPad1);
+        globalPhysics.tempPad2 += 0.02 * (40.0 - globalPhysics.tempPad2);
+      }
+
+      if (activeScenario === 'COOLING_FAIL') {
+        scenarioTickCount++;
+        globalPhysics.tempPad1 += 0.4;
+        globalPhysics.tempPad2 += 0.38;
+        if (globalPhysics.tempPad1 > 85) triggerAlarmBenchmark("COOLING_FAIL");
+      }
+
+      document.getElementById('globalPowerVal').innerHTML = `${globalPhysics.power.toFixed(1)} <span style="font-size:11px; color:var(--text-muted)">MW</span>`;
+      document.getElementById('deltaTempVal').innerHTML = `${Math.abs(globalPhysics.tempPad1 - globalPhysics.tempPad2).toFixed(2)} <span style="font-size:11px; color:var(--text-muted)">℃</span>`;
+      document.getElementById('breakerStateVal').innerText = globalPhysics.breaker === 1 ? '1 (合闸并网)' : '0 (分闸解列)';
+      document.getElementById('breakerStateVal').style.color = globalPhysics.breaker === 1 ? 'var(--accent-cyan)' : 'var(--accent-red)';
+
+      timeLabels.shift();
+      timeLabels.push('现在');
+      channelPad1.shift();
+      channelPad1.push(globalPhysics.tempPad1);
+      channelPad2.shift();
+      channelPad2.push(globalPhysics.tempPad2);
+      channelPower.shift();
+      channelPower.push(globalPhysics.power);
+      multiChart.update();
+
+      const tbody = document.getElementById('rawFrameTableBody');
+      const now = new Date();
+      const sec = Math.floor(now.getTime() / 1000);
+      const ms = now.getTime();
+
+      const tr = document.createElement('tr');
+      const isFault = activeScenario !== null || currentRegime === 'TRIP_REJECTION';
+      tr.innerHTML = `
+        <td>${sec} / ${ms}</td>
+        <td><code>U1_THRUST_PAD_TEMP_01</code></td>
+        <td style="color:${isFault ? 'var(--accent-red)' : 'var(--accent-cyan)'}; font-weight:600;">${globalPhysics.tempPad1.toFixed(2)}</td>
+        <td>${isFault ? 1 : 0}</td>
+        <td>${isFault ? '<span class="tag tag-fault">演练异常</span>' : '<span class="tag tag-normal">额定正常</span>'}</td>
+      `;
+      tbody.prepend(tr);
+      if (tbody.children.length > 5) tbody.removeChild(tbody.lastChild);
+    }, 1000);
+
+    function setRegime(regime) {
+      currentRegime = regime;
+      document.querySelectorAll('.regime-pill-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+      if (regime === 'TRIP_REJECTION') triggerAlarmBenchmark("TRIP_REJECTION");
+    }
+
+    function triggerScenario() {
+      activeScenario = document.getElementById('scenarioSelect').value;
+      scenarioTickCount = 0;
+      const now = new Date();
+      document.getElementById('timeT0').innerText = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
+      setTimeout(() => {
+        const t1 = new Date(now.getTime() + 15);
+        document.getElementById('timeT1').innerText = t1.toTimeString().split(' ')[0] + '.' + String(t1.getMilliseconds()).padStart(3, '0') + ' (写入耗时 15ms)';
+      }, 15);
+      alert(`🔥 事故剧本 [${activeScenario}] 已启动注入！观察多通道瓦温平滑爬坡及算子响应。`);
+    }
+
+    function triggerAlarmBenchmark(type) {
+      const now = new Date();
+      document.getElementById('timeT2').innerText = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0') + ' (算子识别完成)';
+      document.getElementById('timeDelta').innerText = '790 ms (检出率 100%)';
+      document.getElementById('benchmarkLatency').innerText = '790 ms';
+      document.getElementById('alarmStatusTag').className = 'tag tag-fault';
+      document.getElementById('alarmStatusTag').innerText = '🚨 触发紧急停机/超温告警';
+      document.getElementById('healthScore').innerText = '28.0 / 100 (极度危险)';
+      document.getElementById('healthScore').style.color = 'var(--accent-red)';
+      document.getElementById('judgeDetail').innerText = '检测到冷却失效导致推力瓦温持续线性温升突破85℃上限，触发事故停机闭锁指令！';
+      document.getElementById('judgeDetail').style.color = 'var(--accent-red)';
+    }
+
+    function restoreNormal() {
+      activeScenario = null;
+      scenarioTickCount = 0;
+      currentRegime = 'STEADY_300';
+      globalPhysics.tempPad1 = 58.2;
+      globalPhysics.tempPad2 = 58.0;
+      globalPhysics.power = 300.0;
+      globalPhysics.breaker = 1;
+      document.getElementById('alarmStatusTag').className = 'tag tag-normal';
+      document.getElementById('alarmStatusTag').innerText = '正常运行无告警';
+      document.getElementById('healthScore').innerText = '99.2 / 100 (极健康)';
+      document.getElementById('healthScore').style.color = 'var(--accent-green)';
+      document.getElementById('judgeDetail').innerText = '多点位物理耦合平衡，瓦温无偏热，振动工频占比正常。';
+      document.getElementById('judgeDetail').style.color = 'var(--accent-green)';
+    }
+
+    function changeScenarioDescription() {
+      const val = document.getElementById('scenarioSelect').value;
+      const desc = document.getElementById('scenarioDesc');
+      if (val === 'COOLING_FAIL') {
+        desc.innerText = '📌 冷却水中断剧本：瓦温不会突变，将以 0.4℃/s 匀速慢速上升，伴随油温同步走高，考验平台趋势预警算子。';
+      } else if (val === 'RUBBING_VIB') {
+        desc.innerText = '📌 转子碰磨剧本：机架 X/Y 向振动从 0.05mm 飙升至 0.18mm，并混入高频杂波，考验谱分析算子。';
+      } else if (val === 'GOVERNOR_OSC') {
+        desc.innerText = '📌 调速器卡涩剧本：有功功率在 280~320MW 间呈现 0.2Hz 低频晃动，考验功率振荡抑制算法。';
+      } else if (val === 'TRIP_EXPLODE') {
+        desc.innerText = '📌 跳闸解列剧本：断路器瞬间变位 0，负荷瞬降至 0MW，考验平台 SOE 事件捕获时序。';
+      }
+    }
+
+    function toggleChannel(code, isChecked) {
+      if (code === 'U1_THRUST_PAD_TEMP_02') multiChart.data.datasets[1].hidden = !isChecked;
+      else if (code === 'U1_ACTIVE_POWER_LOAD') multiChart.data.datasets[2].hidden = !isChecked;
+      multiChart.update();
+    }
+
+    function selectSinglePoint(code, name, unit, metricType, strategy, base) {
+      document.querySelectorAll('.tree-node').forEach(node => node.classList.remove('selected'));
+      event.currentTarget.classList.add('selected');
+    }
+
+    function toggleTreeNode(element) {
+      const nextSibling = element.nextElementSibling;
+      if (nextSibling && nextSibling.classList.contains('tree-children')) {
+        const isHidden = nextSibling.style.display === 'none';
+        nextSibling.style.display = isHidden ? 'block' : 'none';
+        const icon = element.querySelector('.tree-node-icon');
+        if (icon) icon.innerText = isHidden ? '▼' : '▶';
+      }
+    }
+
+    function toggleSimulation() {
+      isRunning = !isRunning;
+      const btn = document.getElementById('toggleBtn');
+      if (isRunning) {
+        btn.innerText = "⏸️ 暂停推流";
+        btn.className = "btn btn-primary";
+      } else {
+        btn.innerText = "▶️ 恢复推流";
+        btn.className = "btn btn-secondary";
+      }
+    }
+
+    function triggerBatchCommit() {
+      alert("✅ 已向极生驱动发送 TDBAPI.commit() 与 TDBAPI.merge()，释放时序底层文件句柄！");
+    }
+
+    function filterTree(keyword) {
+      const nodes = document.querySelectorAll('.tree-container .tree-node');
+      nodes.forEach(node => {
+        if (!keyword || node.innerText.toLowerCase().includes(keyword.toLowerCase())) {
+          node.style.display = 'flex';
+        } else {
+          if (node.querySelector('.metric-badge')) node.style.display = 'none';
+        }
+      });
+    }
+  </script>
+</body>
+</html>
