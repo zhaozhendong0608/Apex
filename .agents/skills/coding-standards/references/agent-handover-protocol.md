@@ -22,13 +22,13 @@
 AI 必须在回复卡片底部增加如下轻量友情提示：
 
 > 💡 **上下文健康提醒 (Context Health Check)**：
-> 当前会话窗口轮次较多。为避免 Token 膨胀导致 AI 注意力衰减或产生契约幻觉，**强烈建议发送 `[5]` 归档上下文**；归档后在新窗口发送 `[6]` 即可 3 秒恢复记忆继续工作！
+> 当前会话窗口轮次较多。为避免 Token 膨胀导致 AI 注意力衰减或产生契约幻觉，**强烈建议发送 `[B5]` 归档上下文**；归档后在新窗口发送 `[B6]` 即可 3 秒恢复记忆继续工作！
 
 ---
 
 ## 📦 二、 标准 Agent 交接卡规范 (Handover Artifact Standard)
 
-在执行 `[5]`（05-sop-archive）进行无损归档，或进行跨模块/跨 Agent 移交时，除了自动更新 `.ai/tier3_handover.md`，必须在 `docs/handovers/` 目录下自动导出一份标准化交接文档：
+在执行 `[B5]`（05-sop-archive）进行无损归档，或进行跨模块/跨 Agent 移交时，除了自动更新 `.ai/tier3_handover.md`，必须在 `docs/handovers/` 目录下自动导出一份标准化交接文档：
 
 ### 1. 文件命名与存储规范 (File Naming)
 `docs/handovers/handover-{YYYYMMDD}-{MODULE/TASK_ID}.md`
@@ -62,7 +62,7 @@ AI 必须在回复卡片底部增加如下轻量友情提示：
 ### 🚀 给下一个 AI / 开发者的 3 步起手式 (Quickstart for Next Agent)
 1. 运行 `python3 .ai/scripts/sync_tree.py` 确保目录树同步。
 2. 读取 `.ai/tier1_snapshot.md` 锁定目前 ACTIVE 焦点。
-3. 直接发送 `[2]` 启动代码编写或 `[3]` 针对遗留问题进行调试。
+3. 直接发送 `[3]` 启动代码编写或 `[B3]` 针对遗留问题进行调试。
 ```
 
 ---

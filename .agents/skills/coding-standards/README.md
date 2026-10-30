@@ -16,6 +16,6 @@
 
 ## 🚀 典型使用场景
 
-1. **通用编码阶段挂载**：在 `.ai/sop/02-sop-coding.md` 编码流程中被自动激活与挂载。
+1. **通用编码阶段挂载**：在 `.ai/sop/03-sop-coding.md` 编码流程中被自动激活与挂载。
 2. **后中段代码落地**：在完成 DLD 架构设计说明书（`design-spec-architect`）后，准备真正编写 Java 后端实体/Controller 或 Vue 前端页面与 API 请求层时。
 3. **语言规范校验**：确保生成的 Java / Vue 代码对齐企业级质量规约（禁用 `System.out`、禁用 `any` 滥用、禁用硬编码伪造 Mock 假数据）。

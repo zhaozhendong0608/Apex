@@ -8,7 +8,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * 个人多模块学习平台 (Learning Platform) 统一聚合主启动类
  */
 @SpringBootApplication(scanBasePackages = {"com.apex"})
-@MapperScan({"com.apex.sys.mapper", "com.apex.network.mapper"})
+@MapperScan({"com.apex.sys.mapper", "com.apex.network.mapper", "com.apex.req.mapper"})
 public class PlatformApplication {
 
     public static void main(String[] args) {

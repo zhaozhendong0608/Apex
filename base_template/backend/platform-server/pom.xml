@@ -76,7 +76,7 @@
                 <directory>src/main/resources</directory>
             </resource>
             <resource>
-                <directory>../../docs/db</directory>
+                <directory>../../../docs/db</directory>
                 <targetPath>db</targetPath>
                 <includes>
                     <include>*.sql</include>

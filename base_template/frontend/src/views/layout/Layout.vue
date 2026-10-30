@@ -118,10 +118,41 @@ const themeOptions: { label: string; value: ThemeType }[] = [
               <span>网络拓扑仿真</span>
             </el-menu-item>
           </el-sub-menu>
+          <el-sub-menu index="/req">
+            <template #title>
+              <el-icon><Document /></el-icon>
+              <span>需求治理平台</span>
+            </template>
+            <el-menu-item index="/req/dashboard">
+              <el-icon><Odometer /></el-icon>
+              <span>项目工作台</span>
+            </el-menu-item>
+            <el-menu-item index="/req/prototypes">
+              <el-icon><Picture /></el-icon>
+              <span>原型版本与托管</span>
+            </el-menu-item>
+            <!-- 方案A：需求基线与签字、基线差异对比 已收拢至需求详情页内下钻，不在全局主菜单平铺 -->
+            <el-menu-item index="/req/releases">
+              <el-icon><Promotion /></el-icon>
+              <span>发布版本追踪</span>
+            </el-menu-item>
+            <el-menu-item index="/req/timeline">
+              <el-icon><TrendCharts /></el-icon>
+              <span>需求演进时间线</span>
+            </el-menu-item>
+            <el-menu-item index="/req/enums">
+              <el-icon><Setting /></el-icon>
+              <span>码表配置中心</span>
+            </el-menu-item>
+            <el-menu-item index="/req/theme">
+              <el-icon><Brush /></el-icon>
+              <span>外观与工业主题</span>
+            </el-menu-item>
+          </el-sub-menu>
         </el-menu>
       </aside>
 
-      <main class="app-content" :class="{ 'is-fullscreen': route.path.includes('/network-sim/designer') }">
+      <main class="app-content" :class="{ 'is-fullscreen': route.path.includes('/network-sim/designer') || route.path.startsWith('/req') }">
         <router-view />
       </main>
     </div>

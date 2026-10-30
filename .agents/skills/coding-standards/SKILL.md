@@ -49,7 +49,7 @@ description: 统一代码规范与 DLD 契约强绑定专家。负责在代码�
 - `.vue` / `.ts` / `.js` 文件 ➔ 读 `references/vue-convention.md`。
 
 ### 步骤 3: 结合看门狗增量编码
-1. 遵守 `02-sop-coding.md` 护栏：最小改动、零新依赖、无假 Mock、影响隔离。
+1. 遵守 `03-sop-coding.md` 护栏：最小改动、零新依赖、无假 Mock、影响隔离。
 2. 直接写入指定路径，修改点附带中文注释。
 
 ---

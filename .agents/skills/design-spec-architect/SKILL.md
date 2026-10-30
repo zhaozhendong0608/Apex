@@ -65,5 +65,5 @@ description: 概要设计说明书 (HLD) 与详细设计说明书 (DLD) 自动�
    - 🧪 **测试说明书**：`docs/test-cases/<module_name>-testcase.md`
    - 🐍 **测试脚本**：`scripts/tests/test_<module_name>.py`
    - 📋 **看板同步**：已更新 `.ai/tier3_status.md`
-   👉 **下一步**：回复 `2` 或 `继续` 加载 `02-sop-coding.md` 根据最新 DLD 与测试契约编写代码。
+   👉 **下一步**：回复 `2` 或 `继续` 加载 `03-sop-coding.md` 根据最新 DLD 与测试契约编写代码。
 

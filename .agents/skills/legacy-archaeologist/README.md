@@ -17,6 +17,6 @@
 
 ## 🚀 典型使用场景
 
-1. **老项目破局初始化**：在 `.ai/sop/00-sop-legacy.md` 中被自动激活，扫描老代码前 3 层工程结构，生成架构索引地图 `.ai/tier2_legacy_arch.md`。
+1. **老项目破局初始化**：在 `.ai/sop/B1-sop-legacy.md` 中被自动激活，扫描老代码前 3 层工程结构，生成架构索引地图 `.ai/tier2_legacy_arch.md`。
 2. **遗留逻辑切片分析**：对特定黑盒 Controller/Service 执行 `slice_code.py` 追踪，提纯真实 API 契约与 DB 表关联。
 3. **重构前行为锁死**：在修改或重构遗留代码前，编写 Python 反向行为锁死探针 (`test_legacy_<module>.py`)，运行打绿后再进行微创编码，杜绝改崩旧业务。

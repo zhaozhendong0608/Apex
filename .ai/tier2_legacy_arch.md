@@ -1,6 +1,26 @@
-# 🏛️ 老项目模块切片与关系图谱元数据池 (tier2_legacy_arch.md)
+# 🏛️ 老项目切片与关系图谱元数据池 (tier2_legacy_arch.md)
 
-> 💡 **本文件为老项目解密的核心产出物**。上半部分为自动绘制的可视化关系图谱，下半部分为结构化的模块元数据解密档案库。
+> 💡 **本文件是 `[B1]` 老项目破局的产出物**，由 `arch.py` 自动生成/增量更新。
+> ⚠️ **仅在「接手存量项目」时才启用**；新项目 / 业务迭代项目下，它保持未启用状态。
+
+---
+
+## 🚦 启用状态
+
+**当前状态：⏸️ 未启用（本仓库尚未执行过 `[B1]` 老项目破局）**
+
+启用方式（接手老项目时执行）：
+
+```bash
+python3 .ai/scripts/arch.py tree 3          # 前 3 层骨架
+python3 .ai/scripts/arch.py find "order"    # 关键词切片
+python3 .ai/scripts/arch.py analyze "/order/create" "订单创建模块" \
+    "OrderService.java" "t_order,t_user" "POST /api/v1/order"
+```
+
+> 🚨 **禁止手写本文件**：所有条目必须由 `arch.py analyze` 生成，
+> 以保证「路由 / 关键文件 / API / 关联表」四维元数据可追溯、可重算。
+> 一旦手工补录，图谱与真实代码就会脱钩——这比没有地图更危险。
 
 ---
 
@@ -8,31 +28,21 @@
 
 ```mermaid
 graph TD
-    R_carbon["🌐 路由: /energy/carbon"] --> M_carbon["📦 模块: 碳排放模块"]
-    M_carbon --> T_t_carbon_emission[("🗄️ 表: t_carbon_emission")]
-    M_carbon --> T_t_energy_quota[("🗄️ 表: t_energy_quota")]
-
-    R_alert["🌐 路由: /quota/alert"] --> M_alert["📦 模块: 配额预警模块"]
-    M_alert --> T_t_energy_quota
-
-    %% 🔗 脚本自动识别到的跨模块交集连线：
-    M_alert -. 共享数据表 .-> T_t_energy_quota
+    START["🚀 尚未执行 [B1] 破局：本图谱为空"]
 ```
 
 ---
 
 ## 🧩 模块元数据注册池 (Metadata Pool)
 
-### 🧩 模块: 碳排放模块
-- **路由入口**: `/energy/carbon`
-- **关键文件**: `CarbonService.java, CarbonCalc.vue`
-- **绑定 API**: `POST /api/carbon/calc`
-- **关联数据表**: `t_carbon_emission, t_energy_quota`
+> 执行 `[B1]` 后，`arch.py analyze` 会在此追加形如以下的卡片：
 
-### 🧩 模块: 配额预警模块
-- **路由入口**: `/quota/alert`
-- **关键文件**: `AlertService.java, QuotaAlert.vue`
-- **绑定 API**: `GET /api/quota/alert`
-- **关联数据表**: `t_energy_quota`
-- **🔗 检测到跨模块共享连接**:
-  - 与 `[碳排放模块]` 共享数据表 `t_energy_quota`
+```markdown
+### 🧩 模块: <模块名>
+- **路由入口**: `<前端路由>`
+- **关键文件**: `<File1.java, File2.vue>`
+- **绑定 API**: `<POST /api/xxx>`
+- **关联数据表**: `<t_xxx>`
+```
+
+（当前为空）

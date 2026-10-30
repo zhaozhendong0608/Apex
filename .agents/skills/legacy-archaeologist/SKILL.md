@@ -60,7 +60,7 @@ class TestLegacyBehaviorLock(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIn("realAmount", res.json()["data"])
 ```
-探针跑通绿灯后，方可进入 `02-sop-coding.md` 进行代码修改。
+探针跑通绿灯后，方可进入 `03-sop-coding.md` 进行代码修改。
 
 ---
 

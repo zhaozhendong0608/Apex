@@ -1,0 +1,43 @@
+name: Apex Workflow Gate
+
+# 只需服务器侧一道兜底：本地 pre-commit 已经拦过一次，
+# 这里保证「绕过 --no-verify 直接推」也会被查到。
+#
+# 若使用 GitLab / Gitea，请把下面的 run 命令搬进 .gitlab-ci.yml / .gitea/workflows。
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  workflow-self-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: ① 工作流自检（脚本可编译 / 文档链接 / 能力点 / 指令引用）
+        run: python3 .ai/scripts/gate.py --meta
+
+      - name: ② 代码门禁（本次变更涉及的文件）
+        run: |
+          BASE="${{ github.event.pull_request.base.sha || github.event.before }}"
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE" 2>/dev/null; then
+            echo "无法确定基线提交，跳过增量门禁（仅跑自检）"
+            exit 0
+          fi
+          FILES=$(git diff --name-only --diff-filter=ACMR "$BASE" HEAD | head -100)
+          if [ -z "$FILES" ]; then
+            echo "本次无文件变更"
+            exit 0
+          fi
+          echo "$FILES"
+          python3 .ai/scripts/gate.py $FILES
+
+      - name: ③ 钩子安装自检
+        run: python3 .ai/scripts/install_hooks.py --check || echo "::warning::pre-commit 未安装（新克隆需执行 install_hooks.py）"

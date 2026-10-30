@@ -64,7 +64,7 @@ python3 .agents/skills/archetype-architect/scripts/validate_mermaid.py <path_to_
 💡 **后续操作指引：**
 - 🔄 **有偏差**：直接提出修改意见，我将为您调校原型与 PRD。
 - ✅ **确认无误 (Sign-off)**：
-  - 👉 **路径 A (回复 `[2]` 或 `继续`)**：跳过架构文档直接写代码（AI 将执行 `board.py start Task-XXX` 切入开发）。
+  - 👉 **路径 A (回复 `[3]` 或 `继续`)**：跳过架构文档直接写代码（AI 将执行 `board.py start Task-XXX` 切入开发）。
   - 👉 **路径 B (回复 `生成设计说明书` 或 `设计`)**：激活 `design-spec-architect` 导出符合【钧天科技 V1.0 标准】的 HLD/DLD 说明书。
 
 

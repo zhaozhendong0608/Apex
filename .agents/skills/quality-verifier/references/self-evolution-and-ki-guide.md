@@ -80,7 +80,7 @@ flowchart TD
 
 ## 🔄 四、 联动 SOP-05 会话归档流程
 
-在执行 `.ai/sop/05-sop-archive.md`（会话归档）时，追加 **经验提纯检查步骤**：
+在执行 `.ai/sop/B5-sop-archive.md`（会话归档）时，追加 **经验提纯检查步骤**：
 
 ```markdown
 ### Step 2.5: 踩坑经验扫描与 KI 反哺

@@ -1,0 +1,638 @@
+# -*- coding: utf-8 -*-
+"""生成《Apex 工作流 · 内部培训》课件。"""
+
+import sys
+from pptx.util import Inches, Pt
+from pptx.dml.color import RGBColor
+from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+
+from deck_lib import *  # noqa
+import deck_lib as L
+
+TOTAL = 20
+OUT = "Apex工作流-内部培训.pptx"
+
+prs = new_deck()
+
+CW = MR - ML                  # 11.83
+W2 = (CW - 0.32) / 2          # 5.755
+W3 = (CW - 0.56) / 3          # 3.7567
+
+
+def dialog(slide, x, y, w, rows, row_h=0.82):
+    for i, (who, txt, color) in enumerate(rows):
+        yy = y + i * row_h
+        text(slide, x, yy, 0.62, 0.24, [dict(t=who, size=9.5, bold=True, color=color, font=MONO)],
+             check=False)
+        text(slide, x + 0.52, yy - 0.02, w - 0.52, row_h - 0.08,
+             [dict(t=txt, size=12, color=INK, line=1.45)], check=True, tag=f"dlg{i}")
+
+
+# ============================================================ 01 封面
+s = blank(prs, DARK)
+text(s, ML, 0.72, 6.0, 0.3, [dict(t="INTERNAL TRAINING  ·  研发效能", size=10, color=RGBColor(0x8C, 0x91, 0x96), font=MONO)], check=False)
+
+text(s, ML, 1.52, 8.2, 2.4, [
+    dict(t="用 AI 写代码，", size=40, bold=True, color=PAPER, line=1.25),
+    dict(t="缺的不是能力", size=40, bold=True, color=PAPER, line=1.25),
+    dict(t="缺的是能验收的工序", size=40, bold=True, color=ACCENT, line=1.25),
+], check=False)
+
+text(s, ML, 4.42, 7.6, 1.0, [
+    dict(t="Apex 工作流 · Vibe Coding 3.0", size=15, bold=True, color=PAPER, line=1.6),
+    dict(t="把一句话业务需求，拆成一条可交付、可验证、可归档的工序链。", size=12.5,
+         color=RGBColor(0xA8, 0xAD, 0xB1), line=1.6),
+], check=False)
+
+line_shape(s, ML, 6.32, 8.4, 6.32, LINE_DK, 0.9)
+text(s, ML, 6.5, 8.0, 0.3, [dict(t="90 分钟  ·  面向 开发 / 测试 / 产品  ·  2026.10", size=10,
+                                 color=RGBColor(0x8C, 0x91, 0x96))], check=False)
+
+# 右侧 7 步竖排
+steps = [("1", "规划"), ("2", "方案"), ("3", "编码"), ("4", "门禁"),
+         ("5", "评审"), ("6", "集成"), ("7", "验收")]
+for i, (num, label) in enumerate(steps):
+    yy = 1.58 + i * 0.58
+    text(s, 9.62, yy - 0.11, 0.45, 0.28, [dict(t=f"0{num}"[0:2], size=10, color=ACCENT,
+                                               font=MONO, bold=True)], check=False)
+    text(s, 10.12, yy - 0.15, 1.3, 0.3, [dict(t=label, size=12.5, color=PAPER)], check=False)
+    line_shape(s, 11.55, yy, 12.55, yy, RGBColor(0x33, 0x39, 0x3C), 0.9)
+footer(s, 1, TOTAL, dark=True)
+notes(s, "开场 30 秒：先别讲流程。问一句「最近一次被 AI 生成的代码坑到，是什么时候？」\n"
+         "本场目标不是让大家背会 16 篇 SOP，而是明天能用上一条最短路径。\n"
+         "时间：90 分钟，前 15 分钟讲为什么，中间 55 分钟讲怎么走，最后 20 分钟讲落地和答疑。")
+
+# ============================================================ 02 翻车现场
+s = blank(prs)
+top = header(s, "02", "开场 · 我们都被坑过", "这五句话，你一定听过其中三句")
+
+cards = [
+    ("01", "「AI 说做完了」", "一跑就崩。它只验证了它自己想象的那条路径。"),
+    ("02", "「先跑起来再说」", "页面里是写死的假数据，联调那天集体爆炸。"),
+    ("03", "「顺手帮我优化下」", "改了 9 个文件，review 时没人看得下去，也没人敢合。"),
+    ("04", "「字段改一下很快」", "文档没跟上，下周 AI 按旧文档又写回去了。"),
+    ("05", "「聊到第二十五轮」", "它开始忘掉前面定的规则，越改越歪，你还得重讲一遍。"),
+]
+hh = 2.02
+for i, (num, q, cost) in enumerate(cards):
+    cx = ML + (i % 3) * (W3 + 0.28)
+    cy = hh + (i // 3) * (2.10 + 0.30)
+    numbered_card(s, cx, cy, W3, 2.10, num, q, cost, accent=ACCENT, title_size=14.5, body_size=10.8)
+
+# 第六格：结论
+cx = ML + 2 * (W3 + 0.28)
+cy = hh + 2.10 + 0.30
+rect(s, cx, cy, W3, 2.10, fill=INK, radius=0.04)
+text(s, cx + 0.28, cy + 0.34, W3 - 0.52, 1.5, [
+    dict(t="这五件事，", size=15, bold=True, color=PAPER, line=1.5),
+    dict(t="都不是模型不行。", size=15, bold=True, color=PAPER, line=1.5),
+    dict(t="是没有工序。", size=15, bold=True, color=ACCENT, line=1.5),
+], check=False)
+footer(s, 2, TOTAL)
+notes(s, "5 分钟。逐条念，每条停 2 秒，看有没有人点头。\n"
+         "关键动作：现场征集一个真实案例，填进第 02 或 03 条 —— 用听众自己的坑最有说服力。\n"
+         "收口一句：这五条里，没有一条是「模型不够聪明」造成的。")
+
+# ============================================================ 03 三个直觉
+s = blank(prs)
+top = header(s, "03", "开场 · 一句话的判断", "AI 是工人，你是包工头",
+             sub="这套流程不指望 AI 自己知道该干什么 —— 它用编号把开发切成工序，你负责按顺序发指令、在关键节点点头或摇头。")
+
+intuitions = [
+    ("01", "别指望它自己知道该干什么", "你发 `1`，它就做规划；你发 `3`，它才写代码。工序由你控制，不是由它的心情控制。"),
+    ("02", "「我做完了」不算数", "三道闸门：机器查代码 → 人查交付 → 机器查证据。没过闸，看板物理上不给标绿。"),
+    ("03", "状态在硬盘上，不在聊天窗口里", "关窗口、换电脑、第二天再来，发一个 `B6` 就能原地复活，不用重讲背景。"),
+]
+for i, (num, ttl, body) in enumerate(intuitions):
+    yy = top + i * 1.42
+    text(s, ML, yy, 0.6, 0.3, [dict(t=num, size=11, bold=True, color=ACCENT, font=MONO)], check=False)
+    text(s, ML + 0.62, yy - 0.06, 6.5, 0.35, [dict(t=ttl, size=16, bold=True, color=INK)], check=False)
+    text(s, ML + 0.62, yy + 0.34, 6.5, 0.7, [dict(t=body, size=11.5, color=INK_SOFT, line=1.6)],
+         check=True, tag=f"intu{i}")
+
+# 右侧：三件事
+bx, bw = 8.05, 4.55
+rect(s, bx, top - 0.06, bw, 4.32, fill=TEAL_L, radius=0.04)
+text(s, bx + 0.32, top + 0.18, bw - 0.6, 0.32,
+     [dict(t="所以这条流程只做三件事", size=13, bold=True, color=TEAL)], check=False)
+trio = [("切工序", "把「写个功能」拆成 7 道能检查的工序"),
+        ("塞闸门", "每道工序都有机器或人签字，不许跳"),
+        ("落硬盘", "任务、契约、交接都写成文件，不靠记忆")]
+for i, (a, b) in enumerate(trio):
+    yy = top + 0.72 + i * 1.18
+    text(s, bx + 0.32, yy, bw - 0.6, 0.3, [dict(t=a, size=15, bold=True, color=TEAL)], check=False)
+    text(s, bx + 0.32, yy + 0.36, bw - 0.62, 0.6, [dict(t=b, size=10.8, color=INK_SOFT, line=1.45)],
+         check=True, tag=f"trio{i}")
+footer(s, 3, TOTAL)
+notes(s, "5 分钟。三个直觉讲完就够，不要展开成理论。\n"
+         "可以现场演示一次：在对话框敲一个 3，让大家看它先把任务拉进 ACTIVE 才动代码。")
+
+# ============================================================ 04 全景
+s = blank(prs)
+top = header(s, "04", "全貌 · 一张图", "一条主链，三条旁路",
+             sub="数字会推进任务状态，B 开头不会 —— 光看编号，就知道这一步会不会动看板。")
+
+items = [("1", "规划", "需求 + 原型"), ("2", "方案", "接口 / 表结构"), ("3", "编码", "源码 + 单测"),
+         ("4", "门禁", "LGTM"), ("5", "评审", "人判对错"), ("6", "集成", "用例矩阵"), ("7", "验收", "标绿归档")]
+rail(s, ML + 0.1, MR - 0.1, 2.62, items, size=11.5)
+
+text(s, ML, 3.82, 2.4, 0.28, [dict(t="旁路 · 随时插入", size=10, bold=True, color=MUTED,
+                                   font=MONO)], check=False)
+bypass = [("B1", "老项目", "先建地图"), ("B2", "快修", "≤20 行"), ("B3", "报错", "根因分析"),
+          ("B5", "收工", "压缩落盘"), ("B6", "复活", "读名片")]
+for i, (code, name, desc) in enumerate(bypass):
+    xx = ML + i * 2.38
+    rect(s, xx, 4.20, 2.18, 0.96, fill=CARD, line=LINE, line_w=0.75, radius=0.06)
+    text(s, xx + 0.18, 4.34, 0.62, 0.26, [dict(t=code, size=10.5, bold=True, color=ACCENT, font=MONO)],
+         check=False)
+    text(s, xx + 0.78, 4.32, 1.3, 0.28, [dict(t=name, size=12, bold=True, color=INK)], check=False)
+    text(s, xx + 0.18, 4.70, 1.86, 0.28, [dict(t=desc, size=9.5, color=MUTED)], check=False)
+
+text(s, ML, 5.46, 7.6, 0.3, [dict(t="交付链：8 部署 → 9 发布（里程碑级，今天不讲）", size=10.5, color=MUTED)],
+     check=False)
+
+# 底部三条注解
+notes_row = [("5 评审", "机器判不了的部分才交给人，且不改状态"),
+             ("7 验收", "唯一出口：verify → 人点头 → complete --accept"),
+             ("跳步", "3 之后直接 7 = 用人的注意力补机器的漏洞")]
+for i, (a, b) in enumerate(notes_row):
+    xx = ML + i * 3.98
+    line_shape(s, xx, 6.02, xx + 0.26, 6.02, ACCENT, 1.4)
+    text(s, xx + 0.38, 5.90, 3.3, 0.28, [dict(t=a, size=10.5, bold=True, color=INK)], check=False)
+    text(s, xx + 0.38, 6.18, 3.4, 0.36, [dict(t=b, size=9.5, color=MUTED, line=1.4)], check=True, tag=f"ann{i}")
+footer(s, 4, TOTAL)
+notes(s, "8 分钟。这是全场唯一一张必须讲清的图。\n"
+         "手势：从左往右划过 1~7，然后往下指旁路，最后强调「5 不改状态」。\n"
+         "现场提问：'如果我发 7 但没跑 4，会发生什么？' 答案：verify 会拦，或者拦不住但会漏 bug。")
+
+# ============================================================ 05 先选路线
+s = blank(prs)
+top = header(s, "05", "上手 · 第一件事", "先判断改多大，再决定走多远",
+             sub="把全流程当成唯一入口，是新人最快放弃这套东西的原因。90% 的日常其实落在前两行。")
+
+rows = [
+    ["改动规模", "走哪条", "典型例子", "大概耗时"],
+    ["1 个文件 / ≤ 20 行", "B2 快修", "改文案、换颜色、调间距、修错别字", "5 分钟"],
+    ["单模块，不动表结构", "1 → 3 → 4 → 7", "列表加个筛选、加一条校验、补一个接口", "半天"],
+    ["动接口 / 表结构 / 跨服务", "全流程 1 → 9", "新增权限表、改返回结构、拆服务", "1 – 3 天"],
+]
+table(s, ML, top + 0.06, CW, rows, [0.26, 0.22, 0.38, 0.14], row_h=0.78, header_h=0.44,
+      font=12.5, head_font=10.5)
+
+rect(s, ML, 5.42, CW, 1.12, fill=ACCENT_L, radius=0.04)
+text(s, ML + 0.30, 5.58, CW - 0.6, 0.34,
+     [dict(t="判断错了会怎样", size=10.5, bold=True, color=ACCENT, font=MONO)], check=False)
+text(s, ML + 0.30, 5.90, CW - 0.6, 0.5, [
+    dict(t="小改动走全流程 → 半天变两天，人开始偷偷绕开流程；大改动走快修 → 下周返工，还得补文档。",
+         size=12, color=INK, line=1.4)], check=False)
+footer(s, 5, TOTAL)
+notes(s, "6 分钟。这张表是「让人愿意用」的关键 —— 先降低门槛，别一上来就要求全流程。\n"
+         "让听众举手：最近一周的改动，哪一行最多？多半是第二行。\n"
+         "强调第三行的判据是「会不会影响别人」：接口、表结构、跨服务。")
+
+# ============================================================ 06 场景 A
+s = blank(prs)
+top = header(s, "06", "场景 A · 接一个新需求", "第 1 轮只说业务，别急着说技术")
+
+rect(s, ML, top + 0.02, 6.55, 4.30, fill=CARD, line=LINE, line_w=0.75, radius=0.03)
+rows = [
+    ("你", "1", ACCENT),
+    ("AI", "三个白话问题：要不要发通知？最多多少台设备？掉线以什么为准？", TEAL),
+    ("你", "你推荐默认值，标暂定。", ACCENT),
+    ("AI", "PRD、可点原型、用例矩阵已生成；Task-401~403 已进看板。", TEAL),
+]
+dialog(s, ML + 0.30, top + 0.24, 5.95, rows, row_h=0.86)
+# 「你」的第一句单独补上需求内容
+text(s, ML + 0.82, top + 0.22, 5.4, 0.5, [
+    dict(t="想让运维在页面上看到每台交换机的在线状态，", size=11.5, color=INK, line=1.4),
+    dict(t="掉线超过 1 分钟变红，能按机房筛选。", size=11.5, color=INK, line=1.4)], check=False)
+
+text(s, ML + 0.30, top + 3.72, 6.0, 0.3,
+     [dict(t="之后照抄：2 → 3 → 4 → 7", size=11, bold=True, color=MUTED, font=MONO)], check=False)
+
+# 右侧清单
+rx = 7.72
+text(s, rx, top + 0.02, 4.9, 0.3, [dict(t="每一轮，你只做一件事", size=13, bold=True, color=INK)], check=False)
+checks = [
+    ("扫一遍 PRD 的业务规则", "写错现在改最便宜，别等写完 500 行"),
+    ("确认接口字段名", "定了就不许改；要改先改文档"),
+    ("看它改了哪些文件", "顺手重构是返工的源头"),
+    ("亲眼看 [LGTM] 出现", "AI 转述的「通过了」不算"),
+    ("verify 之后点头放行", "唯一必须你拍板的时刻"),
+]
+for i, (a, b) in enumerate(checks):
+    yy = top + 0.48 + i * 0.76
+    text(s, rx, yy, 0.34, 0.26, [dict(t=str(i + 1), size=10, bold=True, color=ACCENT, font=MONO)], check=False)
+    text(s, rx + 0.36, yy - 0.04, 4.5, 0.28, [dict(t=a, size=11.5, bold=True, color=INK)], check=False)
+    text(s, rx + 0.36, yy + 0.26, 4.5, 0.26, [dict(t=b, size=9.5, color=MUTED)], check=False)
+footer(s, 6, TOTAL)
+notes(s, "9 分钟。这是最常用的一条路径，值得现场跑一遍真实需求。\n"
+         "演示要点：故意让 AI 问你问题，然后说「你推荐默认值」—— 让大家看到「不必卡住也能推进」。\n"
+         "QA 同事注意：第 1 步产出的用例矩阵就是你们的输入，不用等代码写完。")
+
+# ============================================================ 07 B2 / B3
+s = blank(prs)
+top = header(s, "07", "场景 B · 小改与报错", "两条旁路，占了日常八成")
+
+cards = [
+    ("B2", "快修：一行到二十行", "不写看板、不走门禁，直接改、直接给你结果。", "B2 把登录按钮从灰换成品牌蓝，其他都别动",
+     ["超过 20 行或 1 个文件 → 它应该劝你回主链，听它的", "碰到接口 / 字段 → 必须顺手同步设计文档"], TEAL),
+    ("B3", "报错：贴完整日志", "先复述预期与实际，定位到行，说清根因，再最小切口修。", "3 TypeError: Cannot read properties of undefined",
+     ["不要只说「报错了」，把文件名和行号一起贴上", "它给的根因要能用白话讲清，讲不清就是没找到"], TEAL),
+]
+for i, (code, ttl, desc, sample, points, color) in enumerate(cards):
+    xx = ML + i * (W2 + 0.32)
+    rect(s, xx, top + 0.02, W2, 3.86, fill=CARD, line=LINE, line_w=0.75, radius=0.03)
+    chip(s, xx + 0.28, top + 0.24, 0.62, 0.32, code, fill=TEAL_L, fg=TEAL, size=10.5)
+    text(s, xx + 1.02, top + 0.22, W2 - 1.3, 0.36, [dict(t=ttl, size=15, bold=True, color=INK)], check=False)
+    text(s, xx + 0.28, top + 0.70, W2 - 0.56, 0.5, [dict(t=desc, size=11, color=INK_SOFT, line=1.5)],
+         check=True, tag=f"d{i}")
+    rect(s, xx + 0.28, top + 1.30, W2 - 0.56, 0.62, fill=PAPER, radius=0.03)
+    text(s, xx + 0.42, top + 1.40, W2 - 0.82, 0.44,
+         [dict(t=sample, size=9.5, color=INK_SOFT, font=MONO, line=1.35)], check=True, tag=f"sm{i}")
+    for j, pt in enumerate(points):
+        yy = top + 2.14 + j * 0.62
+        text(s, xx + 0.28, yy, 0.24, 0.26, [dict(t="·", size=14, bold=True, color=ACCENT)], check=False)
+        text(s, xx + 0.50, yy - 0.02, W2 - 0.80, 0.5, [dict(t=pt, size=10.5, color=INK_SOFT, line=1.45)],
+             check=True, tag=f"pt{i}{j}")
+
+rect(s, ML, 6.06, CW, 0.78, fill=INK, radius=0.04)
+text(s, ML + 0.30, 6.16, CW - 0.6, 0.58, [
+    dict(t="唯一不能妥协的一条：不许用写死的假数据，让页面「看起来正常」。", size=13, bold=True, color=PAPER, line=1.35)],
+    check=True, tag="redline")
+footer(s, 7, TOTAL)
+notes(s, "7 分钟。B2 是最容易被滥用的一条，重点讲边界：什么时候必须升级回主链。\n"
+         "B3 上可以演一次「只说报错了」vs「贴完整栈」的差别，效果很直观。\n"
+         "底部这句要重读一遍 —— 这是整套流程里唯一零容忍的一条。")
+
+# ============================================================ 08 B1 老项目
+s = blank(prs)
+top = header(s, "08", "场景 D · 接手老项目", "先锁行为，再改行为",
+             sub="老代码没有文档，最贵的不是看不懂，是「改了一处、崩了另一处」而没人知道。")
+
+steps = [
+    ("01", "只建地图，不读全文", "只看前 3 层目录和路由，生成一张模块关系图。防止上下文一上来就爆掉。"),
+    ("02", "只拆本次改动", "别顺手重写整个模块。把「加一条库存校验」拆成 1~2 个原子任务。"),
+    ("03", "先用探针锁住老逻辑", "给要动的链路写一组钉住旧行为的测试，改完它还是绿的，才算没改崩。"),
+]
+for i, (num, ttl, body) in enumerate(steps):
+    xx = ML + i * (W3 + 0.28)
+    numbered_card(s, xx, top + 0.04, W3, 2.62, num, ttl, body, accent=TEAL, title_size=14.5, body_size=11)
+
+rect(s, ML, 5.42, CW, 1.10, fill=PAPER, radius=0.04)
+text(s, ML + 0.34, 5.56, 1.2, 0.5, [dict(t="“", size=30, bold=True, color=ACCENT)], check=False)
+text(s, ML + 0.92, 5.60, CW - 1.3, 0.78, [
+    dict(t="老项目里，最危险的不是「我不会写」，是「我以为它原来是这么跑的」。", size=13.5, bold=True, color=INK, line=1.5),
+], check=True, tag="quote")
+footer(s, 8, TOTAL)
+notes(s, "5 分钟。如果团队里有人正在维护老系统，这条最能共鸣。\n"
+         "强调「锁死探针」这个词：它不是新概念，就是给旧逻辑补一组回归测试，但要在动手前写。")
+
+# ============================================================ 09 分水岭
+s = blank(prs)
+top = header(s, "09", "边界 · 什么时候必须停下来", "改到这三样，先改文档再改代码",
+             sub="这三样是「别人也在用」的东西。代码和文档一旦不同步，下次 AI 会照旧文档再写一遍。")
+
+reds = [
+    ("接口字段名", "路径、参数名、字段拼写", "前端按文档写，后端按代码改 —— 联调时才发现"),
+    ("返回值结构", "层级、类型、错误码", "少一个 null 判断，线上就是白屏"),
+    ("数据库字段", "列名、类型、索引、DDL", "没有回滚脚本，出事只能手工修数据"),
+]
+for i, (ttl, sub, cost) in enumerate(reds):
+    xx = ML + i * (W3 + 0.28)
+    rect(s, xx, top + 0.04, W3, 2.30, fill=CARD, line=LINE, line_w=0.75, radius=0.03)
+    rect(s, xx, top + 0.04, W3, 0.06, fill=ACCENT)
+    text(s, xx + 0.28, top + 0.30, W3 - 0.5, 0.34, [dict(t=ttl, size=15, bold=True, color=INK)], check=False)
+    text(s, xx + 0.28, top + 0.72, W3 - 0.5, 0.3, [dict(t=sub, size=9.5, color=MUTED, font=MONO)], check=False)
+    text(s, xx + 0.28, top + 1.16, W3 - 0.52, 0.9, [dict(t=cost, size=11, color=INK_SOFT, line=1.5)],
+         check=True, tag=f"red{i}")
+
+# 顺序图
+text(s, ML, 5.06, 3.0, 0.28, [dict(t="顺序不能反", size=10.5, bold=True, color=MUTED, font=MONO)], check=False)
+seq = [("改文档", TEAL), ("门禁", TEAL), ("改代码", TEAL), ("回归", TEAL)]
+for i, (a, c) in enumerate(seq):
+    xx = ML + i * 1.92
+    rect(s, xx, 5.40, 1.66, 0.62, fill=TEAL_L, radius=0.08)
+    text(s, xx, 5.40, 1.66, 0.62, [dict(t=a, size=11.5, bold=True, color=TEAL, align=PP_ALIGN.CENTER)],
+         anchor=MSO_ANCHOR.MIDDLE, check=False)
+    if i < 3:
+        text(s, xx + 1.66, 5.48, 0.26, 0.4, [dict(t="→", size=13, color=TEAL)], check=False)
+
+text(s, 8.10, 5.30, 4.4, 0.9, [
+    dict(t="跳过的是审批，不是留痕。", size=12.5, bold=True, color=ACCENT, line=1.5),
+    dict(t="快修也一样 —— 碰到这三样，文档必须同步。", size=10.5, color=INK_SOFT, line=1.5),
+], check=True, tag="tail")
+footer(s, 9, TOTAL)
+notes(s, "5 分钟。这页是「文档为什么不是形式主义」的正面回答。\n"
+         "可以问：谁遇到过「文档写的和代码不一样」？然后说：这套流程不靠自觉，靠门禁和漂移检查。")
+
+# ============================================================ 10 三道闸门
+s = blank(prs)
+top = header(s, "10", "验收 · 为什么「我做完了」不算数", "三道闸，三种视角")
+
+gates = [
+    ("闸一", "机器查代码", "gate.py --staged", ["新增依赖？", "写死假数据？", "公网 CDN？", "硬编码密钥？", "DDL 有回滚吗？"]),
+    ("闸二", "人查交付", "4 维清单", ["业务目标对了吗？", "文档同步了吗？", "SQL 能回滚吗？", "构建是绿的吗？"]),
+    ("闸三", "机器查证据", "board.py verify", ["任务真在 ACTIVE？", "声明的文件真存在？", "测试真的跑过？"]),
+]
+for i, (num, ttl, cmd, items) in enumerate(gates):
+    xx = ML + i * (W3 + 0.28)
+    rect(s, xx, top + 0.02, W3, 3.60, fill=CARD, line=LINE, line_w=0.75, radius=0.03)
+    text(s, xx + 0.26, top + 0.18, 0.8, 0.26, [dict(t=num, size=9.5, bold=True, color=ACCENT, font=MONO)], check=False)
+    text(s, xx + 0.26, top + 0.46, W3 - 0.5, 0.34, [dict(t=ttl, size=14.5, bold=True, color=INK)], check=False)
+    text(s, xx + 0.26, top + 0.86, W3 - 0.5, 0.26, [dict(t=cmd, size=9.5, color=TEAL, font=MONO)], check=False)
+    line_shape(s, xx + 0.26, top + 1.20, xx + W3 - 0.26, top + 1.20, LINE, 0.75)
+    for j, it in enumerate(items):
+        yy = top + 1.32 + j * 0.40
+        text(s, xx + 0.26, yy, 0.2, 0.26, [dict(t="–", size=10, color=MUTED)], check=False)
+        text(s, xx + 0.46, yy - 0.02, W3 - 0.74, 0.34, [dict(t=it, size=10.2, color=INK_SOFT)], check=False)
+
+rect(s, ML, 6.00, CW, 0.82, fill=ACCENT_L, radius=0.04)
+text(s, ML + 0.30, 6.10, CW - 0.6, 0.62, [
+    dict(t="exit 2 ≠ 通过　·　⚠️ 告警 ≠ 通过　·　⏭️ 跳过 ≠ 通过　·　只有 [LGTM] 是",
+         size=13, bold=True, color=ACCENT, line=1.4)], check=True, tag="lgtm")
+footer(s, 10, TOTAL)
+notes(s, "6 分钟。三个视角分别对应开发、评审人、管理者，正好对上混合听众。\n"
+         "重点：exit 2 是最常见的自欺 —— 没 git add，门禁根本没跑，很多人以为通过了。")
+
+# ============================================================ 11 门禁对照表
+s = blank(prs)
+top = header(s, "11", "验收 · 被拦住了怎么办", "看到红字别慌，先认关键字",
+             sub="这张表建议截图存手机 —— 90% 的拦截都在这六行里。")
+
+rows = [
+    ["终端里看到", "其实是什么", "怎么修"],
+    ["新增依赖（未经授权）", "AI 自己装了个库", "让它删掉；确实要，由你授权并记原因"],
+    ["疑似保底 Mock / 假数据", "写死数据假装跑通", "删掉，让真实错误暴露出来"],
+    ["检测到公网依赖", "引了 CDN / 外网字体", "改成本地文件，保证离线可跑"],
+    ["疑似硬编码密钥", "密码、Key 明文写在代码里", "挪进 .env，代码读环境变量"],
+    ["缺失回滚脚本", "改了表结构没写回滚 SQL", "补 rollback_*.sql，不能是空文件"],
+    ["未收到任何待检文件 (exit 2)", "没 git add，门禁没真跑", "先 add，再 --staged 重跑"],
+]
+table(s, ML, top + 0.08, CW, rows, [0.30, 0.30, 0.40], row_h=0.60, header_h=0.42,
+      font=11.2, head_font=10.5)
+
+text(s, ML, 6.34, CW, 0.4, [
+    dict(t="看不懂就把原文贴回给 AI，说「按手册第 7 节修」—— 它认得自己写的报错。", size=11, color=MUTED)],
+    check=False)
+footer(s, 11, TOTAL)
+notes(s, "4 分钟。QA 同事会最需要这页：他们往往先看到拦截结果，而不是原因。\n"
+         "可以现场制造一次拦截（写个 mock 字符串），让大家看报错长什么样。")
+
+# ============================================================ 12 看板
+s = blank(prs)
+top = header(s, "12", "状态 · 唯一真相", "三条命令，一个焦点")
+
+code_block(s, ML, top + 0.04, 6.35, 3.30, [
+    "board.py list                 # 现在干到哪了",
+    "board.py verify  \"Task-401\"   # 能验收吗",
+    "board.py complete \"Task-401\" \\",
+    "        --accept              # 验收归档（唯一标绿）",
+    "gate.py --staged              # 上闸门",
+], size=10.8, label="python3 .ai/scripts/ …")
+
+rules = [("不手改状态文件", "tier3_status.md 里的锚点一坏，verify / complete 全部失效。"),
+         ("同时只有一个 ACTIVE", "两个任务并行 = 两个都做不完，也都没人看得懂进度。"),
+         ("complete 必须带 --accept", "不带会被脚本拒绝 —— 这是防你跳过验收的保护。")]
+text(s, 7.62, top + 0.02, 4.9, 0.3, [dict(t="三条铁律", size=13, bold=True, color=INK)], check=False)
+for i, (a, b) in enumerate(rules):
+    yy = top + 0.48 + i * 1.06
+    line_shape(s, 7.62, yy + 0.10, 7.86, yy + 0.10, ACCENT, 1.4)
+    text(s, 7.94, yy - 0.02, 4.6, 0.3, [dict(t=a, size=11.5, bold=True, color=INK)], check=False)
+    text(s, 7.94, yy + 0.30, 4.6, 0.56, [dict(t=b, size=10, color=INK_SOFT, line=1.5)], check=True, tag=f"rule{i}")
+
+text(s, ML, 6.06, CW, 0.5, [
+    dict(t="为什么必须这样：AI 的记忆在硬盘上，不在你的聊天窗口里。看板是它每天开工时唯一读的那一页。",
+         size=11.5, color=MUTED, line=1.4)], check=True, tag="board-note")
+footer(s, 12, TOTAL)
+notes(s, "5 分钟。让所有人现场敲一次 board.py list，看到自己项目的看板 —— 比讲三遍有效。\n"
+         "提醒：任务编号是 AI 拆出来的，忘了就 list 一下，别自己猜。")
+
+# ============================================================ 13 上下文
+s = blank(prs)
+top = header(s, "13", "上下文 · 为什么会越聊越傻", "聊到 20 轮，它开始忘记规则")
+
+# 左：三个信号
+rect(s, ML, top + 0.02, 5.60, 3.90, fill=CARD, line=LINE, line_w=0.75, radius=0.03)
+text(s, ML + 0.30, top + 0.20, 5.0, 0.3, [dict(t="你会看到这三个信号", size=12.5, bold=True, color=INK)], check=False)
+signals = [("开始重复问已经答过的事", "「你们用什么数据库来着？」"),
+           ("改着改着跑偏了", "明明只要改一个列名，它重构了整个 Service"),
+           ("忘了后面定的新规则", "它按第一版字段名写代码，而你早就改过了")]
+for i, (a, b) in enumerate(signals):
+    yy = top + 0.68 + i * 1.06
+    text(s, ML + 0.30, yy, 0.3, 0.3, [dict(t=str(i + 1), size=10, bold=True, color=ACCENT, font=MONO)], check=False)
+    text(s, ML + 0.62, yy - 0.02, 4.7, 0.3, [dict(t=a, size=11.5, bold=True, color=INK)], check=False)
+    text(s, ML + 0.62, yy + 0.30, 4.7, 0.3, [dict(t=b, size=9.8, color=MUTED)], check=False)
+
+# 右：两个动作
+rx = 6.80
+rect(s, rx, top + 0.02, 5.78, 3.90, fill=TEAL_L, radius=0.03)
+text(s, rx + 0.30, top + 0.20, 5.1, 0.3, [dict(t="你只需要两个动作", size=12.5, bold=True, color=TEAL)], check=False)
+acts = [("B5 归档", "收工 / 换话题前，把上下文压成一份交接卡，写进 docs/handovers/。"),
+        ("B6 复活", "第二天第一句发 B6，它读 27 行名片，3 秒回到现场，不用你复述。")]
+for i, (a, b) in enumerate(acts):
+    yy = top + 0.72 + i * 1.22
+    text(s, rx + 0.30, yy, 5.1, 0.3, [dict(t=a, size=14, bold=True, color=TEAL)], check=False)
+    text(s, rx + 0.30, yy + 0.36, 5.1, 0.7, [dict(t=b, size=10.5, color=INK_SOFT, line=1.5)], check=True, tag=f"act{i}")
+line_shape(s, rx + 0.30, top + 2.90, rx + 5.48, top + 2.90, TEAL, 0.75)
+text(s, rx + 0.30, top + 3.02, 5.1, 0.7, [
+    dict(t="三层记忆：名片（27 行）· 模块地图 · 看板与黑匣子",
+         size=10, color=TEAL, line=1.5)], check=True, tag="mem")
+
+text(s, ML, 6.16, CW, 0.5, [
+    dict(t="这是它和「聊天式 AI」最大的区别：关掉窗口，事还在。",
+         size=12.5, bold=True, color=INK)], check=False)
+footer(s, 13, TOTAL)
+notes(s, "5 分钟。这是所有人都会有的体感，容易共鸣。\n"
+         "给一个可操作的判据：当你发现自己在重复解释同一件事，就是该 B5 了 —— 别硬聊。")
+
+# ============================================================ 14 一天的节奏
+s = blank(prs)
+top = header(s, "14", "习惯 · 一天怎么用", "四个动作，构成一个工作日")
+
+rows = [
+    ["时机", "你说", "它做什么", "为什么值得"],
+    ["早上开工", "B6", "读名片，恢复昨天现场", "3 秒进状态，不用重讲背景"],
+    ["干活", "3 / B3 / B2", "编码 / 排错 / 小修", "按改动大小选，不必都走全流程"],
+    ["卡住想不清", "2", "先出接口、表结构、影响面", "比边写边想省一半时间"],
+    ["收工 / 换话题", "B5", "压缩上下文，写成交接卡", "明天还能接上，别人也能接"],
+]
+table(s, ML, top + 0.10, CW, rows, [0.18, 0.20, 0.34, 0.28], row_h=0.78, header_h=0.44,
+      font=11.5, head_font=10.5)
+
+rect(s, ML, 5.52, CW, 1.02, fill=PAPER, radius=0.04)
+text(s, ML + 0.30, 5.66, CW - 0.6, 0.28, [dict(t="省 token 的一个习惯", size=10, bold=True,
+                                              color=MUTED, font=MONO)], check=False)
+text(s, ML + 0.30, 5.94, CW - 0.6, 0.46, [
+    dict(t="让它只读命中的那一篇 SOP，别为了保险把全套规则读一遍 —— 那是 7 倍的开销。",
+         size=11.5, color=INK, line=1.4)], check=False)
+footer(s, 14, TOTAL)
+notes(s, "4 分钟。这页是「怎么坚持下来」的答案：把流程变成四个日常动作，而不是七步仪式。\n"
+         "建议现场让大家把 B6 / B5 设成输入法快捷短语。")
+
+# ============================================================ 15 五个不许
+s = blank(prs, DARK)
+top = header(s, "15", "红线 · 五条", "这五件事，做了等于没走流程", dark=True)
+
+forbids = [
+    ("01", "不许手改状态看板", "锚点一坏，后面的 verify / complete 全部失效，还查不出原因"),
+    ("02", "不许跳过 verify 直接 complete", "脚本会拒绝；你硬绕，等于用人的信任补机器的证据"),
+    ("03", "不许用假数据让页面「看起来能跑」", "这是唯一零容忍的一条，会把联调问题推迟到上线"),
+    ("04", "不许私自装新依赖", "要装可以，但由人拍板：版本、离线、体积，都是人的责任"),
+    ("05", "不许改了字段不更新设计文档", "下次 AI 照旧文档写代码，你和它就会打架"),
+]
+for i, (num, ttl, why) in enumerate(forbids):
+    yy = top + 0.10 + i * 0.92
+    if i:
+        line_shape(s, ML, yy - 0.12, MR, yy - 0.12, RGBColor(0x2E, 0x34, 0x37), 0.75)
+    text(s, ML, yy + 0.02, 0.5, 0.3, [dict(t=num, size=10, bold=True, color=ACCENT, font=MONO)], check=False)
+    text(s, ML + 0.60, yy - 0.04, 6.6, 0.36, [dict(t=ttl, size=15.5, bold=True, color=PAPER)], check=False)
+    text(s, 7.95, yy + 0.02, 4.6, 0.5, [dict(t=why, size=9.8, color=RGBColor(0x9A, 0x9E, 0xA2), line=1.4)],
+         check=True, tag=f"forbid{i}")
+footer(s, 15, TOTAL, dark=True)
+notes(s, "4 分钟。大字念完即可，不要解释太多 —— 红线的作用是被记住，不是被理解。\n"
+         "可以打印成 A4 贴在每个工位。")
+
+# ============================================================ 16 四句话
+s = blank(prs)
+top = header(s, "16", "技巧 · 把「帮我写」换掉", "四句话，能省掉一半返工")
+
+quotes = [
+    ("「先别写代码，把方案和影响面说清楚。」", "省一次返工：先对齐再动手，比写完再改便宜十倍"),
+    ("「只改这个文件，其他一律不动。」", "防顺手重构：改动面越小，review 越快，出错越少"),
+    ("「根因是什么？用白话讲，再给最小修法。」", "防瞎试：讲不清根因，说明它只是在猜"),
+    ("「你说做完了 —— 证据是什么？」", "防自我认证：文件、门禁、verify，三样都要有"),
+]
+for i, (q, why) in enumerate(quotes):
+    xx = ML + (i % 2) * (W2 + 0.32)
+    yy = top + 0.06 + (i // 2) * 2.28
+    rect(s, xx, yy, W2, 2.02, fill=CARD, line=LINE, line_w=0.75, radius=0.03)
+    text(s, xx + 0.30, yy + 0.22, 0.4, 0.4, [dict(t="“", size=26, bold=True, color=ACCENT)], check=False)
+    text(s, xx + 0.66, yy + 0.26, W2 - 1.0, 0.86, [dict(t=q, size=14, bold=True, color=INK, line=1.5)],
+         check=True, tag=f"q{i}")
+    line_shape(s, xx + 0.66, yy + 1.24, xx + W2 - 0.34, yy + 1.24, LINE, 0.75)
+    text(s, xx + 0.66, yy + 1.38, W2 - 1.0, 0.5, [dict(t=why, size=10, color=MUTED, line=1.4)],
+         check=True, tag=f"why{i}")
+footer(s, 16, TOTAL)
+notes(s, "4 分钟。四句话让非开发同事也能立刻用起来 —— 他们不需要懂 Maven，也能听懂「证据是什么」。\n"
+         "建议现场让大家把第一句抄进自己的便签。")
+
+# ============================================================ 17 什么时候别用
+s = blank(prs)
+top = header(s, "17", "诚实 · 边界", "有些时候，别用这套流程",
+             sub="把流程当信仰，和不用流程一样危险。判断标准只有一条：流程成本 vs 返工成本。")
+
+cases = [("一次性脚本", "跑完就扔，没有下一个人维护"),
+         ("还在探索的原型", "需求自己都还没想清，先让它跑起来看"),
+         ("纯样式微调", "一个 CSS 值，走一遍流程纯属自虐"),
+         ("只为演示的 demo", "明天就要演，先出效果，回头再补")]
+for i, (a, b) in enumerate(cases):
+    xx = ML + (i % 2) * (W2 + 0.32)
+    yy = top + 0.06 + (i // 2) * 1.44
+    rect(s, xx, yy, W2, 1.20, fill=PAPER, radius=0.04)
+    text(s, xx + 0.30, yy + 0.20, 5.0, 0.3, [dict(t=a, size=13.5, bold=True, color=INK)], check=False)
+    text(s, xx + 0.30, yy + 0.58, 5.0, 0.3, [dict(t=b, size=10.5, color=MUTED)], check=False)
+
+rect(s, ML, 5.36, CW, 0.96, fill=TEAL_L, radius=0.04)
+text(s, ML + 0.30, 5.50, CW - 0.6, 0.68, [
+    dict(t="流程的目的是减少返工，不是增加仪式。当流程成本 > 返工成本，就用 B2，或者干脆别用。",
+         size=12.5, bold=True, color=TEAL, line=1.45)], check=True, tag="bound")
+footer(s, 17, TOTAL)
+notes(s, "3 分钟。这页是可信度的来源 —— 讲清「什么时候不用」，前面的「什么时候用」才有人信。\n"
+         "可以自嘲一句：我自己写一次性脚本，也从来不跑流程。")
+
+# ============================================================ 18 90 天
+s = blank(prs)
+top = header(s, "18", "落地 · 别一次全上", "四周，从一条旁路开始",
+             sub="一次性推全流程 = 一次性劝退。按周加码，每周只多学一个动作。")
+
+weeks = [("第 1 周", "只用 B2 和 B3", ["零学习成本，今天就能用", "小改直接说 B2", "报错贴完整栈给 B3"]),
+         ("第 2~3 周", "一个真实小需求走 1→3→4→7", ["跳过 2 和 6，先跑通闭环", "重点是看见 [LGTM]", "卡住就停下来问，别硬走"]),
+         ("第 2 月", "加 [2] 契约冻结 + [6] 集成", ["接口先定死再写代码", "集成跑真实数据，不用 mock"]),
+         ("第 3 月", "老项目 B1 + 复盘卡", ["先建地图再动刀", "踩过的坑写成 postmortem"])]
+for i, (wk, ttl, points) in enumerate(weeks):
+    xx = ML + i * 2.98
+    rect(s, xx, top + 0.30, 2.76, 0.04, fill=ACCENT)
+    text(s, xx, top + 0.02, 2.7, 0.26, [dict(t=wk, size=10, bold=True, color=ACCENT, font=MONO)], check=False)
+    text(s, xx, top + 0.50, 2.7, 0.66, [dict(t=ttl, size=12.5, bold=True, color=INK, line=1.4)],
+         check=True, tag=f"wk{i}")
+    for j, pt in enumerate(points):
+        text(s, xx, top + 1.28 + j * 0.52, 2.66, 0.5, [dict(t="· " + pt, size=9.5, color=INK_SOFT, line=1.35)],
+             check=True, tag=f"wkp{i}{j}")
+
+rect(s, ML, 5.94, CW, 0.88, fill=CARD, line=LINE, line_w=0.75, radius=0.04)
+text(s, ML + 0.30, 6.04, CW - 0.6, 0.3, [dict(t="配套材料", size=9.5, bold=True, color=MUTED, font=MONO)], check=False)
+text(s, ML + 0.30, 6.32, CW - 0.6, 0.34, [
+    dict(t="README（总览） · BEGINNER_HANDBOOK（保姆级） · docs/playbooks/demo-scripts.md（照着念的剧本） · workflow_guide.html（可交互）",
+         size=10.2, color=INK_SOFT)], check=False)
+footer(s, 18, TOTAL)
+notes(s, "5 分钟。落地页要具体到「下周做什么」，不要停在「大家要重视」。\n"
+         "建议指定一个人当「工作流值班人」，第一周专门解答 B2/B3 的用法。")
+
+# ============================================================ 19 速查卡
+s = blank(prs)
+top = header(s, "19", "带走 · 一页纸", "贴显示器边上")
+
+quad = [
+    ("日常三连", ["开工   B6", "干活   3 / B3 / B2", "收工   B5"], TEAL),
+    ("主链", ["1 规划 → 2 方案 → 3 编码", "4 门禁 → 5 评审 → 6 集成", "7 验收（唯一标绿出口）"], TEAL),
+    ("三条硬命令", ["board.py list", "board.py verify \"Task-XXX\"", "board.py complete ... --accept"], INK),
+    ("五个不许", ["不改 status.md", "不跳过 verify", "不写死假数据", "不私装依赖", "不改字段不改文档"], ACCENT),
+]
+for i, (ttl, lines, color) in enumerate(quad):
+    xx = ML + (i % 2) * (W2 + 0.32)
+    yy = top + 0.02 + (i // 2) * 2.28
+    rect(s, xx, yy, W2, 2.06, fill=CARD, line=LINE, line_w=0.75, radius=0.03)
+    rect(s, xx, yy, 0.05, 2.06, fill=color)
+    text(s, xx + 0.30, yy + 0.18, 4.8, 0.3, [dict(t=ttl, size=11, bold=True, color=color, font=MONO)], check=False)
+    for j, ln in enumerate(lines):
+        text(s, xx + 0.30, yy + 0.58 + j * 0.44, 4.9, 0.36,
+             [dict(t=ln, size=10.5, color=INK, font=MONO if i != 0 else FONT, line=1.3)], check=False)
+footer(s, 19, TOTAL)
+notes(s, "2 分钟。这一页可以单独导成 A4 打印，或截图发群里。\n"
+         "建议做成 PDF 贴在工位，比记 13 个指令靠谱。")
+
+# ============================================================ 20 结束
+s = blank(prs, DARK)
+text(s, ML, 1.10, 7.4, 0.34, [dict(t="接下来 24 小时", size=10, color=RGBColor(0x8C, 0x91, 0x96), font=MONO)], check=False)
+text(s, ML, 1.52, 7.6, 1.2, [dict(t="今天只做一件事：", size=30, bold=True, color=PAPER, line=1.4),
+                             dict(t="先把它当包工头，而不是许愿池。", size=30, bold=True, color=ACCENT, line=1.4)],
+     check=False)
+
+acts = [("01", "明天开工第一句，发 B6", "看它能不能 3 秒把你昨天的现场接上"),
+        ("02", "找一个 ≤ 20 行的改动，用 B2 走一遍", "感受一下「改完就完」是什么效率"),
+        ("03", "下次 AI 说「做完了」，问它证据", "文件清单 / 门禁结果 / verify 凭证")]
+for i, (num, a, b) in enumerate(acts):
+    yy = 3.28 + i * 0.94
+    text(s, ML, yy + 0.04, 0.5, 0.3, [dict(t=num, size=10, bold=True, color=ACCENT, font=MONO)], check=False)
+    text(s, ML + 0.58, yy, 7.2, 0.32, [dict(t=a, size=14, bold=True, color=PAPER)], check=False)
+    text(s, ML + 0.58, yy + 0.34, 7.2, 0.3, [dict(t=b, size=10, color=RGBColor(0x9A, 0x9E, 0xA2))], check=False)
+
+# 右侧资源
+rx = 8.55
+rect(s, rx, 1.62, 4.0, 4.24, fill=DARK_2, radius=0.03)
+text(s, rx + 0.32, 1.84, 3.4, 0.3, [dict(t="有问题先看这四个", size=11, bold=True, color=PAPER)], check=False)
+res = ["README.md", "BEGINNER_HANDBOOK.md", "docs/playbooks/demo-scripts.md", "workflow_guide.html"]
+for i, r in enumerate(res):
+    text(s, rx + 0.32, 2.34 + i * 0.62, 3.4, 0.3, [dict(t=r, size=9.5, color=RGBColor(0xC9, 0xC5, 0xBA), font=MONO)],
+         check=False)
+    if i < 3:
+        line_shape(s, rx + 0.32, 2.74 + i * 0.62, rx + 3.68, 2.74 + i * 0.62, RGBColor(0x33, 0x39, 0x3C), 0.75)
+text(s, rx + 0.32, 4.92, 3.4, 0.6, [dict(t="16 篇 SOP 在 .ai/sop/", size=9.5, color=RGBColor(0x8C, 0x91, 0x96), line=1.5)],
+     check=False)
+
+text(s, ML, 6.34, 7.6, 0.3, [dict(t="谢谢 · 现在可以开始问「我们组怎么用」了", size=11,
+                                 color=RGBColor(0x8C, 0x91, 0x96))], check=False)
+footer(s, 20, TOTAL, dark=True)
+notes(s, "最后 5 分钟留给提问。三个动作任选一个承诺即可，不要要求全做。\n"
+         "如果时间不够，直接跳过 18/19 两页，把速查卡发群里。")
+
+prs.save(OUT)
+
+warn = L.report_warnings()
+print(f"saved: {OUT}")
+print(f"slides: {len(prs.slides.__iter__.__self__._sldIdLst)}")
+if warn:
+    print("\n".join(warn))
+else:
+    print("no overflow warnings")

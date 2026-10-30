@@ -1,54 +1,74 @@
-# 🏭 工业全景网络仿真与拓扑排版系统性优化实施计划
+# 📋 任务看板 (Task Board)
 
-根据对当前大型抽蓄/智能变电站导入呈现效果的深度评审，针对“大区内部挤公交、A/B冗余网交叉打架、跨区长线悬空、长宽比严重失衡”四大痛点，制定以下具备先后依赖的敏捷解决路线图。
-
----
-
-## 🎯 任务全景路线图 (Roadmap)
-
-```mermaid
-graph TD
-    T1[任务一: 机组子集群透明容器 Sub-Zone 嵌套] --> T2[任务二: A/B双重化冗余总线镜像规整]
-    T2 --> T3[任务三: 跨区边界关口对齐与光纤隔离带强化]
-    T3 --> T4[任务四: 画布长宽比黄金矩阵与智能分屏聚焦]
-```
+> ⚠️ **本文件是任务状态机的唯一事实源，只允许通过 `python3 .ai/scripts/board.py` 修改。**
+> 区块由 HTML 注释锚点守护；AI 与人均严禁手工编辑，否则 `verify` / `complete` 会失效。
 
 ---
 
-### 📌 任务一：机组子集群透明容器（Sub-Zone 嵌套底板）
-* **解决痛点**：OT 生产大区内 20+ 台设备混在一起，缺乏机组现地屏柜物理单元感。
-* **实施方案**：
-  1. 在 `unitMap`（1#~4#机组）计算出各机组独立包围盒后，自动为每个机组生成半透明轻量卡槽底板（例如：`1号机组LCU控制屏柜`、`2号机组控制单元`）；
-  2. 底板使用虚线圆角框（`strokeDasharray: [4, 4]`），背景微透（`rgba(139, 92, 246, 0.05)`），顶部带小字标签；
-  3. 将机组主 LCU 与下挂的调速器、励磁、球阀完全纳入子底板内部。
-* **交付成效**：一眼识别 4 棵并列的机组独立工业单元，彻底告别“大通铺挤公交”。
+<!-- SECTION:ACTIVE:START -->
+
+<!-- SECTION:ACTIVE:END -->
 
 ---
 
-### 📌 任务二：A/B 双重化冗余骨干总线（左右对称/上下双总线规整）
-* **解决痛点**：A网交换机与B网交换机挤在一起横排，导致 A网与B网的下垂连线相互穿透交叉。
-* **实施方案**：
-  1. 识别具有 `A网/B网`、`主用/备用`、`双重化` 属性的核心交换/监控主机对；
-  2. 采用标准电力二次自动化规范的**对称总线布局**：
-     * **方案 A（左右镜像）**：A网系统居左侧，B网系统居右侧，中间留出双机热备心跳通道；
-     * **方案 B（双母线错峰）**：A网为上总线，B网下移 20px 形成错峰下垂，双网连线各走专属端口通道，彻底杜绝空中十字交叉。
-* **交付成效**：真正展现国家电网/南网高可靠性“双重化保护与容错”架构。
+<!-- SECTION:BLOCKED:START -->
+
+<!-- SECTION:BLOCKED:END -->
+
 
 ---
 
-### 📌 任务三：跨区边界关口对齐与等保隔离光纤通道
-* **解决痛点**：IT到DMZ再到OT的连线长达千像素，在空白区域硬拉一条悬空直线，毫无物理隔离与安全边界感。
-* **实施方案**：
-  1. **边界关口置边吸附**：将防火墙、单向网闸、纵向加密认证装置自动布局在大区的右边缘/左边缘边界线上；
-  2. **隔离区安全走廊渲染**：在 IT ➔ DMZ ➔ OT 之间的大区空隙处，绘制专业工业“安全隔离带”背景网格与光纤干道标识；
-  3. 跨区连线严格作为“安全通信摆渡通道”，赋予不同的光纤脉冲流光特效（例如纯激光单向传输）。
-* **交付成效**：等保 2.0 工业安全隔离要求一目了然，极具专业演示与实战汇报说服力。
+<!-- SECTION:TODO:START -->
+
+<!-- SECTION:TODO:END -->
 
 ---
 
-### 📌 任务四：画布长宽比黄金矩阵与智能分屏聚焦（避免压扁）
-* **解决痛点**：全屏 `zoomToFit` 呈现出 5:1 的狭长扁条，字小看不清。
-* **实施方案**：
-  1. 优化大区排列结构，当检测到大区数量 ≥ 3 且单个大区特别宽时，支持**工业 16:9 矩阵自适应折行**（如上层 IT/DMZ 管理层，下层 OT 生产区全景横向铺开）；
-  2. 实现“分区点击一键聚焦平滑缩放（Focus Zone）”，双击某个大区时平滑平移居中并放大至最佳阅读比例。
-* **交付成效**：首屏加载比例饱满震撼，字体清晰可见，交互流畅灵动。
+<!-- SECTION:DONE:START -->
+
+[Task-508] [S2-Muscle] 需求工作台全景数据动态对接与项目详情闭环 (Done: 2026-10-29)
+- **Status**: DONE
+- **功能目标**: 打通后端Project/Stats真实接口，消除前端假数据与字段映射脱节，实现工作台与需求详情100%动态数据闭环
+- **涉及文件**: base_template/backend/platform-server/src/main/java/com/apex/req/controller/ProjectController.java,base_template/backend/platform-server/src/main/java/com/apex/req/service/ProjectService.java,base_template/frontend/src/api/req.ts,base_template/frontend/src/modules/req-management/views/ReqManagementView.vue
+
+[Task-507] [S2-Muscle] 需求治理平台菜单架构重构与SQL权限初始化 (Done: 2026-10-29)
+- **Status**: DONE
+- **功能目标**: 将内嵌项目空间菜单挂载至需求治理平台并补齐数据库菜单权限
+- **涉及文件**: docs/db/service.sql,docs/db/base.sql,base_template/frontend/src/views/layout/Layout.vue,base_template/frontend/src/router/index.ts,base_template/frontend/src/modules/req-management/views/ReqManagementView.vue
+
+[Task-506] [S3-Stub] 基线增量差异计算引擎与联调探针 (Done: 2026-10-29)
+- **Status**: DONE
+- **功能目标**: 实现 BL-v1.0 与 BL-v1.1 的清单/原型/文档三合一增量比对引擎与自动化测试
+- **涉及文件**: base_template/backend/platform-server/src/main/java/com/apex/req/service/DiffService.java
+
+[Task-505] [S2-Muscle] 基线冻结看门狗门禁与 JGit Tag 自动化 (Done: 2026-10-29)
+- **Status**: DONE
+- **功能目标**: 实现蓝皮书§4.1的4项硬门禁核验、打包归档Zip并在本地代码库自动打标Git Tag
+- **涉及文件**: base_template/backend/platform-server/src/main/java/com/apex/req/service/BaselineService.java
+
+[Task-504] [S2-Muscle] 客户免登录签名令牌与防伪电子回执引擎 (Done: 2026-10-29)
+- **Status**: DONE
+- **功能目标**: 实现 HMAC 一次性令牌发放、4位防窥码校验、一句话复述存证与防伪回执生成
+- **涉及文件**: base_template/backend/platform-server/src/main/java/com/apex/req/service/ApprovalService.java
+
+[Task-503] [S2-Muscle] 需求与四层清单核心服务及实时代价计算器 (Done: 2026-10-29)
+- **Status**: DONE
+- **功能目标**: 实现需求录入、清单项决策切换、人天代价实时代价折算与持久化
+- **涉及文件**: base_template/backend/platform-server/src/main/java/com/apex/req/service/RequirementService.java
+
+[Task-502] [S1-Bone] 原型静态沙盒目录托管与 SHA256 引擎 (Done: 2026-10-29)
+- **Status**: DONE
+- **功能目标**: 实现原型 ZIP 包解压、本地静态托管服务与全目录 SHA256 计算引擎
+- **涉及文件**: base_template/backend/platform-server/src/main/java/com/apex/req/service/PrototypeService.java
+
+[Task-501] [S1-Bone] 数据库实体类与 MyBatis-Plus 映射层 (Done: 2026-10-29)
+- **Status**: DONE
+- **功能目标**: 针对 service.sql 中的 7 张表生成 Java Entity、Mapper 与基础 CRUD 骨架
+- **涉及文件**: base_template/backend/platform-server/src/main/java/com/apex/req
+
+[Task-400] [S1-Bone] 工作流 v2 内核加固（脚本/文档/手册） (Done: 2026-10-28)
+- **Status**: DONE
+- **功能目标**: 让 board.py 具备 verify+--accept 与原子归档、gate.py 补齐 4 类门禁与元门禁、全仓文档口径一致并落地新手手册
+- **涉及文件**: .ai/scripts/board.py,.ai/scripts/gate.py,.ai/scripts/sync_tree.py,BEGINNER_HANDBOOK.md,workflow_guide.html
+
+<!-- SECTION:DONE:END -->

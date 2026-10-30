@@ -1,0 +1,2302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>需求与版本管理平台 · 交互原型 (v0.3)</title>
+  <style>
+    :root {
+      --primary: #14535B;
+      --primary-dark: #0D373D;
+      --primary-light: #E6F0F2;
+      --accent: #C2410C;
+      --accent-light: #FFEDD5;
+      --bg: #F8FAFC;
+      --surface: #FFFFFF;
+      --border: #E2E8F0;
+      --border-dark: #CBD5E1;
+      --text: #0F172A;
+      --text-muted: #64748B;
+      --text-secondary: #334155;
+      --success: #16A34A;
+      --success-light: #DCFCE7;
+      --warning: #D97706;
+      --warning-light: #FEF3C7;
+      --info: #0284C7;
+      --info-light: #E0F2FE;
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-family);
+      background-color: var(--bg);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* 顶部顶栏 */
+    header.app-header {
+      background-color: var(--primary);
+      color: #FFFFFF;
+      height: 52px;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: var(--shadow-sm);
+      z-index: 50;
+      flex-shrink: 0;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .logo-badge {
+      background: rgba(255, 255, 255, 0.15);
+      font-weight: 700;
+      font-size: 13px;
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      letter-spacing: 0.5px;
+    }
+    .app-title {
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .project-selector {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      color: #FFF;
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      cursor: pointer;
+      outline: none;
+    }
+    .project-selector option {
+      background: var(--surface);
+      color: var(--text);
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .role-badge {
+      background: #E6F0F2;
+      color: var(--primary-dark);
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .view-mode-toggle {
+      background: rgba(0, 0, 0, 0.2);
+      padding: 3px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      gap: 2px;
+    }
+    .view-mode-btn {
+      background: transparent;
+      border: none;
+      color: #E2E8F0;
+      padding: 4px 10px;
+      font-size: 12px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .view-mode-btn.active {
+      background: var(--surface);
+      color: var(--primary);
+      font-weight: 600;
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* 主体布局 */
+    .app-body {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - 52px);
+      overflow: hidden;
+    }
+
+    /* 左侧导航栏 */
+    aside.sidebar {
+      width: 220px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      user-select: none;
+    }
+    .nav-group-title {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 16px 16px 6px;
+      font-weight: 600;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 16px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+      border-left: 3px solid transparent;
+      text-decoration: none;
+    }
+    .nav-item:hover {
+      background: var(--bg);
+      color: var(--primary);
+    }
+    .nav-item.active {
+      background: var(--primary-light);
+      color: var(--primary);
+      font-weight: 600;
+      border-left-color: var(--primary);
+    }
+    .nav-badge {
+      margin-left: auto;
+      background: var(--border);
+      color: var(--text-secondary);
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      font-weight: 500;
+    }
+    .nav-badge.pending {
+      background: var(--accent-light);
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    /* 右侧内容区 */
+    main.main-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      background: var(--bg);
+      position: relative;
+    }
+
+    /* 视图显隐控制 */
+    .view-page {
+      display: none;
+      animation: fadeIn 0.15s ease-in-out;
+    }
+    .view-page.active {
+      display: block;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* 通用 UI 组件 */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #FCFDFE;
+    }
+    .card-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-body {
+      padding: 20px;
+    }
+
+    /* 按钮 */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 7px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.15s;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: #FFF;
+      border-color: var(--primary);
+    }
+    .btn-primary:hover {
+      background: var(--primary-dark);
+      border-color: var(--primary-dark);
+    }
+    .btn-outline {
+      background: var(--surface);
+      color: var(--text-secondary);
+      border-color: var(--border-dark);
+    }
+    .btn-outline:hover {
+      background: var(--bg);
+      color: var(--text);
+      border-color: #94A3B8;
+    }
+    .btn-accent {
+      background: var(--accent);
+      color: #FFF;
+      border-color: var(--accent);
+    }
+    .btn-accent:hover {
+      background: #9A3412;
+    }
+    .btn-sm {
+      padding: 4px 8px;
+      font-size: 12px;
+    }
+
+    /* 标签 Tag */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1.2;
+    }
+    .tag-draft { background: #F1F5F9; color: #475569; }
+    .tag-clarifying { background: #E0F2FE; color: #0369A1; }
+    .tag-pending { background: #FFEDD5; color: #C2410C; }
+    .tag-baselined { background: #DCFCE7; color: #15803D; }
+    .tag-released { background: #E6F0F2; color: #14535B; }
+    .tag-danger { background: #FEE2E2; color: #B91C1C; }
+
+    /* 表格 */
+    .table-container {
+      width: 100%;
+      overflow-x: auto;
+    }
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13px;
+    }
+    table.data-table th {
+      background: #F8FAFC;
+      color: var(--text-muted);
+      font-weight: 600;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    table.data-table td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-secondary);
+      vertical-align: middle;
+    }
+    table.data-table tr:hover td {
+      background: #F9FBFC;
+    }
+
+    /* 指标统计卡片 Grid */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 16px;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-sm);
+    }
+    .stat-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .stat-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* 抽屉 Drawer & 模态框 Modal */
+    .drawer-overlay, .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(15, 23, 42, 0.5);
+      backdrop-filter: blur(2px);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .drawer-overlay.active, .modal-overlay.active {
+      display: flex;
+    }
+    .drawer-panel {
+      position: fixed;
+      top: 0; right: -680px; bottom: 0;
+      width: 640px;
+      background: var(--surface);
+      box-shadow: var(--shadow-lg);
+      z-index: 101;
+      display: flex;
+      flex-direction: column;
+      transition: right 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .drawer-panel.open {
+      right: 0;
+    }
+    .drawer-header, .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #FAFAFA;
+    }
+    .drawer-title, .modal-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .drawer-body, .modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .drawer-footer, .modal-footer {
+      padding: 14px 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 12px;
+      background: #FAFAFA;
+    }
+
+    /* 表单组件 */
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+    .form-label.required::after {
+      content: " *";
+      color: #DC2626;
+    }
+    .form-control {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--border-dark);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      outline: none;
+      background: var(--surface);
+      color: var(--text);
+      font-family: inherit;
+    }
+    .form-control:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px var(--primary-light);
+    }
+    .form-hint {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* 确认清单四层与代价联动专用组件 */
+    .checklist-layer-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+      gap: 8px;
+    }
+    .checklist-tab-btn {
+      padding: 8px 14px;
+      font-size: 13px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      font-weight: 500;
+    }
+    .checklist-tab-btn.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+      font-weight: 600;
+    }
+    .decision-options {
+      display: flex;
+      gap: 6px;
+    }
+    .decision-btn {
+      padding: 4px 10px;
+      font-size: 12px;
+      border: 1px solid var(--border-dark);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      background: var(--surface);
+      color: var(--text-secondary);
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+    .decision-btn.active-current {
+      background: var(--success);
+      color: #FFF;
+      border-color: var(--success);
+    }
+    .decision-btn.active-next {
+      background: var(--info);
+      color: #FFF;
+      border-color: var(--info);
+    }
+    .decision-btn.active-skip {
+      background: #94A3B8;
+      color: #FFF;
+      border-color: #94A3B8;
+    }
+
+    /* 代价总计栏 */
+    .cost-summary-bar {
+      background: #F0FDF4;
+      border: 1px solid #BBF7D0;
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 16px;
+      font-size: 13px;
+    }
+    .cost-stat-tag {
+      font-weight: 700;
+      color: #15803D;
+      font-size: 16px;
+      margin-left: 4px;
+    }
+
+    /* 客户外部免登录视角样式 */
+    .client-viewport-container {
+      max-width: 920px;
+      margin: 0 auto;
+      background: var(--surface);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--border);
+      position: relative;
+    }
+    .watermark-overlay {
+      position: absolute;
+      top: 10px; right: 16px;
+      font-size: 12px;
+      color: var(--text-muted);
+      pointer-events: none;
+      opacity: 0.7;
+    }
+    .client-header {
+      padding: 24px 30px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(to right, #F8FAFC, #FFFFFF);
+    }
+    .client-quote-box {
+      background: #F1F5F9;
+      border-left: 4px solid var(--primary);
+      padding: 12px 16px;
+      margin-top: 14px;
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      font-size: 13px;
+      color: var(--text-secondary);
+      font-style: italic;
+    }
+    .client-section {
+      padding: 20px 30px;
+      border-bottom: 1px solid var(--border);
+    }
+    .client-section-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .client-iframe-mock {
+      width: 100%;
+      height: 280px;
+      border: 1px solid var(--border-dark);
+      border-radius: var(--radius-sm);
+      background: #FAFAFA;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      position: relative;
+      overflow: hidden;
+    }
+    .receipt-box {
+      border: 2px dashed #CBD5E1;
+      padding: 24px;
+      border-radius: var(--radius-md);
+      background: #FAFCFF;
+      margin: 20px 0;
+    }
+
+    /* P13 演进时间线专用样式 */
+    .timeline-container {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 24px;
+      box-shadow: var(--shadow-sm);
+      position: relative;
+      overflow-x: auto;
+    }
+    .timeline-legend {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+      padding-bottom: 16px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .timeline-axis-header {
+      display: flex;
+      margin-left: 200px;
+      border-bottom: 2px solid var(--border-dark);
+      padding-bottom: 8px;
+      margin-bottom: 20px;
+      position: relative;
+    }
+    .axis-tick {
+      flex: 1;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      position: relative;
+    }
+    .axis-tick::before {
+      content: '';
+      position: absolute;
+      bottom: -10px;
+      left: 0;
+      width: 1px;
+      height: 6px;
+      background: var(--border-dark);
+    }
+    .timeline-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 24px;
+      position: relative;
+      min-height: 48px;
+    }
+    .timeline-row-label {
+      width: 190px;
+      padding-right: 12px;
+      flex-shrink: 0;
+    }
+    .timeline-row-req-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .timeline-track-wrap {
+      flex: 1;
+      height: 44px;
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .timeline-track-line {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: #E2E8F0;
+      transform: translateY(-50%);
+      border-radius: 2px;
+      z-index: 1;
+    }
+    .timeline-node {
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .timeline-node:hover {
+      transform: translate(-50%, -58%) scale(1.08);
+    }
+    .node-icon-circle {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #FFF;
+      border: 3px solid #64748B;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .node-icon-circle.prototype {
+      border-color: #0284C7;
+      background: #E0F2FE;
+      color: #0284C7;
+    }
+    .node-icon-circle.baseline {
+      border-color: #16A34A;
+      background: #DCFCE7;
+      color: #16A34A;
+    }
+    .node-icon-circle.pending-baseline {
+      border-color: #D97706;
+      background: #FEF3C7;
+      color: #D97706;
+    }
+    .node-icon-circle.release {
+      border-color: #14535B;
+      background: #14535B;
+      color: #FFF;
+    }
+    .node-title-badge {
+      position: absolute;
+      top: 26px;
+      white-space: nowrap;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #FFF;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .timeline-date-marker {
+      position: absolute;
+      bottom: 26px;
+      font-size: 10px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .timeline-connection-line {
+      position: absolute;
+      top: 50%;
+      height: 4px;
+      background: #16A34A;
+      transform: translateY(-50%);
+      z-index: 1;
+      border-radius: 2px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 顶部导航 -->
+  <header class="app-header">
+    <div class="header-left">
+      <span class="logo-badge">APEX</span>
+      <div class="app-title">
+        <span>需求与版本管理平台</span>
+      </div>
+      <select class="project-selector" id="projectSelect" onchange="handleProjectChange(this.value)">
+        <option value="NET-SIM">NET-SIM · 网络拓扑仿真平台</option>
+        <option value="IOT-GW">IOT-GW · 工业物联网网关</option>
+      </select>
+    </div>
+    <div class="header-right">
+      <div class="view-mode-toggle">
+        <button class="view-mode-btn active" id="btnModeInternal" onclick="switchPerspective('internal')">内部管理端 (P01~P18)</button>
+        <button class="view-mode-btn" id="btnModeClient" onclick="switchPerspective('client')">外部客户免登录端 (E01~E03)</button>
+      </div>
+      <span class="role-badge" id="userRoleBadge">张工 (产品经理)</span>
+    </div>
+  </header>
+
+  <!-- 主体工作区 -->
+  <div class="app-body">
+
+    <!-- 左侧菜单 (仅内部端展示) -->
+    <aside class="sidebar" id="appSidebar">
+      <div class="nav-group-title">项目空间</div>
+      <a class="nav-item active" onclick="navigatePage('page-dashboard')">
+        <span>📊 项目工作台</span>
+        <span class="nav-badge">P03</span>
+      </a>
+      <a class="nav-item" onclick="navigatePage('page-req-detail')">
+        <span>📝 需求详情 & 清单</span>
+        <span class="nav-badge">P04</span>
+      </a>
+      <a class="nav-item" onclick="navigatePage('page-prototypes')">
+        <span>🎨 原型版本与托管</span>
+        <span class="nav-badge">P07</span>
+      </a>
+      <a class="nav-item" onclick="navigatePage('page-baselines')">
+        <span>🔒 需求基线与签字</span>
+        <span class="nav-badge pending">P10</span>
+      </a>
+      <a class="nav-item" onclick="navigatePage('page-baseline-diff')">
+        <span>⚖️ 基线差异对比</span>
+        <span class="nav-badge">P12</span>
+      </a>
+      <a class="nav-item" onclick="navigatePage('page-releases')">
+        <span>🚀 发布版本追踪</span>
+        <span class="nav-badge">P16</span>
+      </a>
+      <a class="nav-item" onclick="navigatePage('page-timeline')">
+        <span>📈 需求演进时间线</span>
+        <span class="nav-badge">P13</span>
+      </a>
+
+      <div class="nav-group-title">全局与设置</div>
+      <a class="nav-item" onclick="navigatePage('page-enums')">
+        <span>⚙️ 码表配置中心</span>
+        <span class="nav-badge">P17</span>
+      </a>
+      <a class="nav-item" onclick="navigatePage('page-theme')">
+        <span>🎨 外观与工业主题</span>
+        <span class="nav-badge">P18</span>
+      </a>
+      <a class="nav-item" onclick="openDrawer('drawerNewReq')">
+        <span style="color:var(--primary); font-weight:600;">➕ 快速录入新需求</span>
+        <span class="nav-badge">M02</span>
+      </a>
+    </aside>
+
+    <!-- 右侧内容主视窗 -->
+    <main class="main-content" id="appMain">
+
+      <!-- ================= P03 项目工作台 ================= -->
+      <div id="page-dashboard" class="view-page active">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+          <div>
+            <h2 style="font-size:20px; font-weight:700;">NET-SIM 项目需求工作台</h2>
+            <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">留痕 · 可确认 · 可追溯 · 契约与快照单一事实源</p>
+          </div>
+          <div style="display:flex; gap:10px;">
+            <button class="btn btn-outline" onclick="openModal('modalNewProject')">新建项目 (M01)</button>
+            <button class="btn btn-primary" onclick="openDrawer('drawerNewReq')">+ 新建需求 (M02)</button>
+          </div>
+        </div>
+
+        <!-- 统计卡片 -->
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="stat-label">总需求项</div>
+            <div class="stat-value" id="statReqCount">34</div>
+            <div class="stat-sub">本期规划 18 项</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">已冻结基线</div>
+            <div class="stat-value" style="color:var(--success);">12</div>
+            <div class="stat-sub">最新 BL-v1.1</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">待签字 / 待确认</div>
+            <div class="stat-value" style="color:var(--accent);">3</div>
+            <div class="stat-sub">包含 1 项临期警告</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">原型快照总数</div>
+            <div class="stat-value">21</div>
+            <div class="stat-sub">100% SHA256 哈希固化</div>
+          </div>
+        </div>
+
+        <!-- 需求列表卡片 -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">
+              <span>📋 需求全景清单 (L1)</span>
+              <span class="tag tag-clarifying">共 3 条精选记录</span>
+            </div>
+            <div style="display:flex; gap:10px;">
+              <input type="text" class="form-control" style="width:200px;" placeholder="按编号/标题过滤...">
+              <button class="btn btn-outline btn-sm">筛选</button>
+            </div>
+          </div>
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>需求编号</th>
+                  <th>需求标题</th>
+                  <th>当前状态</th>
+                  <th>基线归属</th>
+                  <th>负责人</th>
+                  <th>代价合计</th>
+                  <th>最后更新</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="dashboardReqTable">
+                <tr>
+                  <td><strong>REQ-001</strong></td>
+                  <td><a href="javascript:void(0)" onclick="navigatePage('page-req-detail')" style="color:var(--primary); font-weight:600; text-decoration:none;">设备在线状态看板与拓扑动态预警</a></td>
+                  <td><span class="tag tag-baselined">● 已基线</span></td>
+                  <td><span style="font-family:monospace; color:var(--primary);">BL-v1.1</span></td>
+                  <td>李工</td>
+                  <td><strong>3.0 人天</strong></td>
+                  <td>2026-11-02</td>
+                  <td>
+                    <button class="btn btn-outline btn-sm" onclick="navigatePage('page-req-detail')">详情 (P04)</button>
+                    <button class="btn btn-outline btn-sm" onclick="openDrawer('drawerChecklist')">清单 (P06)</button>
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>REQ-002</strong></td>
+                  <td><a href="javascript:void(0)" onclick="navigatePage('page-req-detail')" style="color:var(--text); text-decoration:none;">告警规则配置与阈值自动抑制</a></td>
+                  <td><span class="tag tag-pending">● 待客户签字</span></td>
+                  <td>—</td>
+                  <td>李工</td>
+                  <td><strong>2.5 人天</strong></td>
+                  <td>2026-11-01</td>
+                  <td>
+                    <button class="btn btn-outline btn-sm" onclick="navigatePage('page-req-detail')">详情</button>
+                    <button class="btn btn-accent btn-sm" onclick="switchPerspective('client')">模拟客户签字 (E02)</button>
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>REQ-003</strong></td>
+                  <td><a href="javascript:void(0)" style="color:var(--text); text-decoration:none;">机组拓扑批量导入导出与校验</a></td>
+                  <td><span class="tag tag-clarifying">● 需求澄清中</span></td>
+                  <td>—</td>
+                  <td>王工</td>
+                  <td><strong>4.0 人天</strong></td>
+                  <td>2026-10-30</td>
+                  <td>
+                    <button class="btn btn-outline btn-sm" onclick="navigatePage('page-req-detail')">详情</button>
+                    <button class="btn btn-outline btn-sm" onclick="openDrawer('drawerChecklist')">录入清单</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= P04 需求详情 & 清单 ================= -->
+      <div id="page-req-detail" class="view-page">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="color:var(--text-muted); cursor:pointer;" onclick="navigatePage('page-dashboard')">工作台</span>
+              <span style="color:var(--text-muted);">/</span>
+              <span style="font-weight:700; font-size:18px;">REQ-001 · 设备在线状态看板</span>
+              <span class="tag tag-baselined">已基线 BL-v1.1</span>
+            </div>
+            <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">负责人：李工 (研发) ｜ 创建：2026-10-26 ｜ 优先级：P1</p>
+          </div>
+          <div style="display:flex; gap:10px;">
+            <button class="btn btn-outline" onclick="openDrawer('drawerChecklist')">✏️ 编辑确认清单 (P06)</button>
+            <button class="btn btn-primary" onclick="openDrawer('drawerNewBaseline')">🔒 生成新基线 (M08)</button>
+          </div>
+        </div>
+
+        <!-- 客户原话引用 -->
+        <div class="card" style="border-left: 4px solid var(--primary); background:#FCFDFE;">
+          <div class="card-body" style="padding:14px 20px;">
+            <div style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:4px;">🗣️ 客户原话记录 (不可篡改留痕)</div>
+            <div style="font-size:14px; color:var(--text); font-style:italic;">
+              「我想在页面上直观看到每台交换机和LCU是不是在线，掉线了要能红圈高亮知道断多久，但第一期千万别搞太复杂的历史报表导出，我们来不及验收。」
+            </div>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px;">
+          <!-- 清单详情 -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">📌 四层确认清单详情 (L2)</div>
+              <span style="font-size:12px; color:var(--text-muted);">本期已敲定 6 项 · 不做 3 项</span>
+            </div>
+            <div class="card-body" style="padding:0;">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>层级类别</th>
+                    <th>问法与细化项</th>
+                    <th>选项约定</th>
+                    <th>代价</th>
+                    <th>决定结果</th>
+                  </tr>
+                </thead>
+                <tbody id="detailChecklistRows">
+                  <tr>
+                    <td><span class="tag tag-clarifying">范围</span></td>
+                    <td><strong>R-01 核心监测界面</strong></td>
+                    <td>B. 在线状态 + 拓扑告警</td>
+                    <td>+2.0d</td>
+                    <td><span class="tag tag-baselined">✔ 本期做</span></td>
+                  </tr>
+                  <tr>
+                    <td><span class="tag tag-clarifying">范围</span></td>
+                    <td><strong>R-02 多机房按需筛选</strong></td>
+                    <td>支持按 1#~4# 机组快速筛选</td>
+                    <td>+1.0d</td>
+                    <td><span class="tag tag-baselined">✔ 本期做</span></td>
+                  </tr>
+                  <tr>
+                    <td><span class="tag tag-draft">规则</span></td>
+                    <td><strong>B-01 心跳断联掉线判定</strong></td>
+                    <td>连续 60 秒无心跳视为掉线</td>
+                    <td>0.0d</td>
+                    <td><span class="tag tag-baselined">✔ 本期做</span></td>
+                  </tr>
+                  <tr>
+                    <td><span class="tag tag-danger">不做</span></td>
+                    <td><strong>N-01 历史曲线与报表导出</strong></td>
+                    <td>留存至下期或二期规划</td>
+                    <td>—</td>
+                    <td><span class="tag tag-draft">❌ 本期不做</span></td>
+                  </tr>
+                  <tr>
+                    <td><span class="tag tag-danger">不做</span></td>
+                    <td><strong>N-02 精细化权限分组</strong></td>
+                    <td>统一走系统管理员后台开户</td>
+                    <td>—</td>
+                    <td><span class="tag tag-draft">❌ 本期不做</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 右侧关联信息 -->
+          <div>
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title">🔗 绑定快照资产</div>
+              </div>
+              <div class="card-body">
+                <div style="margin-bottom:12px;">
+                  <div style="font-size:12px; color:var(--text-muted);">绑定原型版本</div>
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px;">
+                    <strong style="color:var(--primary);">mockup v3.0 (最新快照)</strong>
+                    <button class="btn btn-outline btn-sm" onclick="navigatePage('page-prototypes')">查看 (P08)</button>
+                  </div>
+                  <div style="font-family:monospace; font-size:11px; color:#64748B; margin-top:2px;">SHA256: a3f9c2e177b9...</div>
+                </div>
+                <hr style="border:none; border-top:1px solid var(--border); margin:12px 0;">
+                <div>
+                  <div style="font-size:12px; color:var(--text-muted);">关联设计文档 (L4)</div>
+                  <ul style="list-style:none; margin-top:6px; font-size:13px;">
+                    <li style="padding:4px 0; display:flex; justify-content:space-between;">
+                      <span>📄 详细设计说明书 v1.0</span>
+                      <span class="tag tag-draft">SHA已固化</span>
+                    </li>
+                    <li style="padding:4px 0; display:flex; justify-content:space-between;">
+                      <span>📊 DDL 结构与回滚配对</span>
+                      <span class="tag tag-draft">1:1 配对</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div class="card" style="border-top:3px solid var(--success);">
+              <div class="card-body">
+                <div style="font-weight:600; font-size:13px; margin-bottom:6px;">🔒 当前基线状态：BL-v1.1 (已冻结)</div>
+                <p style="font-size:12px; color:var(--text-muted); line-height:1.6;">
+                  业务拍板人（张工）与验收人（李工）均已完成签名；此版本任何字段已不可随意在代码中擅改。
+                </p>
+                <button class="btn btn-outline btn-sm" style="width:100%; margin-top:10px;" onclick="navigatePage('page-baseline-diff')">查看与 BL-v1.0 差异 (P12)</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= P07/P08 原型版本管理与预览 ================= -->
+      <div id="page-prototypes" class="view-page">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <div>
+            <h2 style="font-size:20px; font-weight:700;">REQ-001 · 原型版本管理 (P07)</h2>
+            <p style="color:var(--text-muted); font-size:13px;">严格遵循“旧版本永不覆盖”、“SHA256 快照固化”与“在线只读可交互”规范</p>
+          </div>
+          <button class="btn btn-primary" onclick="openModal('modalUploadPrototype')">📤 上传新版本 (M05)</button>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 320px 1fr; gap:20px;">
+          <!-- 版本列表 -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">📦 版本快照清单 (L3)</div>
+            </div>
+            <div style="padding:10px;">
+              <div style="padding:12px; border-radius:var(--radius-sm); background:var(--primary-light); border:1px solid var(--primary); margin-bottom:8px; cursor:pointer;" onclick="selectPrototypeVersion('v3')">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <strong>mockup v3.0</strong>
+                  <span class="tag tag-baselined">● 基线引用</span>
+                </div>
+                <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">上传人: 李工 ｜ 2026-11-02 10:12</div>
+                <div style="font-family:monospace; font-size:11px; color:var(--primary); margin-top:4px;">hash: a3f9c2e177b9d40...</div>
+              </div>
+
+              <div style="padding:12px; border-radius:var(--radius-sm); background:#FFF; border:1px solid var(--border); margin-bottom:8px; cursor:pointer;" onclick="selectPrototypeVersion('v2')">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <strong>mockup v2.0</strong>
+                  <span class="tag tag-draft">历史存档</span>
+                </div>
+                <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">上传人: 李工 ｜ 2026-10-30 16:40</div>
+                <div style="font-family:monospace; font-size:11px; color:#64748B; margin-top:4px;">hash: 7c1e8432a901f...</div>
+              </div>
+
+              <div style="padding:12px; border-radius:var(--radius-sm); background:#FFF; border:1px solid var(--border); cursor:pointer;" onclick="selectPrototypeVersion('v1')">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <strong>mockup v1.0</strong>
+                  <span class="tag tag-draft">初始线框</span>
+                </div>
+                <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">上传人: 李工 ｜ 2026-10-27 09:05</div>
+                <div style="font-family:monospace; font-size:11px; color:#64748B; margin-top:4px;">hash: b2d7601aa431c...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 原型全屏沙盒只读预览 (P08) -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <span>🖥️ 在线原型渲染预览 (P08)</span>
+                <span class="tag tag-clarifying" id="currentProtoLabel">渲染版本：mockup v3.0 (只读沙盒)</span>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <button class="btn btn-outline btn-sm" onclick="alert('已模拟触发安全下载该版本的打包 ZIP')">⬇️ 下载快照 Zip</button>
+              </div>
+            </div>
+            <div class="card-body" style="padding:16px;">
+              <!-- 模拟只读可点击的原型界面 -->
+              <div style="border:2px solid var(--border-dark); border-radius:var(--radius-sm); background:#FFF; height:420px; display:flex; flex-direction:column; overflow:hidden;">
+                <div style="background:#0F172A; color:#FFF; padding:8px 14px; font-size:12px; display:flex; justify-content:space-between; align-items:center;">
+                  <span>🔴 🟡 🟢 原型模拟器：http://localhost:5173/preview/req-001/v3/mockup.html</span>
+                  <span>只读模式 (Iframe Sandbox)</span>
+                </div>
+                <div style="flex:1; padding:20px; background:#F8FAFC; overflow-y:auto;">
+                  <div style="display:flex; justify-content:space-between; align-items:center; background:#FFF; padding:12px 16px; border:1px solid #E2E8F0; border-radius:4px; margin-bottom:14px;">
+                    <span style="font-weight:700; color:#14535B;">OT 工控机组状态看板 (原型预览)</span>
+                    <div style="display:flex; gap:8px;">
+                      <button class="btn btn-outline btn-sm">1# 机组</button>
+                      <button class="btn btn-outline btn-sm">2# 机组</button>
+                      <button class="btn btn-outline btn-sm">3# 机组</button>
+                    </div>
+                  </div>
+                  <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;">
+                    <div style="background:#FFF; padding:14px; border:1px solid #E2E8F0; border-radius:4px;">
+                      <div style="display:flex; justify-content:space-between;"><strong>主 LCU 节点</strong><span style="color:#16A34A;">● 在线</span></div>
+                      <div style="font-size:12px; color:#64748B; margin-top:6px;">心跳间隔: 10s ｜ IP: 10.20.1.1</div>
+                    </div>
+                    <div style="background:#FFF; padding:14px; border:1px solid #FCA5A5; border-radius:4px; background:#FFF5F5;">
+                      <div style="display:flex; justify-content:space-between;"><strong>调速器控制器</strong><span style="color:#DC2626;">● 掉线 (1m30s)</span></div>
+                      <div style="font-size:12px; color:#DC2626; margin-top:6px;">已触发声光告警</div>
+                    </div>
+                    <div style="background:#FFF; padding:14px; border:1px solid #E2E8F0; border-radius:4px;">
+                      <div style="display:flex; justify-content:space-between;"><strong>励磁主调节单元</strong><span style="color:#16A34A;">● 在线</span></div>
+                      <div style="font-size:12px; color:#64748B; margin-top:6px;">心跳间隔: 10s ｜ IP: 10.20.1.3</div>
+                    </div>
+                  </div>
+                  <div style="margin-top:16px; font-size:12px; color:#94A3B8; text-align:center;">
+                    --- 原型已通过客户确认清单锁定，不可随意修改布局 ---
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= P10/P11 基线与签字 ================= -->
+      <div id="page-baselines" class="view-page">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <div>
+            <h2 style="font-size:20px; font-weight:700;">基线列表与客户签字控制 (P10/P11)</h2>
+            <p style="color:var(--text-muted); font-size:13px;">必须集齐三方签字方可冻结，冻结后由 Git Tag + Manifest + Zip 构成不可变存证</p>
+          </div>
+          <button class="btn btn-primary" onclick="openDrawer('drawerNewBaseline')">➕ 创建新基线 (M08)</button>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🔒 基线清单与签字进度 (L5 & L6)</div>
+            <div style="font-size:12px; color:var(--text-muted);">不可变锚点：每个冻结基线必须生成法定 Git Tag 与 Manifest Hash</div>
+          </div>
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>基线编号</th>
+                  <th>关联需求</th>
+                  <th>Git Tag 锚点</th>
+                  <th>引用原型</th>
+                  <th>关联文档</th>
+                  <th>签字进度</th>
+                  <th>冻结状态</th>
+                  <th>代价折算</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>BL-v1.1</strong></td>
+                  <td>REQ-001 (设备在线状态看板)</td>
+                  <td><code style="background:#EEF2F6; padding:2px 6px; border-radius:3px; font-size:11px;">bl/NET-SIM/REQ-001/v1.1</code></td>
+                  <td><span class="tag tag-clarifying">v3 (a3f9c...)</span></td>
+                  <td>3 份</td>
+                  <td>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                      <span style="color:var(--success); font-weight:700;">● 3/3 齐备</span>
+                      <span style="font-size:11px; color:var(--text-muted);">(业务+验收+使用)</span>
+                    </div>
+                  </td>
+                  <td><span class="tag tag-baselined">已物理冻结</span></td>
+                  <td><strong>3.0 人天</strong></td>
+                  <td>
+                    <button class="btn btn-outline btn-sm" onclick="navigatePage('page-baseline-diff')">差异对比 (P12)</button>
+                    <button class="btn btn-outline btn-sm" onclick="switchPerspective('client')">回执凭证 (E03)</button>
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>BL-v1.0</strong></td>
+                  <td>REQ-001 (初始规划版)</td>
+                  <td><code style="background:#EEF2F6; padding:2px 6px; border-radius:3px; font-size:11px;">bl/NET-SIM/REQ-001/v1.0</code></td>
+                  <td><span class="tag tag-draft">v2 (7c1e8...)</span></td>
+                  <td>2 份</td>
+                  <td><span style="color:var(--success); font-weight:700;">● 3/3 已签</span></td>
+                  <td><span class="tag tag-baselined">已归档历史</span></td>
+                  <td><strong>2.5 人天</strong></td>
+                  <td>
+                    <button class="btn btn-outline btn-sm" onclick="navigatePage('page-baseline-diff')">对比新版</button>
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>BL-v0.9</strong></td>
+                  <td>REQ-002 (告警规则配置)</td>
+                  <td><span style="color:var(--text-muted); font-size:11px;">待冻结生成</span></td>
+                  <td><span class="tag tag-pending">v1 (待签字)</span></td>
+                  <td>1 份</td>
+                  <td>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                      <span style="color:var(--accent); font-weight:700;">○ 1/3 待签</span>
+                      <span style="font-size:11px; color:var(--accent);">(缺使用者代表)</span>
+                    </div>
+                  </td>
+                  <td><span class="tag tag-pending">待签名链接</span></td>
+                  <td><strong>2.5 人天</strong></td>
+                  <td>
+                    <button class="btn btn-accent btn-sm" onclick="openModal('modalGenSignLink')">生成签名链接 (M09)</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 冻结前置防扯皮看门狗门禁 Checklist (蓝皮书硬规则) -->
+        <div class="card" style="border-top: 3px solid var(--accent);">
+          <div class="card-header" style="background:#FFFDFB;">
+            <div class="card-title">
+              <span>🛡️ 基线冻结看门狗门禁核验看板 (Gatekeeper Checklist)</span>
+              <span class="tag tag-pending">前置防扯皮安全检查</span>
+            </div>
+            <span style="font-size:12px; color:var(--text-muted);">蓝皮书 §4.1 硬门禁：全部点亮方允许执行终极冻结</span>
+          </div>
+          <div class="card-body">
+            <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:14px;">
+              <div style="background:#F0FDF4; border:1px solid #BBF7D0; padding:12px; border-radius:4px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <strong style="color:#15803D; font-size:13px;">1. 清单四层齐备度</strong>
+                  <span style="color:#16A34A; font-weight:700;">✔ 100%</span>
+                </div>
+                <div style="font-size:11px; color:#64748B; margin-top:4px;">范围/规则/异常/验收均有明确条目</div>
+              </div>
+
+              <div style="background:#F0FDF4; border:1px solid #BBF7D0; padding:12px; border-radius:4px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <strong style="color:#15803D; font-size:13px;">2. "本期不做"收敛数</strong>
+                  <span style="color:#16A34A; font-weight:700;">✔ 3/3 条</span>
+                </div>
+                <div style="font-size:11px; color:#64748B; margin-top:4px;">符合硬门禁 ≥3 条约束，防止范围蔓延</div>
+              </div>
+
+              <div style="background:#F0FDF4; border:1px solid #BBF7D0; padding:12px; border-radius:4px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <strong style="color:#15803D; font-size:13px;">3. 原型与文档 SHA256</strong>
+                  <span style="color:#16A34A; font-weight:700;">✔ 已固化</span>
+                </div>
+                <div style="font-size:11px; color:#64748B; margin-top:4px;">mockup v3 + 3份文档哈希全部就绪</div>
+              </div>
+
+              <div style="background:#FEF3C7; border:1px solid #FCD34D; padding:12px; border-radius:4px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <strong style="color:#B45309; font-size:13px;">4. 三方法定电子签字</strong>
+                  <span style="color:#D97706; font-weight:700;">⏳ 待就绪</span>
+                </div>
+                <div style="font-size:11px; color:#B45309; margin-top:4px;">已签 2/3 (使用者代表签字待回收)</div>
+              </div>
+            </div>
+
+            <div style="margin-top:14px; display:flex; justify-content:space-between; align-items:center; background:#F8FAFC; padding:10px 14px; border-radius:4px; font-size:12px;">
+              <span style="color:var(--text-secondary);">
+                ⚠️ 提示：当前 BL-v0.9 尚缺 1 项三方签字，终极冻结按钮锁定中；满足后将自动打包 Zip 并触发 Git Tag 归档。
+              </span>
+              <button class="btn btn-outline btn-sm" disabled style="opacity:0.6; cursor:not-allowed;">🔒 触发基线冻结 (门禁待放行)</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= P12 基线差异对比 ================= -->
+      <div id="page-baseline-diff" class="view-page">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <div>
+            <h2 style="font-size:20px; font-weight:700;">基线差异智能对比 (P12)</h2>
+            <p style="color:var(--text-muted); font-size:13px;">对比基线：<span style="color:var(--primary); font-weight:700;">BL-v1.0 (旧)</span> ➔ <span style="color:var(--success); font-weight:700;">BL-v1.1 (新)</span></p>
+          </div>
+          <button class="btn btn-outline" onclick="alert('已导出基线差异对比审计报告 (PDF)')">📄 导出审计 PDF</button>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📝 确认清单变更对比 (3 处实质变化)</div>
+            <span class="tag tag-clarifying">净代价增长：+0.5 人天</span>
+          </div>
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>变更类型</th>
+                  <th>清单项名称</th>
+                  <th>原基线约定 (BL-v1.0)</th>
+                  <th>当前基线约定 (BL-v1.1)</th>
+                  <th>人天代价差异</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="background:#F0FDF4;">
+                  <td><span class="tag tag-baselined">+ 新增</span></td>
+                  <td><strong>E-03 数据延迟报警提示</strong></td>
+                  <td>无此项</td>
+                  <td>网络超时延迟 >2s 提示黄框</td>
+                  <td><strong style="color:var(--success);">+0.5d</strong></td>
+                </tr>
+                <tr style="background:#FEF3C7;">
+                  <td><span class="tag tag-pending">~ 修改</span></td>
+                  <td><strong>B-01 心跳掉线判定阈值</strong></td>
+                  <td>连续 120 秒无心跳视为掉线</td>
+                  <td>收紧为连续 60 秒无心跳掉线</td>
+                  <td><strong>+0.0d</strong></td>
+                </tr>
+                <tr style="background:#FEF2F2;">
+                  <td><span class="tag tag-danger">- 移除</span></td>
+                  <td><strong>R-03 移动端响应式支持</strong></td>
+                  <td>纳入一期交付</td>
+                  <td>移至二期（本期不做）</td>
+                  <td><strong style="color:#DC2626;">-0.0d (已扣减)</strong></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">🎨 原型版本变更</div>
+            </div>
+            <div class="card-body">
+              <div style="font-size:13px; margin-bottom:8px;">原版本：<strong>mockup v2.0 (hash: 7c1e...)</strong></div>
+              <div style="font-size:13px; color:var(--success); margin-bottom:12px;">新版本：<strong>mockup v3.0 (hash: a3f9...)</strong></div>
+              <p style="font-size:12px; color:var(--text-muted); line-height:1.5;">
+                变更特征：新增 Sub-Zone 嵌套底板渲染；修正了调速器状态指示颜色对比度。
+              </p>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">📄 关联设计文档变更</div>
+            </div>
+            <div class="card-body">
+              <div style="font-size:13px; margin-bottom:6px;">• 详细设计说明书: <strong>v1.0 ➔ v1.1</strong> (更新表结构索引)</div>
+              <div style="font-size:13px; margin-bottom:6px;">• DDL 配对脚本: <strong>增补 V1.1__add_delay_field.sql</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= P16 发布版本 ================= -->
+      <div id="page-releases" class="view-page">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <div>
+            <h2 style="font-size:20px; font-weight:700;">发布版本追踪 (P16)</h2>
+            <p style="color:var(--text-muted); font-size:13px;">一个发布版本必须严格绑定一个已冻结基线，否则禁止发布</p>
+          </div>
+          <button class="btn btn-primary" onclick="alert('已模拟调起新建发布窗口 (M12)')">+ 新建发布计划 (M12)</button>
+        </div>
+
+        <div class="card">
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>发布版本号</th>
+                  <th>绑定已冻结基线</th>
+                  <th>计划发布日期</th>
+                  <th>实际完成日期</th>
+                  <th>当前状态</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>R-1.2.0</strong></td>
+                  <td><span style="color:var(--primary); font-weight:600;">BL-v1.1</span></td>
+                  <td>2026-11-20</td>
+                  <td>—</td>
+                  <td><span class="tag tag-clarifying">计划排期中</span></td>
+                  <td>
+                    <button class="btn btn-primary btn-sm" onclick="alert('执行发布动作，自动打 Git Tag')">🚀 正式发布</button>
+                    <button class="btn btn-outline btn-sm">回滚预案</button>
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>R-1.1.0</strong></td>
+                  <td><span style="color:var(--text-muted); font-weight:600;">BL-v1.0</span></td>
+                  <td>2026-11-05</td>
+                  <td>2026-11-05</td>
+                  <td><span class="tag tag-baselined">已正式发布</span></td>
+                  <td>
+                    <button class="btn btn-outline btn-sm">查看发布清单</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= P13 需求演进时间线 ================= -->
+      <div id="page-timeline" class="view-page">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <div>
+            <h2 style="font-size:20px; font-weight:700;">需求与基线演进时间线 (P13)</h2>
+            <p style="color:var(--text-muted); font-size:13px;">轻量级里程碑演进总览：一眼洞悉原型迭代 ➔ 基线冻结 ➔ 发布上线全生命周期（非工时拖拽）</p>
+          </div>
+          <div style="display:flex; gap:10px;">
+            <button class="btn btn-outline" onclick="alert('已模拟切换视图模式：当前为基线聚合视图')">👁️ 切换聚合视图</button>
+            <button class="btn btn-outline" onclick="alert('已导出时间线演进图表 (PNG/SVG)')">📥 导出图片</button>
+          </div>
+        </div>
+
+        <div class="timeline-container">
+          <!-- 图例 -->
+          <div class="timeline-legend">
+            <span style="font-weight:600; color:var(--text);">图例说明：</span>
+            <span class="legend-item"><span class="node-icon-circle prototype" style="width:16px; height:16px; font-size:8px;">🎨</span> 原型版本 (可迭代)</span>
+            <span class="legend-item"><span class="node-icon-circle baseline" style="width:16px; height:16px; font-size:8px;">🔒</span> 已冻结基线 (不可变存证)</span>
+            <span class="legend-item"><span class="node-icon-circle pending-baseline" style="width:16px; height:16px; font-size:8px;">⏳</span> 待签字基线</span>
+            <span class="legend-item"><span class="node-icon-circle release" style="width:16px; height:16px; font-size:8px;">🚀</span> 发布交付点 (Git Tag)</span>
+            <span class="legend-item" style="color:var(--text-muted); margin-left:auto;">🕒 绿色实线：已签署基线生命周期 ｜ 灰色横轨：演进时间轴</span>
+          </div>
+
+          <!-- 时间轴刻度头 -->
+          <div class="timeline-axis-header">
+            <div class="axis-tick">10-26 (原型草拟)</div>
+            <div class="axis-tick">11-02 (BL-v1.0冻结)</div>
+            <div class="axis-tick">11-09 (BL-v1.1变更)</div>
+            <div class="axis-tick">11-20 (R-1.2.0发布)</div>
+            <div class="axis-tick">12-05 (后续演进)</div>
+          </div>
+
+          <!-- 泳道 1: REQ-001 -->
+          <div class="timeline-row">
+            <div class="timeline-row-label">
+              <div class="timeline-row-req-title">
+                <span class="tag tag-baselined" style="padding:1px 5px; font-size:11px;">REQ-001</span>
+                <span>设备在线状态看板</span>
+              </div>
+              <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">李工 ｜ 3.0 人天 ｜ 演进活跃</div>
+            </div>
+            <div class="timeline-track-wrap">
+              <div class="timeline-track-line"></div>
+              <!-- 绿色有效基线连线 -->
+              <div class="timeline-connection-line" style="left: 25%; width: 50%;"></div>
+
+              <!-- 节点 1: 原型 v1 -->
+              <div class="timeline-node" style="left: 0%;" onclick="navigatePage('page-prototypes')">
+                <span class="timeline-date-marker">10-26</span>
+                <div class="node-icon-circle prototype">🎨</div>
+                <span class="node-title-badge">原型 v1.0</span>
+              </div>
+
+              <!-- 节点 2: 基线 BL-v1.0 -->
+              <div class="timeline-node" style="left: 25%;" onclick="navigatePage('page-baselines')">
+                <span class="timeline-date-marker">11-02</span>
+                <div class="node-icon-circle baseline">🔒</div>
+                <span class="node-title-badge" style="color:#16A34A; border-color:#86EFAC;">BL-v1.0 (已签)</span>
+              </div>
+
+              <!-- 节点 3: 基线 BL-v1.1 (最新) -->
+              <div class="timeline-node" style="left: 50%;" onclick="navigatePage('page-baseline-diff')">
+                <span class="timeline-date-marker">11-09</span>
+                <div class="node-icon-circle baseline" style="border-width:4px;">🔒</div>
+                <span class="node-title-badge" style="color:#16A34A; font-weight:700; border-color:#22C55E;">BL-v1.1 (现行)</span>
+              </div>
+
+              <!-- 节点 4: 发布版本 R-1.2.0 -->
+              <div class="timeline-node" style="left: 75%;" onclick="navigatePage('page-releases')">
+                <span class="timeline-date-marker">11-20 (计划)</span>
+                <div class="node-icon-circle release">🚀</div>
+                <span class="node-title-badge" style="background:#14535B; color:#FFF;">R-1.2.0</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 泳道 2: REQ-002 -->
+          <div class="timeline-row">
+            <div class="timeline-row-label">
+              <div class="timeline-row-req-title">
+                <span class="tag tag-pending" style="padding:1px 5px; font-size:11px;">REQ-002</span>
+                <span>告警规则与抑制配置</span>
+              </div>
+              <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">李工 ｜ 2.5 人天 ｜ 待签字</div>
+            </div>
+            <div class="timeline-track-wrap">
+              <div class="timeline-track-line"></div>
+
+              <!-- 节点 1: 原型 v1 -->
+              <div class="timeline-node" style="left: 0%;" onclick="navigatePage('page-prototypes')">
+                <span class="timeline-date-marker">10-26</span>
+                <div class="node-icon-circle prototype">🎨</div>
+                <span class="node-title-badge">原型 v1.0</span>
+              </div>
+
+              <!-- 节点 2: 待签基线 BL-v0.9 -->
+              <div class="timeline-node" style="left: 50%;" onclick="switchPerspective('client')">
+                <span class="timeline-date-marker">11-09</span>
+                <div class="node-icon-circle pending-baseline">⏳</div>
+                <span class="node-title-badge" style="color:#D97706; border-color:#FCD34D;">BL-v0.9 (待签 2/3)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 泳道 3: REQ-003 -->
+          <div class="timeline-row">
+            <div class="timeline-row-label">
+              <div class="timeline-row-req-title">
+                <span class="tag tag-clarifying" style="padding:1px 5px; font-size:11px;">REQ-003</span>
+                <span>机组拓扑导入导出</span>
+              </div>
+              <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">王工 ｜ 4.0 人天 ｜ 澄清中</div>
+            </div>
+            <div class="timeline-track-wrap">
+              <div class="timeline-track-line"></div>
+
+              <!-- 节点 1: 原型草拟 -->
+              <div class="timeline-node" style="left: 10%;" onclick="openDrawer('drawerChecklist')">
+                <span class="timeline-date-marker">10-30</span>
+                <div class="node-icon-circle prototype">🎨</div>
+                <span class="node-title-badge">清单对齐中</span>
+              </div>
+
+              <!-- 节点 2: 目标规划基线 -->
+              <div class="timeline-node" style="left: 75%;" onclick="alert('该需求计划在 11-20 前完成基线签字！')">
+                <span class="timeline-date-marker">11-20 (目标)</span>
+                <div class="node-icon-circle pending-baseline" style="border-style:dashed;">⚪</div>
+                <span class="node-title-badge">排期基线</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 提示条 -->
+          <div style="background:#F8FAFC; border:1px solid #E2E8F0; padding:12px 16px; border-radius:4px; font-size:12px; color:var(--text-secondary); margin-top:16px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              💡 <strong>审计核验技巧：</strong> 点击时间轴任意 <strong>[🔒 基线节点]</strong> 可快速下钻查看当时 3 份签字人证据链与 Manifest 哈希；点击 <strong>[🚀 发布节点]</strong> 可调阅该版本的发布预案与回滚快照。
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="navigatePage('page-baseline-diff')">查看基线版本差异 (P12)</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= P17 码表配置中心 ================= -->
+      <div id="page-enums" class="view-page">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <div>
+            <h2 style="font-size:20px; font-weight:700;">全局码表配置中心 (P17)</h2>
+            <p style="color:var(--text-muted); font-size:13px;">统一全站 10 组业务状态、色彩、排序与操作权限，变更后需显式发布</p>
+          </div>
+          <div style="display:flex; gap:10px;">
+            <button class="btn btn-outline" onclick="alert('已导出标准 enums.yaml 规则文件')">📥 导出 YAML</button>
+            <button class="btn btn-primary" onclick="alert('已发布码表变更，全站状态色彩实时刷新 (M15)')">🚀 发布码表变更 (M15)</button>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 240px 1fr; gap:20px;">
+          <div class="card" style="padding:10px;">
+            <div style="font-size:11px; font-weight:700; color:var(--text-muted); padding:8px;">码表分组 (10)</div>
+            <div class="nav-item active" style="border-radius:4px;">● 需求状态 (8)</div>
+            <div class="nav-item" style="border-radius:4px;">● 基线状态 (5)</div>
+            <div class="nav-item" style="border-radius:4px;">● 发布状态 (4)</div>
+            <div class="nav-item" style="border-radius:4px;">● 清单类别 (5)</div>
+            <div class="nav-item" style="border-radius:4px;">● 客户决定 (4)</div>
+            <div class="nav-item" style="border-radius:4px;">● 签字角色 (3)</div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">需求状态字典详情</div>
+              <button class="btn btn-outline btn-sm" onclick="alert('调起新增取值窗口 (M14)')">+ 新增取值</button>
+            </div>
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>状态 Code</th>
+                    <th>中文展示名</th>
+                    <th>渲染色彩</th>
+                    <th>排序</th>
+                    <th>允许操作权限</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><code>DRAFT</code></td>
+                    <td>草稿</td>
+                    <td><span class="tag tag-draft">● 灰色</span></td>
+                    <td>1</td>
+                    <td>编辑 / 删除</td>
+                  </tr>
+                  <tr>
+                    <td><code>CLARIFYING</code></td>
+                    <td>澄清中</td>
+                    <td><span class="tag tag-clarifying">● 蓝色</span></td>
+                    <td>2</td>
+                    <td>编辑 / 录入清单</td>
+                  </tr>
+                  <tr>
+                    <td><code>PENDING</code></td>
+                    <td>待确认</td>
+                    <td><span class="tag tag-pending">● 橙色</span></td>
+                    <td>3</td>
+                    <td>发起签字</td>
+                  </tr>
+                  <tr>
+                    <td><code>BASELINED</code></td>
+                    <td>已基线</td>
+                    <td><span class="tag tag-baselined">● 绿色</span></td>
+                    <td>4</td>
+                    <td>变更 / 差异对比</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= P18 外观主题设置 ================= -->
+      <div id="page-theme" class="view-page">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <div>
+            <h2 style="font-size:20px; font-weight:700;">外观与工业主题设置 (P18)</h2>
+            <p style="color:var(--text-muted); font-size:13px;">仅开放 Token 级配置，强制保证正文对比度 ≥ 4.5:1，符合工业高可用标准</p>
+          </div>
+          <button class="btn btn-primary" onclick="alert('主题参数已持久化保存！')">💾 保存配置</button>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">🎨 主题 Token 调配</div>
+            </div>
+            <div class="card-body">
+              <div class="form-group">
+                <label class="form-label">品牌主色 (Primary)</label>
+                <div style="display:flex; gap:10px; align-items:center;">
+                  <input type="color" value="#14535B" style="width:40px; height:36px; border:none; cursor:pointer;" onchange="updateThemeColor(this.value)">
+                  <input type="text" class="form-control" value="#14535B" id="themeColorText" readonly>
+                </div>
+                <div class="form-hint">当前对比度 7.2:1 (符合 AAA 标准 ✔)</div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">强调色 (Accent)</label>
+                <div style="display:flex; gap:10px; align-items:center;">
+                  <input type="color" value="#C2410C" style="width:40px; height:36px; border:none; cursor:pointer;">
+                  <input type="text" class="form-control" value="#C2410C" readonly>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">界面排版密度</label>
+                <div style="display:flex; gap:16px; margin-top:6px;">
+                  <label><input type="radio" name="density" checked> 标准 (工业适中)</label>
+                  <label><input type="radio" name="density"> 紧凑 (高信息密集)</label>
+                  <label><input type="radio" name="density"> 宽松</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">👁️ 实时预览渲染卡片</div>
+            </div>
+            <div class="card-body" style="background:#F8FAFC;">
+              <div style="background:#FFF; padding:16px; border:1px solid var(--border); border-radius:var(--radius-sm);">
+                <div style="font-weight:700; color:var(--primary); font-size:15px;" id="previewSampleTitle">OT 工控网络仿真系统</div>
+                <div style="font-size:12px; color:var(--text-muted); margin:6px 0;">当前状态：已基线 BL-v1.1 ｜ 负责人：李工</div>
+                <div style="display:flex; gap:8px; margin-top:12px;">
+                  <button class="btn btn-primary btn-sm" id="previewBtnPrimary">主要操作</button>
+                  <button class="btn btn-outline btn-sm">次要操作</button>
+                  <button class="btn btn-accent btn-sm">警示动作</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= 外部客户视角 E01 ~ E03 ================= -->
+      <div id="page-client-view" class="view-page">
+        <!-- E01 校验条 -->
+        <div style="display:flex; justify-content:space-between; align-items:center; background:#FFF7ED; border:1px solid #FFEDD5; padding:10px 16px; border-radius:var(--radius-sm); margin-bottom:16px;">
+          <div style="display:flex; align-items:center; gap:8px; font-size:13px; color:#9A3412;">
+            <strong>🔗 客户免登录体验模式已激活：</strong>
+            <span>当前访问令牌有效 (Token: a8f9...，访问码已免输校验成功)</span>
+          </div>
+          <div>
+            <button class="btn btn-outline btn-sm" onclick="switchClientSubPage('e02')">切换签名页 (E02)</button>
+            <button class="btn btn-outline btn-sm" onclick="switchClientSubPage('e03')">切换回执页 (E03)</button>
+            <button class="btn btn-primary btn-sm" onclick="switchPerspective('internal')">返回内部系统</button>
+          </div>
+        </div>
+
+        <!-- E02 客户签名确认视窗 -->
+        <div id="client-sub-e02" class="client-viewport-container">
+          <div class="watermark-overlay">防伪水印：张工 2026-11-02 14:03 (IP 10.20.3.11)</div>
+          
+          <div class="client-header">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+              <div>
+                <span class="tag tag-clarifying">基线签字确认凭据</span>
+                <h2 style="font-size:20px; font-weight:700; margin-top:6px;">NET-SIM · 需求确认书 (REQ-001)</h2>
+                <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">
+                  请您在以下页面中逐项勾选确认，并填写一句话复述后完成电子签字。
+                </div>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-size:12px; color:var(--text-muted);">本期交付代价</div>
+                <div style="font-size:22px; font-weight:700; color:var(--success);" id="clientTotalCost">3.0 人天</div>
+              </div>
+            </div>
+
+            <div class="client-quote-box">
+              <strong>客户原话复核：</strong>「我想在页面上看到每台交换机是不是在线，掉线了要能马上知道…」
+            </div>
+          </div>
+
+          <div class="client-section">
+            <div class="client-section-title">一、本期交付功能范围 (已勾选项即为本期范围)</div>
+            <div style="display:flex; flex-direction:column; gap:8px; font-size:13px;">
+              <label><input type="checkbox" checked disabled> <strong>R-01 状态在线监测与拓扑展示</strong> (代价 +2.0 人天)</label>
+              <label><input type="checkbox" checked disabled> <strong>R-02 多机房与机组快速筛选联动</strong> (代价 +1.0 人天)</label>
+            </div>
+          </div>
+
+          <div class="client-section">
+            <div class="client-section-title">二、业务规则与参数约定</div>
+            <div style="font-size:13px; line-height:1.8;">
+              <div>• <strong>掉线判定规则</strong>：连续 60 秒无心跳信号即标红判定为掉线 (已约定)。</div>
+              <div>• <strong>断网超长恢复</strong>：超过 24h 断网自动标记为状态未知，防止误报。</div>
+            </div>
+          </div>
+
+          <div class="client-section">
+            <div class="client-section-title" style="color:#DC2626;">三、双方共同明确：本期不做事项 (严禁现场追加)</div>
+            <div style="display:flex; gap:16px; font-size:13px; color:var(--text-muted);">
+              <span>❌ 历史趋势报表导出</span>
+              <span>❌ 复杂权限分组分权</span>
+              <span>❌ 移动端手机适配</span>
+            </div>
+          </div>
+
+          <div class="client-section">
+            <div class="client-section-title">四、原型只读确认 (可实际点击测试交互)</div>
+            <div class="client-iframe-mock">
+              <div style="text-align:center;">
+                <div style="font-size:14px; font-weight:600; color:#14535B; margin-bottom:4px;">[内嵌只读交互原型 mockup v3.0]</div>
+                <div style="font-size:12px;">点击可切换 1#~4# 机组拓扑，确认指示灯掉线高亮逻辑与本协议一致</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="client-section">
+            <div class="client-section-title">五、请用一句话复述您理解的这一版核心交付物</div>
+            <textarea class="form-control" rows="2" placeholder="例如：我已知晓本期只做交换机在线与掉线红圈告警，不包含历史报表导出功能..." id="clientSummaryInput">这版做在线状态和告警，不做历史曲线和导出，符合预期。</textarea>
+          </div>
+
+          <div class="client-section" style="background:#FAFCFF;">
+            <div class="client-section-title">六、三方法定签字留痕</div>
+            <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:16px; margin-top:12px;">
+              <div style="background:#FFF; padding:12px; border:1px solid #BBF7D0; border-radius:4px;">
+                <div style="font-size:12px; color:var(--text-muted);">业务拍板人 (甲方)</div>
+                <div style="font-weight:700; color:#15803D; margin-top:4px;">张工 (已签署 ✔)</div>
+                <div style="font-size:11px; color:#64748B;">2026-11-02 14:20 ｜ IP: 10.20.3.11</div>
+              </div>
+              <div style="background:#FFF; padding:12px; border:1px solid #BBF7D0; border-radius:4px;">
+                <div style="font-size:12px; color:var(--text-muted);">验收人代表 (甲方/测试)</div>
+                <div style="font-weight:700; color:#15803D; margin-top:4px;">李工 (已签署 ✔)</div>
+                <div style="font-size:11px; color:#64748B;">2026-11-02 15:02 ｜ IP: 10.20.3.44</div>
+              </div>
+              <div style="background:#FFF; padding:12px; border:1px solid #FCD34D; border-radius:4px;">
+                <div style="font-size:12px; color:var(--text-muted);">最终使用者代表</div>
+                <input type="text" class="form-control" style="margin-top:6px;" value="王工" id="signer3Name">
+                <button class="btn btn-accent btn-sm" style="width:100%; margin-top:8px;" onclick="handleClientSign()">✍️ 确认并提交签署</button>
+              </div>
+            </div>
+
+            <!-- 逆向驳回分支：客户对范围/规则有分歧时使用 -->
+            <div style="margin-top:16px; padding-top:14px; border-top:1px dashed #CBD5E1; display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:12px; color:var(--text-muted);">若对上述清单、原型或代价约定存在异议：</span>
+              <button class="btn btn-outline btn-sm" style="color:#B91C1C; border-color:#FCA5A5; background:#FFF;" onclick="openModal('modalClientReject')">⚠️ 意见有分歧，申请驳回澄清</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- E03 签名回执单 -->
+        <div id="client-sub-e03" class="client-viewport-container" style="display:none; padding:30px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid var(--border); padding-bottom:16px;">
+            <div>
+              <h2 style="font-size:22px; font-weight:700;">需求基线确认存证回执单 (E03)</h2>
+              <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">APEX 需求全生命周期治理平台 · 法定不可变证据链</div>
+            </div>
+            <button class="btn btn-outline" onclick="window.print()">🖨️ 打印 / 存为 PDF</button>
+          </div>
+
+          <div class="receipt-box">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; font-size:13px; line-height:1.8;">
+              <div><strong>项目标识：</strong>NET-SIM · 网络仿真平台</div>
+              <div><strong>需求编号：</strong>REQ-001 (设备在线状态看板)</div>
+              <div><strong>锁定基线：</strong>BL-v1.1 (不可篡改)</div>
+              <div><strong>回执校验码：</strong><span style="font-family:monospace; color:var(--primary); font-weight:700;">7F3A-91C2-88B1</span></div>
+              <div><strong>签署时间：</strong>2026-11-02 15:02:11</div>
+              <div><strong>总代价共识：</strong>3.0 人天</div>
+            </div>
+            <hr style="border:none; border-top:1px dashed #CBD5E1; margin:16px 0;">
+            <div style="font-size:13px;">
+              <div><strong>固化快照指纹 (Manifest Hash)：</strong></div>
+              <div style="font-family:monospace; font-size:12px; background:#EEF2F6; padding:8px; border-radius:4px; margin-top:4px; word-break:break-all;">
+                sha256:a3f9c2e177b9d40e1189ac3bb4109401bfd145cba2793108c40b7190e82c7a10 (mockup v3 + 3份文档 + 12条清单)
+              </div>
+            </div>
+            <div style="font-size:13px; margin-top:12px;">
+              <div><strong>客户复述存证：</strong>「这版做在线状态和告警，不做历史曲线和导出，符合预期。」</div>
+            </div>
+          </div>
+          <div style="font-size:12px; color:var(--text-muted); text-align:center;">
+            本电子回执经 SHA256 算法加密上链留痕，任何一方私自变更代码均可凭此回执复原溯源。
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ================= 抽屉面板：P06 确认清单编辑 ================= -->
+  <div class="drawer-overlay" id="overlayChecklist" onclick="closeDrawer('drawerChecklist')"></div>
+  <div class="drawer-panel" id="drawerChecklist">
+    <div class="drawer-header">
+      <div class="drawer-title">✏️ 编辑确认清单 · REQ-001 (P06)</div>
+      <button class="btn btn-outline btn-sm" onclick="closeDrawer('drawerChecklist')">✕</button>
+    </div>
+    <div class="drawer-body">
+      <div class="checklist-layer-tabs">
+        <button class="checklist-tab-btn active" onclick="switchChecklistTab('scope')">范围 (2)</button>
+        <button class="checklist-tab-btn" onclick="switchChecklistTab('rules')">规则 (1)</button>
+        <button class="checklist-tab-btn" onclick="switchChecklistTab('skip')">不做事项 (2)</button>
+      </div>
+
+      <div id="tabContentChecklist">
+        <!-- 动态清单行 -->
+        <div style="border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px; margin-bottom:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <strong style="color:var(--text);">R-01 核心监测界面范围</strong>
+            <span style="font-size:12px; color:var(--text-muted);">代价基准: +2.0d</span>
+          </div>
+          <div style="font-size:13px; color:var(--text-muted); margin-bottom:10px;">
+            问法：本期包含哪些层级的设备在线展示？
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="decision-options">
+              <button class="decision-btn active-current" onclick="setDecision(this, 'scope1', 2.0, 'current')">● 本期做 (+2.0d)</button>
+              <button class="decision-btn" onclick="setDecision(this, 'scope1', 0, 'next')">下期做 (0d)</button>
+              <button class="decision-btn" onclick="setDecision(this, 'scope1', 0, 'skip')">不做 (0d)</button>
+            </div>
+            <button class="btn btn-outline btn-sm" style="color:#DC2626;" onclick="alert('条目已删除')">删除</button>
+          </div>
+        </div>
+
+        <div style="border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px; margin-bottom:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <strong style="color:var(--text);">R-02 多机房筛选联动</strong>
+            <span style="font-size:12px; color:var(--text-muted);">代价基准: +1.0d</span>
+          </div>
+          <div style="font-size:13px; color:var(--text-muted); margin-bottom:10px;">
+            问法：是否按 1#~4# 机组进行子集群底板划分？
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="decision-options">
+              <button class="decision-btn active-current" onclick="setDecision(this, 'scope2', 1.0, 'current')">● 本期做 (+1.0d)</button>
+              <button class="decision-btn" onclick="setDecision(this, 'scope2', 0, 'next')">下期做 (0d)</button>
+              <button class="decision-btn" onclick="setDecision(this, 'scope2', 0, 'skip')">不做 (0d)</button>
+            </div>
+            <button class="btn btn-outline btn-sm" style="color:#DC2626;">删除</button>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-outline btn-sm" style="width:100%; border-style:dashed;" onclick="alert('已模拟打开添加条目弹窗 (M04)')">+ 添加新清单条目 (M04)</button>
+
+      <!-- 实时代价折算汇总条 -->
+      <div class="cost-summary-bar">
+        <div>
+          <span>已敲定共识代价：</span>
+          <span class="cost-stat-tag" id="drawerCostTotal">3.0 人天</span>
+          <span style="font-size:12px; color:var(--text-muted); margin-left:8px;">(本期 2 项 · 下期 0 项 · 不做 2 项)</span>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="switchPerspective('client')">预览客户签名效果</button>
+      </div>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-outline" onclick="closeDrawer('drawerChecklist')">取消</button>
+      <button class="btn btn-primary" onclick="saveChecklist()">保存清单决策</button>
+    </div>
+  </div>
+
+  <!-- ================= 抽屉面板：M02 新建需求 ================= -->
+  <div class="drawer-overlay" id="overlayNewReq" onclick="closeDrawer('drawerNewReq')"></div>
+  <div class="drawer-panel" id="drawerNewReq">
+    <div class="drawer-header">
+      <div class="drawer-title">➕ 快速录入新需求 (M02)</div>
+      <button class="btn btn-outline btn-sm" onclick="closeDrawer('drawerNewReq')">✕</button>
+    </div>
+    <div class="drawer-body">
+      <div class="form-group">
+        <label class="form-label required">需求标题</label>
+        <input type="text" class="form-control" placeholder="简述核心功能，例如：OT机房交换机拓扑告警" id="newReqTitle">
+      </div>
+      <div class="form-group">
+        <label class="form-label required">客户原话 (留痕防扯皮)</label>
+        <textarea class="form-control" rows="3" placeholder="逐字录入客户原话或邮件片段..." id="newReqQuote"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label required">责任人</label>
+        <select class="form-control" id="newReqOwner">
+          <option value="李工">李工 (研发工程师)</option>
+          <option value="张工">张工 (产品经理)</option>
+          <option value="王工">王工 (测试架构师)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">优先级</label>
+        <select class="form-control">
+          <option value="P1">P1 - 本期核心必做</option>
+          <option value="P2">P2 - 重要</option>
+          <option value="P3">P3 - 体验优化</option>
+        </select>
+      </div>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-outline" onclick="closeDrawer('drawerNewReq')">取消</button>
+      <button class="btn btn-primary" onclick="submitNewReq()">创建并进入清单细化</button>
+    </div>
+  </div>
+
+  <!-- ================= 抽屉面板：M08 新建基线 ================= -->
+  <div class="drawer-overlay" id="overlayNewBaseline" onclick="closeDrawer('drawerNewBaseline')"></div>
+  <div class="drawer-panel" id="drawerNewBaseline">
+    <div class="drawer-header">
+      <div class="drawer-title">🔒 创建需求基线 (M08)</div>
+      <button class="btn btn-outline btn-sm" onclick="closeDrawer('drawerNewBaseline')">✕</button>
+    </div>
+    <div class="drawer-body">
+      <div class="form-group">
+        <label class="form-label required">基线版本号</label>
+        <input type="text" class="form-control" value="BL-v1.2" readonly>
+      </div>
+      <div class="form-group">
+        <label class="form-label required">绑定原型版本</label>
+        <select class="form-control">
+          <option value="v3">mockup v3.0 (hash: a3f9c2... 包含嵌套底板)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label required">关联设计文档</label>
+        <div style="font-size:13px; line-height:1.8;">
+          <label><input type="checkbox" checked disabled> 详细设计说明书 v1.1</label><br>
+          <label><input type="checkbox" checked disabled> DDL 与回滚配对脚本</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">签名人员设定</label>
+        <input type="text" class="form-control" value="张工(业务拍板), 李工(验收人), 王工(使用者代表)" readonly>
+      </div>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-outline" onclick="closeDrawer('drawerNewBaseline')">取消</button>
+      <button class="btn btn-primary" onclick="alert('新基线草稿已创建，已触发生成客户签名链接！'); closeDrawer('drawerNewBaseline');">生成基线并开放签字</button>
+    </div>
+  </div>
+
+  <!-- ================= 模态弹窗：M09 生成签名链接 ================= -->
+  <div class="modal-overlay" id="modalGenSignLink">
+    <div class="card" style="width:480px; margin:0;">
+      <div class="modal-header">
+        <div class="modal-title">🔗 客户签名链接已生成 (M09)</div>
+        <button class="btn btn-outline btn-sm" onclick="closeModal('modalGenSignLink')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;">
+          请将下方一次性专用链接发送给客户，客户免注册登录凭此链接即可在线完成清单勾选与电子签名：
+        </p>
+        <div class="form-group">
+          <label class="form-label">免登签名专用链接</label>
+          <input type="text" class="form-control" value="https://apex.company.com/s/tk_9f81a7b032" readonly id="signLinkCopyInput">
+        </div>
+        <div class="form-group">
+          <label class="form-label">访问验证码 (SMS/邮件二次保护)</label>
+          <input type="text" class="form-control" value="7892" readonly style="letter-spacing:4px; font-weight:700;">
+        </div>
+        <div class="form-hint">有效期：7 天 (至 2026-11-08 23:59:59)</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modalGenSignLink')">关闭</button>
+        <button class="btn btn-primary" onclick="copySignLink()">📋 复制链接与验证码</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 模态弹窗：客户申请驳回澄清 (M10-Reverse) ================= -->
+  <div class="modal-overlay" id="modalClientReject">
+    <div class="card" style="width:520px; margin:0; border-top:4px solid #DC2626;">
+      <div class="modal-header">
+        <div class="modal-title" style="color:#DC2626;">⚠️ 申请驳回基线确认 (提出异议)</div>
+        <button class="btn btn-outline btn-sm" onclick="closeModal('modalClientReject')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;">
+          若您对本次约定清单的交付范围、规则或人天代价存在异议，可直接驳回。系统将自动通知内部产品经理李工重新核对，并为您重新生成对齐版本：
+        </p>
+        <div class="form-group">
+          <label class="form-label required">异议提出人与身份</label>
+          <input type="text" class="form-control" value="王工 (最终使用者代表)" id="rejectAuthor">
+        </div>
+        <div class="form-group">
+          <label class="form-label required">具体分歧说明 (驳回原因)</label>
+          <textarea class="form-control" rows="3" placeholder="例如：调速器掉线判定60秒太长，机组要求30秒内即报警；或者历史曲线虽然一期不做，但必须保留查询接口..." id="rejectReasonInput"></textarea>
+        </div>
+        <div class="form-hint" style="color:#B91C1C;">
+          注意：驳回后当前基线将退回【澄清中 (CLARIFYING)】状态，此前签署记录将安全留痕归档。
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modalClientReject')">取消返回</button>
+        <button class="btn btn-accent" style="background:#DC2626; border-color:#DC2626;" onclick="submitClientReject()">确认驳回并退回澄清</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 模态弹窗：M01 新建项目 ================= -->
+  <div class="modal-overlay" id="modalNewProject">
+    <div class="card" style="width:500px; margin:0;">
+      <div class="modal-header">
+        <div class="modal-title">📁 新建项目空间 (M01)</div>
+        <button class="btn btn-outline btn-sm" onclick="closeModal('modalNewProject')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label required">项目唯一标识 Key</label>
+          <input type="text" class="form-control" placeholder="2~8位大写字母，如: DCS-SIM" id="newProjKey">
+        </div>
+        <div class="form-group">
+          <label class="form-label required">项目名称</label>
+          <input type="text" class="form-control" placeholder="如：集控中心监控仿真实训系统">
+        </div>
+        <div class="form-group">
+          <label class="form-label required">客户单位名称</label>
+          <input type="text" class="form-control" placeholder="如：国能某某水电厂">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modalNewProject')">取消</button>
+        <button class="btn btn-primary" onclick="alert('项目空间已初始化，自动生成对应目录与基线仓库骨架！'); closeModal('modalNewProject');">立即创建</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 模态弹窗：M05 上传原型版本 ================= -->
+  <div class="modal-overlay" id="modalUploadPrototype">
+    <div class="card" style="width:480px; margin:0;">
+      <div class="modal-header">
+        <div class="modal-title">📤 上传原型版本 ZIP (M05)</div>
+        <button class="btn btn-outline btn-sm" onclick="closeModal('modalUploadPrototype')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label required">版本命名</label>
+          <input type="text" class="form-control" value="mockup v4.0" readonly>
+        </div>
+        <div class="form-group">
+          <label class="form-label required">原型 ZIP 包 (必须含 mockup.html)</label>
+          <input type="file" class="form-control">
+          <div class="form-hint">上传后系统自动进行 SHA256 校验和提取，永不覆盖旧版本目录。</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">变更摘要</label>
+          <textarea class="form-control" rows="2" placeholder="简述本次原型修改重点..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modalUploadPrototype')">取消</button>
+        <button class="btn btn-primary" onclick="alert('原型 v4.0 已上传，已生成哈希值并生成新快照！'); closeModal('modalUploadPrototype');">开始解析并固化</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 交互脚本 -->
+  <script>
+    let currentCost = 3.0;
+
+    // 页面跳转导航控制
+    function navigatePage(pageId) {
+      document.querySelectorAll('.view-page').forEach(page => page.classList.remove('active'));
+      const target = document.getElementById(pageId);
+      if (target) target.classList.add('active');
+
+      // 更新侧边栏高亮
+      document.querySelectorAll('.sidebar .nav-item').forEach(item => {
+        item.classList.remove('active');
+        if (item.getAttribute('onclick') && item.getAttribute('onclick').includes(pageId)) {
+          item.classList.add('active');
+        }
+      });
+    }
+
+    // 切换内部视角与客户免登录视角
+    function switchPerspective(type) {
+      const btnInternal = document.getElementById('btnModeInternal');
+      const btnClient = document.getElementById('btnModeClient');
+      const sidebar = document.getElementById('appSidebar');
+
+      if (type === 'internal') {
+        btnInternal.classList.add('active');
+        btnClient.classList.remove('active');
+        sidebar.style.display = 'flex';
+        navigatePage('page-dashboard');
+      } else {
+        btnClient.classList.add('active');
+        btnInternal.classList.remove('active');
+        sidebar.style.display = 'none';
+        navigatePage('page-client-view');
+        switchClientSubPage('e02');
+      }
+    }
+
+    // 客户子页面切换 (E02 / E03)
+    function switchClientSubPage(sub) {
+      document.getElementById('client-sub-e02').style.display = sub === 'e02' ? 'block' : 'none';
+      document.getElementById('client-sub-e03').style.display = sub === 'e03' ? 'block' : 'none';
+    }
+
+    // 抽屉与弹窗开启/关闭
+    function openDrawer(id) {
+      const overlay = document.getElementById(id.replace('drawer', 'overlay'));
+      const drawer = document.getElementById(id);
+      if (overlay) overlay.classList.add('active');
+      if (drawer) drawer.classList.add('open');
+    }
+    function closeDrawer(id) {
+      const overlay = document.getElementById(id.replace('drawer', 'overlay'));
+      const drawer = document.getElementById(id);
+      if (overlay) overlay.classList.remove('active');
+      if (drawer) drawer.classList.remove('open');
+    }
+    function openModal(id) {
+      const modal = document.getElementById(id);
+      if (modal) modal.classList.add('active');
+    }
+    function closeModal(id) {
+      const modal = document.getElementById(id);
+      if (modal) modal.classList.remove('active');
+    }
+
+    // 清单决策联动与代价计算器
+    function setDecision(btn, itemId, costDelta, type) {
+      const parent = btn.parentElement;
+      parent.querySelectorAll('.decision-btn').forEach(b => {
+        b.className = 'decision-btn';
+      });
+
+      if (type === 'current') {
+        btn.classList.add('active-current');
+      } else if (type === 'next') {
+        btn.classList.add('active-next');
+      } else {
+        btn.classList.add('active-skip');
+      }
+
+      // 重新计算代价
+      let total = 0;
+      document.querySelectorAll('#tabContentChecklist .active-current').forEach(b => {
+        if (b.innerText.includes('2.0d')) total += 2.0;
+        if (b.innerText.includes('1.0d')) total += 1.0;
+      });
+      currentCost = total;
+      document.getElementById('drawerCostTotal').innerText = currentCost.toFixed(1) + ' 人天';
+      document.getElementById('clientTotalCost').innerText = currentCost.toFixed(1) + ' 人天';
+    }
+
+    function saveChecklist() {
+      alert('清单决策已保存！当前本期敲定代价为：' + currentCost.toFixed(1) + ' 人天');
+      closeDrawer('drawerChecklist');
+    }
+
+    // 快速创建新需求
+    function submitNewReq() {
+      const title = document.getElementById('newReqTitle').value;
+      if (!title) {
+        alert('请填写需求标题');
+        return;
+      }
+      alert('需求 [' + title + '] 录入成功！系统已自动生成新卡片，正在为您转入确认清单编辑页...');
+      closeDrawer('drawerNewReq');
+      navigatePage('page-req-detail');
+    }
+
+    // 模拟客户签署流程
+    function handleClientSign() {
+      const name = document.getElementById('signer3Name').value;
+      const summary = document.getElementById('clientSummaryInput').value;
+      if (!name) {
+        alert('请填写真实签署人姓名');
+        return;
+      }
+      if (!summary) {
+        alert('请用一句话复述您理解的这一版核心交付物');
+        return;
+      }
+      alert('恭喜！使用者代表 [' + name + '] 签署成功，三方签名已集齐！系统已自动上链生成不可伪造的确认回执。');
+      switchClientSubPage('e03');
+    }
+
+    // 模拟客户驳回澄清流程
+    function submitClientReject() {
+      const reason = document.getElementById('rejectReasonInput').value;
+      if (!reason) {
+        alert('请填写具体分歧说明');
+        return;
+      }
+      alert('已成功提交驳回申请！需求状态已回退为 [澄清中 (CLARIFYING)]，已向内部产品团队推送协同待办，系统已完整记录该次分歧留痕。');
+      closeModal('modalClientReject');
+      switchPerspective('internal');
+      navigatePage('page-dashboard');
+    }
+
+    // 复制外链
+    function copySignLink() {
+      const input = document.getElementById('signLinkCopyInput');
+      input.select();
+      navigator.clipboard.writeText(input.value + " (验证码: 7892)");
+      alert('签名专用外链与验证码已复制到剪贴板！');
+      closeModal('modalGenSignLink');
+    }
+
+    // 颜色微调实时联动
+    function updateThemeColor(val) {
+      document.documentElement.style.setProperty('--primary', val);
+      document.getElementById('themeColorText').value = val;
+    }
+
+    function selectPrototypeVersion(ver) {
+      document.getElementById('currentProtoLabel').innerText = '渲染版本：mockup ' + ver + '.0 (只读沙盒)';
+    }
+
+    function handleProjectChange(val) {
+      alert('已切换至项目：' + val + '，正在拉取最新基线状态...');
+    }
+  </script>
+</body>
+</html>
