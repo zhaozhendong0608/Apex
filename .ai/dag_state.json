@@ -1,0 +1,66 @@
+{
+  "active_module": "req-management",
+  "current_task": "待规划新业务",
+  "current_node": "LM-01",
+  "mode": "FROZEN",
+  "suspended_context": null,
+  "nodes": {
+    "LM-00": {
+      "status": "COMPLETED",
+      "skip_reason": null,
+      "artifacts": []
+    },
+    "LM-01": {
+      "status": "IN_PROGRESS",
+      "skip_reason": null,
+      "artifacts": [
+        "docs/modules/req/prd-test.md"
+      ]
+    },
+    "LM-02": {
+      "status": "IN_PROGRESS",
+      "skip_reason": null,
+      "artifacts": []
+    },
+    "LM-03": {
+      "status": "PENDING",
+      "skip_reason": null,
+      "artifacts": []
+    },
+    "LM-04": {
+      "status": "PENDING",
+      "skip_reason": null,
+      "artifacts": []
+    },
+    "GATE-01": {
+      "status": "PENDING",
+      "skip_reason": null,
+      "artifacts": []
+    },
+    "LM-05": {
+      "status": "PENDING",
+      "skip_reason": null,
+      "artifacts": []
+    },
+    "LM-06": {
+      "status": "PENDING",
+      "skip_reason": null,
+      "artifacts": []
+    },
+    "GATE-02": {
+      "status": "PENDING",
+      "skip_reason": null,
+      "artifacts": []
+    },
+    "LM-07": {
+      "status": "PENDING",
+      "skip_reason": null,
+      "artifacts": []
+    },
+    "LM-08": {
+      "status": "PENDING",
+      "skip_reason": null,
+      "artifacts": []
+    }
+  }
+}

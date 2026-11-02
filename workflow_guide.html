@@ -651,6 +651,10 @@
 
             <div class="menu-section">
                 <div class="menu-title">📖 顶层架构与记忆</div>
+                <div class="menu-item" onclick="switchPanel('panel-dag-engine', this)">
+                    <span>⛓️ DAG 铁链路标引擎 (核心)</span>
+                    <span class="code-tag">NEW · DAG</span>
+                </div>
                 <div class="menu-item" onclick="switchPanel('panel-overview', this)">
                     <span>🏛️ 工作流总览与 3层记忆</span>
                     <span class="code-tag">Architecture</span>
@@ -1038,6 +1042,228 @@ python3 .ai/scripts/board.py status                              # 自检：钩�
 
 遇到红字先别慌：看报错关键字 → 查本手册第 7 节对照表 → 逐条修。</code></pre>
 <!-- AUTO-HANDBOOK:END -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== Panel DAG: 有向无环图 (DAG) 铁链路标与属性状态机 ==================== -->
+            <div id="panel-dag-engine" class="content-panel">
+                <div class="panel-header">
+                    <div class="panel-title-group">
+                        <h1 class="panel-title">⛓️ 有向无环图 (DAG) 铁链路标引擎 · 属性状态机体系</h1>
+                        <span class="badge badge-primary">AI-Native 核心工程本质</span>
+                    </div>
+                    <p class="panel-subtitle">💡 <strong>核心理念</strong>：AI 辅助编程的底层本质就是一个 <strong>有向无环图 (DAG)</strong>。大模型不是唯一的程序员，而是被分配到图上各个工位里的执行工人。用户的所有行为（顺序推进、跳过执行、深入推演、临时插话）本质上就是在对 <strong>DAG 节点属性进行动态赋值与状态转移</strong>！</p>
+                </div>
+
+                <!-- 1. DAG 铁链路标拓扑图 -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">📊 16 篇 SOP 映射的 DAG 铁链路标拓扑全景图 (严格有向无环)</div>
+                        <span class="badge badge-success">交互拓扑 · 节点物理锁死</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="mermaid-container">
+                            <div class="mermaid-toolbar">
+                                <span class="pan-tip">💡 支持鼠标拖拽平移 & 滚轮按需缩放</span>
+                                <div class="toolbar-group">
+                                    <button class="tool-btn" onclick="zoomMermaid(this, 1.25)">🔍 放大</button>
+                                    <button class="tool-btn" onclick="zoomMermaid(this, 0.8)">🔍 缩小</button>
+                                    <button class="tool-btn" onclick="resetMermaid(this)">🔄 重置</button>
+                                    <button class="tool-btn" onclick="openModalMermaid(this)">🖥️ 全屏查看</button>
+                                </div>
+                            </div>
+                            <div class="mermaid-viewport">
+                                <pre class="mermaid">
+graph TD
+    classDef rootNode fill:#6366f1,stroke:#4f46e5,stroke-width:2px,color:#fff;
+    classDef mainNode fill:#3b82f6,stroke:#1d4ed8,stroke-width:2px,color:#fff;
+    classDef gateNode fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#fff;
+    classDef bypassNode fill:#10b981,stroke:#047857,stroke-width:2px,color:#fff;
+    classDef deliverNode fill:#8b5cf6,stroke:#6d28d9,stroke-width:2px,color:#fff;
+
+    SOP00["🧭 [LM-00] 意图自适应路由 (00-sop-overview.md)<br/>用户只说人话 · 静默分流"]:::rootNode
+
+    SOP01["🚩 [LM-01] 需求切片与四态管理 (01-sop-planning.md)<br/>输出: PRD / S1-S3 切片清单"]:::mainNode
+
+    subgraph Fork_Track ["双轨延迟汇合机制 (Dual-Track Deferred Convergence)"]
+        SOP01_SRS["[LM-02-A] 研发规格 SRS 冻结<br/>输入: PRD ➔ 研发边界"]:::mainNode
+        SOP01_TC["[LM-02-B] 测试用例矩阵 TC 冻结<br/>输入: PRD ➔ P0/P1 用例与探针"]:::mainNode
+    end
+
+    SOP02["🚩 [LM-03] 方案设计与数据底座 (02-sop-tech-design.md)<br/>输出: service.sql + rollback.sql 配对 / API 契约"]:::mainNode
+
+    SOP03["🚩 [LM-04] TDD 红绿循环编码 (03-sop-coding.md)<br/>输入: 契约 + TC 矩阵 ➔ 红灯单测 ➔ 绿灯实现"]:::mainNode
+
+    GATE04{"🚦 [GATE-01] 机器门禁检验 (04-sop-code-review.md)<br/>gate.py --staged 8项扫描 / 0-Error"}:::gateNode
+    SOP05["🚩 [LM-05] 架构与规范评审 (05-sop-review.md)<br/>三门禁核验 · 防架构劣化"]:::mainNode
+
+    SOP06["🚩 [LM-06] 集成联调与真实穿透 (06-sop-integration.md)<br/>双轨汇合: 跨服务契约 · 真实联调 0-Mock"]:::mainNode
+
+    GATE07{"🏁 [GATE-02] 终验归档门禁 (07-sop-acceptance.md)<br/>board.py verify + --accept 唯一归档出口"}:::gateNode
+
+    SOP08["📦 [LM-07] 零公网离线部署 (08-sop-deploy.md)<br/>离线镜像 · 端口收敛"]:::deliverNode
+    SOP09["🚀 [LM-08] Git 发行与发布 (09-sop-git-release.md)<br/>JGit Tag · 版本冻结"]:::deliverNode
+
+    SOP00 --> SOP01
+    SOP01 --> SOP01_SRS
+    SOP01 --> SOP01_TC
+    SOP01_SRS --> SOP02
+    SOP02 --> SOP03
+    SOP01_TC -.->|硬约束: TC 汇合锁| SOP03
+    SOP03 --> GATE04
+    GATE04 -->|验证通过| SOP05
+    SOP05 --> SOP06
+    SOP06 --> GATE07
+    GATE07 -->|用户显式放行| SOP08
+    SOP08 --> SOP09
+
+    subgraph Bypass_System ["旁路系统 (Bypass Pin · 不改动主干 DAG 指针)"]
+        B1["🔍 [B1] 存量考古逆向"]:::bypassNode
+        B2["⚡ [B2] 微创快修 (≤20行单文件)"]:::bypassNode
+        B3["🐛 [B3] 小黄鸭精准排错"]:::bypassNode
+        B4["🚨 [B4] 生产事故排障"]:::bypassNode
+        B5["📦 [B5] 手动事件归档"]:::bypassNode
+        B6["🔄 [B6] 会话快照复活"]:::bypassNode
+    end
+
+    B1 -.->|反哺输入| SOP01
+    B2 -.->|瞬态旁通| SOP03
+    B3 -.->|原地自愈| SOP03
+    B6 -.->|读取 tier1| SOP00
+                                </pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. 核心数学模型：节点属性赋值表 -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">🧩 DAG 节点属性数据模型 (Node Attribute Schema)</div>
+                        <span class="badge badge-warning">极省 Token 的状态机本质</span>
+                    </div>
+                    <div class="card-body">
+                        <p style="margin-bottom: 14px; font-size: 14px; color: var(--text-muted);">
+                            每个节点在内存或快照中均表示为一个确定性数据结构。AI 每次交互仅针对当前节点的属性进行读写，彻底终结了无序发散与 Token 浪费：
+                        </p>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>属性名</th>
+                                        <th>类型 / 可选枚举</th>
+                                        <th>工程意义与控制逻辑</th>
+                                        <th>赋值示例</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>status</code></td>
+                                        <td><code>PENDING</code> | <code>IN_PROGRESS</code> | <code>COMPLETED</code> | <code>SKIPPED</code></td>
+                                        <td><strong>节点物理状态</strong>。当前工位唯一处于 <code>IN_PROGRESS</code>；跳过时置为 <code>SKIPPED</code>。</td>
+                                        <td><code>"status": "IN_PROGRESS"</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>mode</code></td>
+                                        <td><code>EXPLORING</code> | <code>FROZEN</code></td>
+                                        <td><strong>原地讨论模式</strong>。深入推演时为 <code>EXPLORING</code>（AI不催促）；拍板冻结后为 <code>FROZEN</code> 触发交割。</td>
+                                        <td><code>"mode": "EXPLORING"</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>skip_reason</code></td>
+                                        <td><code>string | null</code></td>
+                                        <td><strong>跳过追溯备注</strong>。用户跳过节点时必须登记原因，保证合规审计不丢上下文。</td>
+                                        <td><code>"Backend-only, no UI needed"</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>required_inputs</code></td>
+                                        <td><code>Array&lt;Path&gt;</code></td>
+                                        <td><strong>前置物料指针</strong>。本节点启动必须存在的资产文件（无物料则前置有向边不通）。</td>
+                                        <td><code>["docs/modules/req/prd.md"]</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>produced_artifacts</code></td>
+                                        <td><code>Array&lt;Path&gt;</code></td>
+                                        <td><strong>本站交付物料</strong>。本工位必须落盘的物理成果，后置节点依赖的唯一起点。</td>
+                                        <td><code>["service.sql", "detail.md"]</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>gate_command</code></td>
+                                        <td><code>Shell Command</code></td>
+                                        <td><strong>单向物理门禁</strong>。离开当前节点必须执行通过的自动化检查命令。</td>
+                                        <td><code>"python3 .ai/scripts/gate.py"</code></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. 四大约束原语：解决跳过、插播与深聊 -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">⚙️ 运行时四大控制原语 (Runtime Execution Primitives)</div>
+                        <span class="badge badge-primary">解决真实人机摩擦力</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="grid-2">
+                            <div class="flow-card" style="border-left: 4px solid #10b981;">
+                                <h4 style="color: #10b981; margin-bottom: 8px;">1. 顺向推进 (ADVANCE)</h4>
+                                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px;">
+                                    <strong>场景</strong>：当前工位任务圆满完成，沿有向边进入下一站。<br/>
+                                    <strong>属性赋值</strong>：<code>Node(N).status = COMPLETED</code> ➔ <code>Node(N+1).status = IN_PROGRESS</code>。<br/>
+                                    <strong>表现</strong>：AI 生成当前站交付物料，自动切入下一站单篇 SOP，并给出即点即用的下一步路标。
+                                </p>
+                            </div>
+                            <div class="flow-card" style="border-left: 4px solid #f59e0b;">
+                                <h4 style="color: #f59e0b; margin-bottom: 8px;">2. 显式跳过 (SKIP)</h4>
+                                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px;">
+                                    <strong>场景</strong>：用户明确要求跳过某节点（如纯后端免原型、内部工具跳过评审）。<br/>
+                                    <strong>属性赋值</strong>：<code>Node(N).status = SKIPPED</code> ➔ 记录 <code>skip_reason</code> ➔ 激活 <code>Node(N+k)</code>。<br/>
+                                    <strong>底线</strong>：允许跳过人工评审节点，但<strong>不可跳过机器编译与终验门禁</strong>。
+                                </p>
+                            </div>
+                            <div class="flow-card" style="border-left: 4px solid #3b82f6;">
+                                <h4 style="color: #3b82f6; margin-bottom: 8px;">3. 原地深入推演 (EXPLORE)</h4>
+                                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px;">
+                                    <strong>场景</strong>：针对一个字段设计、算法选型或架构边界反复讨论数轮。<br/>
+                                    <strong>属性赋值</strong>：<code>Node(N).mode = EXPLORING</code>（指针牢牢钉在当前工位）。<br/>
+                                    <strong>表现</strong>：AI 专心作为智囊推演方案，绝不催促流转，待用户确认“拍板”后才置为 <code>FROZEN</code>。
+                                </p>
+                            </div>
+                            <div class="flow-card" style="border-left: 4px solid #8b5cf6;">
+                                <h4 style="color: #8b5cf6; margin-bottom: 8px;">4. 临时挂起与恢复 (SUSPEND & RESUME)</h4>
+                                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px;">
+                                    <strong>场景</strong>：开发中途突然插播问不相干问题（如 Docker 报错、Git 冲突、语法答疑）。<br/>
+                                    <strong>属性赋值</strong>：<strong>不修改任何节点属性</strong>（主任务压栈）。<br/>
+                                    <strong>表现</strong>：AI 直接回答插播问题（0 大文档加载，极省 Token），末尾用 1 句路标提醒主线当前工位。
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. 优化落地路线与极简交互示例 -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">💡 交互改造后的人机实况（零记忆指令 · 极省 Token）</div>
+                    </div>
+                    <div class="card-body">
+                        <div class="code-box" style="background: #0f172a; color: #f8fafc; padding: 16px; border-radius: 8px; font-family: monospace; font-size: 13px; line-height: 1.6;">
+<span style="color: #94a3b8;">// 场景示范：当代码写完并跑通单元测试后，AI 答复的结尾固定展示当前工位与路标：</span>
+<br/><br/>
+✅ [Task-508] 后端服务与联调探针已落地并通过所有用例。
+<br/><br/>
+<span style="color: #3b82f6;">──────────────────────────────────────────────────────────────────</span><br/>
+⛓️ <b>DAG 工位流转中</b>：<br/>
+&nbsp;&nbsp;&nbsp;[LM-03 契约冻结 ✅] ➔ <b>【当前：LM-04 TDD编码实现 🟢 已通过】</b> ➔ [GATE-01 机器门禁 ⏳ 待出发]<br/>
+🧭 <b>下一步建议 (回车即走)</b>：<br/>
+&nbsp;&nbsp;&nbsp;<b>1. 输入 `1` 或回车 (推荐)</b>：执行 `python3 .ai/scripts/gate.py --staged` 自动跑 8 项机器门禁<br/>
+&nbsp;&nbsp;&nbsp;<b>2. 输入 `skip`</b>：本次为单模块微创，跳过严格架构评审，直接进入前后端联调<br/>
+&nbsp;&nbsp;&nbsp;<b>3. 自由输入</b>：随时提出疑问或代码重构要求（自动进入原地推演）<br/>
+<span style="color: #3b82f6;">──────────────────────────────────────────────────────────────────</span>
                         </div>
                     </div>
                 </div>

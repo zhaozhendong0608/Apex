@@ -108,7 +108,7 @@ backend/src/main/java/com/apex/sys/
     "nickname": "张三",
     "phone": "13911223344",
     "password": "InitialPassword123",
-    "roleIds": [2]
+    "roleIds": [3]
   }
   ```
 - **Response 200 OK**:

@@ -23,7 +23,7 @@
 | 用例 ID | 所属模块 | 接口及 Method | 测试场景与描述 | 输入参数 | 预期 HTTP 响应 | 数据库副作用断言 (DB Assert) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | `TC-SYS-HP-001` | 认证模块 | `POST /api/v1/sys/auth/login` | 超级管理员账号成功登录 | `{"username": "admin", "password": "RawPassword123!"}` | `HTTP 200` <br/> `code: 200` <br/> 包含非空 `token` | - |
-| `TC-SYS-HP-002` | 用户模块 | `POST /api/v1/sys/users` | 管理员开户创建新账号 `zhangsan` | Header: `Authorization: Bearer <Token>` <br/> `{"username": "zhangsan", "nickname": "张三", "roleIds": [2]}` | `HTTP 200` <br/> `code: 200` <br/> 返回新 `userId` | `SELECT count(1) FROM sys_user WHERE username='zhangsan' == 1` |
+| `TC-SYS-HP-002` | 用户模块 | `POST /api/v1/sys/users` | 管理员开户创建新账号 `zhangsan` | Header: `Authorization: Bearer <Token>` <br/> `{"username": "zhangsan", "nickname": "张三", "roleIds": [3]}` | `HTTP 200` <br/> `code: 200` <br/> 返回新 `userId` | `SELECT count(1) FROM sys_user WHERE username='zhangsan' == 1` |
 | `TC-SYS-HP-003` | 菜单模块 | `GET /api/v1/sys/menus/routers` | 拉取管理员动态路由菜单树 | Header: `Authorization: Bearer <Token>` | `HTTP 200` <br/> `code: 200` <br/> 返回菜单 JSON 数组 | 校验返回列表中包含 `sys:user:list` 权限标识 |
 
 ---

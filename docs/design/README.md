@@ -22,4 +22,4 @@ docs/design/
    * 将客户或 UI 设计师提供的视觉规范 PDF / 设计图直接命名为 `theme-spec.pdf` 放入本目录。
 2. **提取 AI 设计 Token**：
    * 在 `design-tokens.md` 中记录核心颜色 Hex（如 Primary: `#3B82F6`）、字体、卡片圆角等参数。
-   * AI 在运行 `[2]` 单焦点编码或生成 `mockup.html` 交互原型时，会优先读取 `design-tokens.md` 约束前端样式。
+   * AI 在运行 `[3]` 单焦点编码或生成 `mockup.html` 交互原型时，会优先读取 `design-tokens.md` 约束前端样式。
