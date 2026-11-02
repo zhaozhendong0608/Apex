@@ -26,6 +26,7 @@ Apex/                                                # 🚀 顶层工作区 (IDE
 ├── 🧩 .agents/                                       # 🧩 AI 专属技能包库
 │   └── 📁 skills/
 ├── 🧠 .ai/                                           # ⚙️ 统一工作流控制中心（三层记忆金字塔）
+│   ├── 📄 dag_state.json
 │   ├── 🛠️ scripts/                                  # 🛠️ 自动化控制与分析脚本库
 │   ├── 📜 sop/                                       # 📜 全套 16 篇 SOP（主链 0~9 · 旁路 B1~B6）
 │   ├── 📄 tier1_snapshot.md                          # ① 极简快照名片（<30 行，[B6] 复活只读它）
@@ -38,8 +39,10 @@ Apex/                                                # 🚀 顶层工作区 (IDE
 ├── 📄 BEGINNER_HANDBOOK.md                           # 🚀 新手辅助开发手册（保姆级上手）
 ├── 📖 README.md                                      # 📖 项目门面与使用指南
 ├── 📖 WORKFLOW_GUIDE.md                              # 📖 完整工作流与设计指南
+├── 📄 ai_memory_dashboard_mockup.html
 ├── 📁 assets/
-│   └── 📄 mermaid.min.js
+│   ├── 📄 mermaid.min.js
+│   └── 📄 x6.min.js
 ├── 💻 base_template/                                 # 💻 业务工程脚手架（真实开发在这里）
 │   ├── 🧩 .agents/                                   # 🧩 AI 专属技能包库
 │   ├── 🧠 .cursorrules                               # 🧠 AI 行为约束与数字路由表

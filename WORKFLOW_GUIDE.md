@@ -14,50 +14,51 @@
 
 <!-- AUTO-TREE-FULL:START -->
 ```plaintext
-Apex/                                 # 🚀 顶层工作区 (IDE 打开的根目录)
-├── 🧩 .agents/                        # 🧩 AI 专属技能包库
+Apex/                                  # 🚀 顶层工作区 (IDE 打开的根目录)
+├── 🧩 .agents/                         # 🧩 AI 专属技能包库
 │   └── 📁 skills/
-│       ├── 📁 archetype-architect/    # Archetype-Architect
+│       ├── 📁 archetype-architect/     # Archetype-Architect
 │       ├── 📁 code-quality-reviewer/
-│       ├── 📁 coding-standards/       # Coding-Standards
-│       ├── 📁 design-spec-architect/  # Design-Spec-Architect
-│       ├── 📁 legacy-archaeologist/   # Legacy-Archaeologist
+│       ├── 📁 coding-standards/        # Coding-Standards
+│       ├── 📁 design-spec-architect/   # Design-Spec-Architect
+│       ├── 📁 legacy-archaeologist/    # Legacy-Archaeologist
 │       ├── 📁 poc-tech-prototype/
-│       ├── 📁 quality-verifier/       # Quality-Verifier
-│       └── 📁 requirement-discovery/  # Requirement-Discovery
-├── 🧠 .ai/                            # ⚙️ 统一工作流控制中心（三层记忆金字塔）
-│   ├── 🛠️ scripts/                   # 🛠️ 自动化控制与分析脚本库
-│   │   ├── 📄 arch.py                 # 🏛️ 老项目拓扑图谱分析脚本
-│   │   ├── 📄 board.py                # 📊 确定性看板与任务状态控制脚本
-│   │   ├── 📄 gate.py                 # 🚦 统一质量门禁（6 项看门狗 + SQL 配对 + 元门禁）
+│       ├── 📁 quality-verifier/        # Quality-Verifier
+│       └── 📁 requirement-discovery/   # Requirement-Discovery
+├── 🧠 .ai/                             # ⚙️ 统一工作流控制中心（三层记忆金字塔）
+│   ├── 📄 dag_state.json
+│   ├── 🛠️ scripts/                    # 🛠️ 自动化控制与分析脚本库
+│   │   ├── 📄 arch.py                  # 🏛️ 老项目拓扑图谱分析脚本
+│   │   ├── 📄 board.py                 # 📊 确定性看板与任务状态控制脚本
+│   │   ├── 📄 dag_chain.py
+│   │   ├── 📄 gate.py                  # 🚦 统一质量门禁（6 项看门狗 + SQL 配对 + 元门禁）
 │   │   ├── 📄 install_hooks.py
 │   │   ├── 📄 linter_js.py
 │   │   ├── 📄 linter_py.py
-│   │   ├── 📄 pre_commit.py
-│   │   └── 📄 sync_tree.py            # 🔄 目录树 / Skill 路由 / 手册自动同步脚本
-│   ├── 📜 sop/                        # 📜 全套 16 篇 SOP（主链 0~9 · 旁路 B1~B6）
-│   │   ├── 📄 00-sop-overview.md      # [0] 体系总览 · 16 篇 SOP 全景
-│   │   ├── 📄 01-sop-planning.md      # [1] 需求规划与任务拆解
-│   │   ├── 📄 02-sop-tech-design.md   # [2] 技术方案设计
-│   │   ├── 📄 03-sop-coding.md        # [3] 编码开发与 TDD 护栏
-│   │   ├── 📄 04-sop-code-review.md   # [4] 代码审查机器门禁
-│   │   ├── 📄 05-sop-review.md        # [5] 人工架构与契约评审
-│   │   ├── 📄 06-sop-integration.md   # [6] 集成测试与 E2E 穿透
-│   │   └── 📄 07-sop-acceptance.md    # [7] 双向验收与唯一归档出口
+│   │   └── 📄 pre_commit.py
+│   │   └── …(另有 1 项)
+│   ├── 📜 sop/                         # 📜 全套 16 篇 SOP（主链 0~9 · 旁路 B1~B6）
+│   │   ├── 📄 00-sop-overview.md       # [0] 体系总览 · 16 篇 SOP 全景
+│   │   ├── 📄 01-sop-planning.md       # [1] 需求规划与任务拆解
+│   │   ├── 📄 02-sop-tech-design.md    # [2] 技术方案设计
+│   │   ├── 📄 03-sop-coding.md         # [3] 编码开发与 TDD 护栏
+│   │   ├── 📄 04-sop-code-review.md    # [4] 代码审查机器门禁
+│   │   ├── 📄 05-sop-review.md         # [5] 人工架构与契约评审
+│   │   ├── 📄 06-sop-integration.md    # [6] 集成测试与 E2E 穿透
+│   │   └── 📄 07-sop-acceptance.md     # [7] 双向验收与唯一归档出口
 │   │   └── …(另有 9 项)
-│   ├── 📄 tier1_snapshot.md           # ① 极简快照名片（<30 行，[B6] 复活只读它）
-│   ├── 📄 tier2_legacy_arch.md        # ② 老项目切片与拓扑图谱元数据池
-│   ├── 📄 tier2_modules.md            # ② 大模块矩阵索引
-│   ├── 📄 tier3_handover.md           # ③ 交接黑匣子（append-only 事件日志）
-│   └── 📄 tier3_status.md             # ③ 任务看板状态机（仅 board.py 可写）
-├── 🧠 .cursorrules                    # 🧠 AI 行为约束与数字路由表
-├── 🧠 .windsurfrules                  # 🧠 IDE 规则适配文件
-├── 📄 BEGINNER_HANDBOOK.md            # 🚀 新手辅助开发手册（保姆级上手）
-├── 📖 README.md                       # 📖 项目门面与使用指南
-├── 📖 WORKFLOW_GUIDE.md               # 📖 完整工作流与设计指南
-└── 📁 assets/
-    └── 📄 mermaid.min.js
-└── …(另有 9 项)
+│   ├── 📄 tier1_snapshot.md            # ① 极简快照名片（<30 行，[B6] 复活只读它）
+│   ├── 📄 tier2_legacy_arch.md         # ② 老项目切片与拓扑图谱元数据池
+│   ├── 📄 tier2_modules.md             # ② 大模块矩阵索引
+│   ├── 📄 tier3_handover.md            # ③ 交接黑匣子（append-only 事件日志）
+│   └── 📄 tier3_status.md              # ③ 任务看板状态机（仅 board.py 可写）
+├── 🧠 .cursorrules                     # 🧠 AI 行为约束与数字路由表
+├── 🧠 .windsurfrules                   # 🧠 IDE 规则适配文件
+├── 📄 BEGINNER_HANDBOOK.md             # 🚀 新手辅助开发手册（保姆级上手）
+├── 📖 README.md                        # 📖 项目门面与使用指南
+├── 📖 WORKFLOW_GUIDE.md                # 📖 完整工作流与设计指南
+└── 📄 ai_memory_dashboard_mockup.html
+└── …(另有 10 项)
 ```
 <!-- AUTO-TREE-FULL:END -->
 

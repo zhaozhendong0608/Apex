@@ -100,3 +100,10 @@
 * 🎯 完成任务: [Task-509] 需求治理平台全链路动态对接与Mock假数据物理清空、项目级联粉碎删除与管理员特权解冻
 * 🛠️ 本次改动核心文件: [base_template/frontend/src/modules/req-management/views/ReqManagementView.vue, base_template/frontend/src/api/req.ts, ProjectController.java, ProjectService.java, RequirementController.java, RequirementService.java, docs/db/service.sql]
 * 💡 关键决策: 彻底移除前端所有Mock假数据与兜底占位，界面100%直连MySQL真实表与接口；实现项目级联物理粉碎删除与已冻结基线特权解冻闭环；强制utf8mb4字符集确保零乱码。
+
+---
+
+## 📦 归档交接 [2026-11-02 09:40:54]
+* 🎯 完成任务: [DAG-Engine] DAG 铁链路标运行时引擎落盘、指南全景升级与三层记忆落库大屏设计
+* 🛠️ 本次改动核心文件: .ai/scripts/dag_chain.py, .ai/dag_state.json, workflow_guide.html, ai_memory_dashboard_mockup.html, docs/handovers/handover-20261102-workflow_dag_engine.md
+* 💡 关键决策: 明确 AI 编程本质为 DAG 节点属性赋值；落盘 dag_chain.py 实现四大控制原语；workflow_guide.html 引入 Mermaid 标准兼容拓扑；设计带 git_branch 隔离的三层记忆落库模型与大屏原型
