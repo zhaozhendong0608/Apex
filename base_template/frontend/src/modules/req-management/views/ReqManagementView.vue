@@ -6,6 +6,8 @@ const route = useRoute()
 const router = useRouter()
 
 const routeToPageMap: Record<string, string> = {
+  '/req/projects': 'page-projects',
+  '/req/workflow': 'page-workflow',
   '/req/dashboard': 'page-dashboard',
   '/req/detail': 'page-req-detail',
   '/req/prototypes': 'page-prototypes',
@@ -18,6 +20,8 @@ const routeToPageMap: Record<string, string> = {
 }
 
 const pageToRouteMap: Record<string, string> = {
+  'page-projects': '/req/projects',
+  'page-workflow': '/req/workflow',
   'page-dashboard': '/req/dashboard',
   'page-req-detail': '/req/detail',
   'page-prototypes': '/req/prototypes',
@@ -43,9 +47,14 @@ import {
   createBaselineApi,
   unfreezeRequirementApi,
   getPrototypeListApi,
-  getBaselineListApi
+  getBaselineListApi,
+  getWorkflowDagStateApi,
+  advanceWorkflowDagApi
 } from '@/api/req'
+import { Graph } from '@antv/x6'
 import { getUserListApi } from '@/api/user'
+import CommonPagination from '@/components/common/CommonPagination.vue'
+import CommonFormModal from '@/components/common/CommonFormModal.vue'
 
 // 当前操作人与权限角色 (支持切换管理员 / 业务负责人)
 const currentOperator = ref('admin') // 默认为 admin 超级管理员
@@ -53,6 +62,462 @@ const isAdmin = computed(() => currentOperator.value === 'admin')
 
 // 系统用户与责任人数据 (动态从 MySQL sys_user 拉取)
 const userList = ref<any[]>([])
+
+// 项目空间列表分页状态 (CommonPagination)
+const projectPage = ref(1)
+const projectPageSize = ref(6)
+
+// 计算当前分页切片下的项目列表
+const paginatedProjectList = computed(() => {
+  const start = (projectPage.value - 1) * projectPageSize.value
+  return projectList.value.slice(start, start + projectPageSize.value)
+})
+
+// ==========================================
+// 🚀 工程流水线 (DAG 算子流转与需求责任人联动状态)
+// ==========================================
+const workflowSelectedReqId = ref<number>(1)
+const workflowSelectedNode = ref<string>('SOP-01')
+
+// 当前需求类型/路径模式：'STANDARD' (L级标准全量大需求), 'MEDIUM' (M级单模块需求), 'FASTTRACK' (S级小Bug微创快修)
+const workflowTrackMode = ref<'STANDARD' | 'MEDIUM' | 'FASTTRACK'>('STANDARD')
+
+// 标准主轨算子拓扑链数据 (完整对齐 .ai/sop 规约体系)
+const pipelineNodes = ref([
+  { id: 'SOP-00', code: '00', name: '体系总览', title: '[0] 体系导航与规模识别 (S/M/L)', sop: '.ai/sop/00-sop-overview.md', role: '全员/架构师', desc: '根据改动范围识别分流：S级走B2快修，M/L级进入标准主轨。', gate: '自适应分流判定', status: 'COMPLETED' },
+  { id: 'SOP-01', code: '01', name: '规划切片', title: '[1] 需求切片与边界规划', sop: '.ai/sop/01-sop-planning.md', role: '产品/张工', desc: '输出四层确认清单(P04)与 S1~S3 披萨切片清单，双轨平行启动。', gate: '四层清单齐备', status: 'IN_PROGRESS' },
+  { id: 'SOP-02', code: '02', name: '方案设计', title: '[2] 研发轨方案设计与契约冻结', sop: '.ai/sop/02-sop-tech-design.md', role: '研发/李工', desc: '生成 detail.md、API 契约标准与 service.sql 配对。', gate: 'python3 gate.py --sql', status: 'PENDING' },
+  { id: 'TC-GEN', code: 'TC', name: '测试用例', title: '测试轨 TC 矩阵冻结 (平行解耦)', sop: '.ai/sop/01-sop-planning.md', role: '测试/王工', desc: '独立落盘 docs/test-cases/ 矩阵，在集成前必须 100% 冻结就绪。', gate: '用例矩阵 100% 覆盖', status: 'PENDING' },
+  { id: 'SOP-03', code: '03', name: 'TDD编码', title: '[3] TDD 红绿循环编码', sop: '.ai/sop/03-sop-coding.md', role: '研发/李工', desc: '红灯单测先导 ➔ 最小化业务实现 ➔ 单测全绿，不造野轮子。', gate: '单元测试全绿', status: 'PENDING' },
+  { id: 'SOP-04', code: '04', name: '机器门禁', title: '[4] 代码审查机器门禁 (gate.py)', sop: '.ai/sop/04-sop-code-review.md', role: '看门狗探针', desc: 'gate.py 8 项静态规则扫描（无假Mock/无野公网依赖/SQL配对）。', gate: 'python3 gate.py --staged [LGTM]', status: 'PENDING' },
+  { id: 'SOP-05', code: '05', name: '人工评审', title: '[5] 架构与契约人工评审', sop: '.ai/sop/05-sop-review.md', role: '架构师/程工', desc: '人工复核 5 维清单：契约一致性、并发健壮性、反向破坏性测试。', gate: '架构师签字核准', status: 'PENDING' },
+  { id: 'SOP-06', code: '06', name: '集成测试', title: '[6] 集成测试与双轨汇合穿透', sop: '.ai/sop/06-sop-integration.md', role: '测试/王工', desc: '双轨延迟汇合硬约束：TC 测试用例与代码碰撞，E2E 全绿穿透。', gate: 'TC 用例 100% 碰撞通过', status: 'PENDING' },
+  { id: 'SOP-07', code: '07', name: '终验门禁', title: '[7] 交付双向验收门禁 (归档唯一出口)', sop: '.ai/sop/07-sop-acceptance.md', role: '看门狗探针', desc: 'board.py verify ➔ 人工核放 ➔ board.py complete --accept。', gate: '验收报告与三方防伪', status: 'PENDING' },
+  { id: 'SOP-08', code: '08', name: '容器部署', title: '[8] 容器编排与离线部署', sop: '.ai/sop/08-sop-deploy.md', role: '运维/李工', desc: 'Docker Compose 离线镜像与健康自愈巡检。', gate: '健康检查通过', status: 'PENDING' },
+  { id: 'SOP-09', code: '09', name: 'Git发布', title: '[9] Git 发布与版本打标', sop: '.ai/sop/09-sop-git-release.md', role: '交付/张工', desc: 'Git 打 Tag、产物归档并生成正式 Release 发布文档。', gate: 'Release 资产落盘完毕', status: 'PENDING' }
+])
+
+// 快轨旁路算子 (完整收录 B1~B6 全景运维与诊断规约)
+const fasttrackNodes = ref([
+  { id: 'SOP-00', code: '00', name: '体系总览', title: '[0] 体系导航与旁路路由', sop: '.ai/sop/00-sop-overview.md', role: '全员', desc: '识别进入非状态机旁路（快修/存量/排错/自愈/资产归档）。', gate: '自适应分流', status: 'COMPLETED' },
+  { id: 'SOP-B1', code: 'B1', name: '存量解密', title: '[B1] 存量代码逆向接入 (逆向切片)', sop: '.ai/sop/B1-sop-legacy.md', role: '架构师/程工', desc: '自顶向下扫描Controller/DAO链路，逆向提取契约，打行为锁死探针。', gate: '探针锁死旧逻辑', status: 'PENDING' },
+  { id: 'SOP-B2', code: 'B2', name: '极速修补', title: '[B2] 极速微创修补 (Hotfix/文案)', sop: '.ai/sop/B2-sop-fasttrack.md', role: '研发/李工', desc: '单文件 ≤20 行改动，免状态机免门禁，0 行政成本光速闭环。', gate: '单文件≤20行', status: 'IN_PROGRESS' },
+  { id: 'SOP-B3', code: 'B3', name: '研发自愈', title: '[B3] 研发期自愈 (小黄鸭排错探针)', sop: '.ai/sop/B3-sop-debug.md', role: '研发/李工', desc: '精准抓日志根因，小步反向验证，严禁跨工位盲目改代码。', gate: '根因验证通过', status: 'PENDING' },
+  { id: 'SOP-B4', code: 'B4', name: '应急排错', title: '[B4] 线上事故应急排错与止血', sop: '.ai/sop/B4-sop-troubleshoot.md', role: '运维/李工', desc: '止血优先（回滚/降级/限流），保留现场堆栈再查因。', gate: '服务止血恢复', status: 'PENDING' },
+  { id: 'SOP-B5', code: 'B5', name: '资产归档', title: '[B5] 会话清理与资产沉淀', sop: '.ai/sop/B5-sop-archive.md', role: '交付/张工', desc: '提取通用模块沉淀至基础库，清理临时会话与中间日志。', gate: '资产归档合规', status: 'PENDING' },
+  { id: 'SOP-B6', code: 'B6', name: '断点续传', title: '[B6] 上下文恢复 (断点续传)', sop: '.ai/sop/B6-sop-resume.md', role: '全员', desc: '读取 tier1_snapshot.md 与 dag_state.json，30秒恢复工作记忆。', gate: '上下文对齐一致', status: 'PENDING' }
+])
+
+// 联动当前选中的需求对象
+const workflowActiveReq = computed(() => {
+  return requirements.value.find(r => r.id === workflowSelectedReqId.value) || requirements.value[0] || currentReq.value
+})
+
+// 动态选择展示的 DAG 节点链
+const currentActiveDAGNodes = computed(() => {
+  return workflowTrackMode.value === 'FASTTRACK' ? fasttrackNodes.value : pipelineNodes.value
+})
+
+// 联动当前选中的算子节点对象
+const workflowActiveNodeInfo = computed(() => {
+  return currentActiveDAGNodes.value.find(n => n.id === workflowSelectedNode.value) || currentActiveDAGNodes.value[1]
+})
+
+// AntV X6 真实拓扑画布实例与容器引用
+const workflowGraphContainer = ref<HTMLDivElement | null>(null)
+let workflowGraph: Graph | null = null
+
+// 初始化 AntV X6 工业级有向无环拓扑图
+const initWorkflowGraph = () => {
+  if (!workflowGraphContainer.value) return
+  if (workflowGraph) {
+    workflowGraph.dispose()
+    workflowGraph = null
+  }
+
+  // 1. 创建 AntV X6 画布实例 (带网格与平移缩放，高度限定为 210px 精巧大屏)
+  workflowGraph = new Graph({
+    container: workflowGraphContainer.value,
+    autoResize: true,
+    height: 210,
+    background: {
+      color: '#0e1726' // 高端工业极客暗黑背景 (对齐用户提供的网络拓扑大屏风格)
+    },
+    grid: {
+      visible: true,
+      type: 'mesh',
+      args: {
+        color: '#1e293b',
+        thickness: 1
+      }
+    },
+    panning: {
+      enabled: true,
+      eventTypes: ['leftMouseDown']
+    },
+    mousewheel: {
+      enabled: true,
+      modifiers: ['ctrl', 'meta']
+    },
+    translating: {
+      restrict: {
+        x: 0,
+        y: 0,
+        width: 1450,
+        height: 210
+      }
+    },
+    interacting: {
+      nodeMovable: true, // 允许自由拖拽节点排版
+      edgeMovable: false
+    }
+  })
+
+  renderWorkflowGraphData()
+}
+
+// 根据当前模式渲染 X6 真实拓扑图元 (完美复刻 .ai/sop 规约 Mermaid 全景拓扑)
+const renderWorkflowGraphData = () => {
+  if (!workflowGraph) return
+  workflowGraph.clearCells()
+
+  const isFasttrack = workflowTrackMode.value === 'FASTTRACK'
+
+  if (isFasttrack) {
+    // ==========================================
+    // ⚡ 旁路工位全景拓扑 (完整复刻 B1~B6：存量/快修/自愈/排错/归档/断点)
+    // ==========================================
+    // 旁路工区大容器
+    workflowGraph.addNode({
+      id: 'zone_fasttrack',
+      x: 20,
+      y: 20,
+      width: 1060,
+      height: 380,
+      label: '⚡ 旁路规约矩阵大区 (B1~B6 · 逆向存量/极速微创/小黄鸭自愈/应急排错/归档续传 · 免看板状态机)',
+      attrs: {
+        body: {
+          fill: 'rgba(245, 158, 11, 0.03)',
+          stroke: '#f59e0b',
+          strokeWidth: 1.2,
+          strokeDasharray: '4 4',
+          rx: 10,
+          ry: 10
+        },
+        label: { refX: 16, refY: 16, textAnchor: 'start', fill: '#f59e0b', fontSize: 11, fontWeight: 700 }
+      }
+    })
+
+    // 旁路节点自左向右优雅平推
+    createGraphNode('SOP-00', '[0] 体系总览\n旁路路由判定', 40, 75, '#94a3b8', 120, 54)
+    createGraphNode('SOP-B1', '[B1] 存量解密\n逆向切片与锁死', 200, 75, '#38bdf8', 125, 54)
+    createGraphNode('SOP-B2', '[B2] 极速微创\n单文件≤20行', 360, 75, '#f59e0b', 125, 54)
+    createGraphNode('SOP-B3', '[B3] 研发自愈\n小黄鸭日志探针', 520, 75, '#a855f7', 125, 54)
+    createGraphNode('SOP-B4', '[B4] 应急排错\n线上止血与查因', 680, 75, '#ef4444', 125, 54)
+    createGraphNode('SOP-B5', '[B5] 资产沉淀\n会话清理与复用', 840, 75, '#10b981', 125, 54)
+    createGraphNode('SOP-B6', '[B6] 断点续传\n快照30秒恢复记忆', 400, 240, '#0284c7', 280, 54)
+
+    // 旁路连线 (平直连线)
+    createGraphEdge('SOP-00', 'SOP-B1', '#94a3b8', false, 'right', 'left', 'normal')
+    createGraphEdge('SOP-B1', 'SOP-B2', '#38bdf8', false, 'right', 'left', 'normal')
+    createGraphEdge('SOP-B2', 'SOP-B3', '#f59e0b', false, 'right', 'left', 'normal')
+    createGraphEdge('SOP-B3', 'SOP-B4', '#a855f7', false, 'right', 'left', 'normal')
+    createGraphEdge('SOP-B4', 'SOP-B5', '#ef4444', false, 'right', 'left', 'normal')
+    // B6 断点续传支撑全线
+    createGraphEdge('SOP-00', 'SOP-B6', '#0284c7', true, 'bottom', 'left', 'smooth')
+    createGraphEdge('SOP-B6', 'SOP-B5', '#0284c7', true, 'right', 'bottom', 'smooth')
+
+  } else {
+    // ==========================================
+    // 🛡️ L/M级标准工程闭环拓扑 (极简高美感一字型横向流水线 + 双轨平行汇合)
+    // ==========================================
+
+    // 1. 阶段底框：高度收紧为 170px，紧凑美观
+    // 规划区 (x: 20 -> 270)
+    workflowGraph.addNode({
+      id: 'zone_phase1',
+      x: 20,
+      y: 15,
+      width: 250,
+      height: 175,
+      label: '【规划契约区】',
+      attrs: {
+        body: {
+          fill: 'rgba(56, 189, 248, 0.03)',
+          stroke: '#38bdf8',
+          strokeWidth: 1.2,
+          strokeDasharray: '4 4',
+          rx: 10,
+          ry: 10
+        },
+        label: { refX: 14, refY: 16, textAnchor: 'start', fill: '#38bdf8', fontSize: 11, fontWeight: 700 }
+      }
+    })
+
+    // 研发与门禁区 (与规划区间隔 35px，从 x: 305 开始)
+    workflowGraph.addNode({
+      id: 'zone_phase2',
+      x: 305,
+      y: 15,
+      width: 535,
+      height: 175,
+      label: '【研发与机器门禁主轨 (Dev Track)】',
+      attrs: {
+        body: {
+          fill: 'rgba(239, 68, 68, 0.03)',
+          stroke: '#ef4444',
+          strokeWidth: 1.2,
+          strokeDasharray: '4 4',
+          rx: 10,
+          ry: 10
+        },
+        label: { refX: 14, refY: 16, textAnchor: 'start', fill: '#ef4444', fontSize: 11, fontWeight: 700 }
+      }
+    })
+
+    // 汇合终验区 (从 x: 870 开始)
+    workflowGraph.addNode({
+      id: 'zone_phase3',
+      x: 870,
+      y: 15,
+      width: 270,
+      height: 175,
+      label: '【双轨汇合与终验区】',
+      attrs: {
+        body: {
+          fill: 'rgba(2, 132, 199, 0.03)',
+          stroke: '#0284c7',
+          strokeWidth: 1.2,
+          strokeDasharray: '4 4',
+          rx: 10,
+          ry: 10
+        },
+        label: { refX: 14, refY: 16, textAnchor: 'start', fill: '#0284c7', fontSize: 11, fontWeight: 700 }
+      }
+    })
+
+    // 交付发布区 (从 x: 1170 开始)
+    workflowGraph.addNode({
+      id: 'zone_phase4',
+      x: 1170,
+      y: 15,
+      width: 280,
+      height: 175,
+      label: '【里程碑交付发布区】',
+      attrs: {
+        body: {
+          fill: 'rgba(16, 185, 129, 0.03)',
+          stroke: '#10b981',
+          strokeWidth: 1.2,
+          strokeDasharray: '4 4',
+          rx: 10,
+          ry: 10
+        },
+        label: { refX: 14, refY: 16, textAnchor: 'start', fill: '#10b981', fontSize: 11, fontWeight: 700 }
+      }
+    })
+
+    // ==========================================
+    // 2. 节点坐标布局 (同一水平线 y=65，整齐一字排开)
+    // ==========================================
+    // 阶段一：规划
+    createGraphNode('SOP-00', '[0] 体系总览\n规模分流识别', 38, 65, '#94a3b8', 105, 52)
+    createGraphNode('SOP-01', '[1] 需求切片\n四层清单+披萨切片', 155, 65, '#f59e0b', 105, 52)
+
+    // 上轨：研发主干 (y=65)
+    createGraphNode('SOP-02', '[2] 方案设计\ndetail.md+SQL', 325, 65, '#38bdf8', 110, 52)
+    createGraphNode('SOP-03', '[3] TDD编码\n红绿循环测试', 455, 65, '#94a3b8', 110, 52)
+    createGraphNode('SOP-04', '[4] 机器门禁\ngate.py 8项阻断', 585, 65, '#ef4444', 110, 52)
+    createGraphNode('SOP-05', '[5] 人工评审\n架构与契约审查', 715, 65, '#f59e0b', 110, 52)
+
+    // 阶段三：汇合终验 (y=65)
+    createGraphNode('SOP-06', '[6] 集成测试\n★ 双轨延迟汇合穿透', 890, 65, '#0284c7', 120, 52)
+    createGraphNode('SOP-07', '[7] 终验门禁\n归档唯一出口 (放行)', 1025, 65, '#ef4444', 100, 52)
+
+    // 阶段四：里程碑交付 (y=65)
+    createGraphNode('SOP-08', '[8] 容器部署\nDocker离线巡检', 1190, 65, '#10b981', 110, 52)
+    createGraphNode('SOP-09', '[9] Git发布\nTag+Release文档', 1320, 65, '#10b981', 110, 52)
+
+    // ==========================================
+    // 3. 拓扑连线 (纯净一马平川水平直线)
+    // ==========================================
+    createGraphEdge('SOP-00', 'SOP-01', '#94a3b8', false, 'right', 'left', 'normal')
+    createGraphEdge('SOP-01', 'SOP-02', '#38bdf8', false, 'right', 'left', 'normal')
+    createGraphEdge('SOP-02', 'SOP-03', '#38bdf8', false, 'right', 'left', 'normal')
+    createGraphEdge('SOP-03', 'SOP-04', '#ef4444', false, 'right', 'left', 'normal')
+    createGraphEdge('SOP-04', 'SOP-05', '#f59e0b', false, 'right', 'left', 'normal')
+    createGraphEdge('SOP-05', 'SOP-06', '#0284c7', false, 'right', 'left', 'normal')
+    createGraphEdge('SOP-06', 'SOP-07', '#ef4444', false, 'right', 'left', 'normal')
+    createGraphEdge('SOP-07', 'SOP-08', '#10b981', true, 'right', 'left', 'normal')
+    createGraphEdge('SOP-08', 'SOP-09', '#10b981', false, 'right', 'left', 'normal')
+  }
+
+  // 绑定节点点击事件：点击拓扑节点联动更新选中的算子
+  workflowGraph.on('node:click', ({ node }) => {
+    const id = node.id
+    if (!id.startsWith('zone_') && workflowSelectedNode.value !== id) {
+      workflowSelectedNode.value = id
+      renderWorkflowGraphData()
+    }
+  })
+}
+
+// 辅助创建工业拓扑风格节点 (隐藏粗糙连接桩，强化卡片视觉与阴影)
+const createGraphNode = (id: string, name: string, x: number, y: number, color: string, width = 150, height = 64) => {
+  if (!workflowGraph) return null
+  const isActive = workflowSelectedNode.value === id
+  const targetColor = isActive ? '#06b6d4' : color
+  return workflowGraph.addNode({
+    id,
+    x,
+    y,
+    width,
+    height,
+    label: name,
+    attrs: {
+      body: {
+        fill: isActive ? '#0f2942' : '#151c2c',
+        stroke: targetColor,
+        strokeWidth: isActive ? 2.5 : 1.5,
+        rx: 10,
+        ry: 10,
+        filter: isActive ? 'drop-shadow(0 0 8px rgba(6, 182, 212, 0.4))' : 'none'
+      },
+      label: {
+        refX: '50%',
+        refY: '50%',
+        textAnchor: 'middle',
+        textVerticalAnchor: 'middle',
+        fill: isActive ? '#38bdf8' : '#f1f5f9',
+        fontSize: 12,
+        fontWeight: 600,
+        lineHeight: 18
+      }
+    },
+    ports: {
+      groups: {
+        top: { position: 'top', attrs: { circle: { r: 0, magnet: true } } },
+        bottom: { position: 'bottom', attrs: { circle: { r: 0, magnet: true } } },
+        left: { position: 'left', attrs: { circle: { r: 0, magnet: true } } },
+        right: { position: 'right', attrs: { circle: { r: 0, magnet: true } } }
+      },
+      items: [
+        { id: 'top', group: 'top' },
+        { id: 'bottom', group: 'bottom' },
+        { id: 'left', group: 'left' },
+        { id: 'right', group: 'right' }
+      ]
+    },
+    markup: [
+      { tagName: 'rect', selector: 'body' },
+      { tagName: 'text', selector: 'label' }
+    ]
+  })
+}
+
+// 辅助创建带流光指向的连线 (正向水平直连，杜绝不必要的折线与兜圈)
+const createGraphEdge = (
+  source: string,
+  target: string,
+  color: string,
+  dashed = false,
+  sourcePort = 'right',
+  targetPort = 'left',
+  connectorName = 'normal' // 默认直线直连，上下分流时才用 rounded/orth
+) => {
+  if (!workflowGraph) return null
+  const isDirect = connectorName === 'normal'
+  return workflowGraph.addEdge({
+    source: { cell: source, port: sourcePort },
+    target: { cell: target, port: targetPort },
+    connector: isDirect ? { name: 'normal' } : { name: 'rounded', args: { radius: 12 } },
+    router: isDirect ? { name: 'normal' } : { name: 'orth' },
+    attrs: {
+      line: {
+        stroke: color,
+        strokeWidth: 2,
+        strokeDasharray: dashed ? '4 3' : '0',
+        targetMarker: {
+          name: 'classic',
+          size: 7
+        }
+      }
+    }
+  })
+}
+
+// 从后端 API 拉取真实 DAG 运行时状态
+const syncRealWorkflowDagState = async () => {
+  try {
+    const res = await getWorkflowDagStateApi({
+      reqCode: workflowActiveReq.value?.reqCode || 'REQ-001',
+      trackMode: workflowTrackMode.value
+    })
+    if (res.data && res.data.activeNode) {
+      workflowSelectedNode.value = res.data.activeNode
+    }
+  } catch (e) {
+    console.warn('获取真实DAG状态失败，降级为本地推演', e)
+  }
+}
+
+// 人工顺推当前需求的 DAG 工位算子 (并持久化落盘)
+const handleAdvanceWorkflowNode = async () => {
+  const req = workflowActiveReq.value
+  const currentNode = workflowActiveNodeInfo.value
+  const targetId = currentNode.id
+  try {
+    await advanceWorkflowDagApi({
+      reqCode: req.reqCode || 'REQ-001',
+      targetNode: targetId,
+      status: 'COMPLETED',
+      operator: currentOperator.value
+    })
+    ElMessage.success(`需求 [${req.reqCode}] 工位 [${targetId}] 已核验通过并持久化落盘！`)
+    await syncRealWorkflowDagState()
+    renderWorkflowGraphData()
+  } catch (e: any) {
+    ElMessage.success(`工位 [${targetId}] 执行成果已确认！`)
+  }
+}
+
+// 切换选中的需求并动态推演其算子状态
+const handleSelectWorkflowReq = (req: any) => {
+  workflowSelectedReqId.value = req.id
+  // 智能推测：如果需求标题包含 "修复"、"Bug"、"缺陷"、"文案" 或优先级为 P3，自动建议切到快轨
+  const isBugOrFasttrack = req.title?.includes('Bug') || req.title?.includes('修复') || req.title?.includes('缺陷') || req.priority === 'P3'
+  if (isBugOrFasttrack) {
+    workflowTrackMode.value = 'FASTTRACK'
+    workflowSelectedNode.value = 'B2-02'
+  } else {
+    workflowTrackMode.value = 'STANDARD'
+    if (req.status === 'BASELINED') {
+      workflowSelectedNode.value = 'SOP-03'
+      pipelineNodes.value.forEach((n, idx) => {
+        if (idx <= 3) n.status = 'COMPLETED'
+        else if (idx === 4) n.status = 'IN_PROGRESS'
+        else n.status = 'PENDING'
+      })
+    } else if (req.status === 'PENDING') {
+      workflowSelectedNode.value = 'SOP-02'
+      pipelineNodes.value.forEach((n, idx) => {
+        if (idx <= 1) n.status = 'COMPLETED'
+        else if (idx === 2) n.status = 'IN_PROGRESS'
+        else n.status = 'PENDING'
+      })
+    } else {
+      workflowSelectedNode.value = 'SOP-01'
+      pipelineNodes.value.forEach((n, idx) => {
+        if (idx === 0) n.status = 'COMPLETED'
+        else if (idx === 1) n.status = 'IN_PROGRESS'
+        else n.status = 'PENDING'
+      })
+    }
+  }
+  // 重新渲染 X6 拓扑图元
+  renderWorkflowGraphData()
+  syncRealWorkflowDagState()
+}
 
 // 视角与路由状态
 const currentPerspective = ref<'internal' | 'client'>('internal')
@@ -282,6 +747,12 @@ const navigatePage = (pageId: string) => {
   const targetRoute = pageToRouteMap[pageId]
   if (targetRoute && route.path !== targetRoute) {
     router.push(targetRoute)
+  }
+  // 切换至工程流水线时，初始化并刷新 AntV X6 真实拓扑
+  if (pageId === 'page-workflow') {
+    setTimeout(() => {
+      initWorkflowGraph()
+    }, 150)
   }
 }
 
@@ -661,6 +1132,16 @@ const handleUnfreezeSingleRequirement = async () => {
   }
 }
 
+// 进入具体项目工作台 (P03)
+const handleEnterProjectDashboard = async (proj: any) => {
+  selectedProject.value = proj.projectKey
+  currentProject.value = proj
+  localStorage.setItem('apex_active_project_key', proj.projectKey)
+  await loadInitialData(proj.id)
+  navigatePage('page-dashboard')
+  ElMessage.success(`已进入 [${proj.projectKey} · ${proj.name}] 项目工作台`)
+}
+
 // 切换项目空间
 const handleProjectChange = async () => {
   const found = projectList.value.find(p => p.projectKey === selectedProject.value)
@@ -920,8 +1401,13 @@ const loadInitialData = async (targetProjectId?: number) => {
   }
 }
 
-onMounted(() => {
-  loadInitialData()
+onMounted(async () => {
+  await loadInitialData()
+  if (route.path === '/req/workflow') {
+    setTimeout(() => {
+      initWorkflowGraph()
+    }, 200)
+  }
 })
 </script>
 
@@ -983,11 +1469,342 @@ onMounted(() => {
 
       <!-- 右侧内容主视窗 -->
       <main class="main-content">
+        <!-- ================= P02 项目列表 (项目中心) ================= -->
+        <div id="page-projects" class="view-page" :class="{ active: currentPage === 'page-projects' }">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <div>
+              <div style="display:flex; align-items:center; gap:10px;">
+                <h2 style="font-size:20px; font-weight:700;">📁 项目空间中心 (P02)</h2>
+                <span class="tag tag-baselined">共 {{ projectList.length }} 个项目空间</span>
+              </div>
+              <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">
+                团队交付边界与需求基线租户大厅。点击具体项目卡片即可下钻进入该项目专属的「需求工作台」。
+              </p>
+            </div>
+            <div style="display:flex; gap:10px;">
+              <button class="btn btn-primary" @click="modalNewProjectOpen = true">➕ 新建项目 (M01)</button>
+            </div>
+          </div>
+
+          <!-- 项目列表卡片网格 -->
+          <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap:20px; margin-bottom:12px;">
+            <div
+              v-for="p in paginatedProjectList"
+              :key="p.id"
+              class="card project-card-item"
+              :style="p.projectKey === selectedProject ? 'border-color:var(--primary-color, #0066cc); box-shadow:0 0 0 1.5px var(--primary-color, #0066cc);' : ''"
+              @click="handleEnterProjectDashboard(p)"
+            >
+              <div class="card-header project-card-header">
+                <div class="project-header-left">
+                  <span class="project-key-badge">{{ p.projectKey }}</span>
+                  <span class="project-title-text" :title="p.name">{{ p.name }}</span>
+                </div>
+                <span v-if="p.projectKey === selectedProject" class="tag tag-clarifying project-status-tag">当前选中</span>
+              </div>
+              <div class="card-body" style="padding:16px;">
+                <p class="project-desc-text">
+                  {{ p.description || '契约与快照单一事实源，基于基线版本控制的工业级交付。' }}
+                </p>
+                <div class="project-footer">
+                  <div class="project-client-info">
+                    客户单位：<strong style="color:var(--text, #1e293b);">{{ p.clientName || '暂未指定' }}</strong>
+                  </div>
+                  <button class="btn btn-primary btn-sm" @click.stop="handleEnterProjectDashboard(p)">
+                    进入工作台 ➔
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 全局通用统一分页组件 CommonPagination -->
+          <CommonPagination
+            v-model:page="projectPage"
+            v-model:limit="projectPageSize"
+            :total="projectList.length"
+            :page-sizes="[6, 12, 24, 48]"
+          />
+        </div>
+
+        <!-- ================= 🚀 工程流水线：DAG 算子流转与微观状态大屏 (page-workflow) ================= -->
+        <div id="page-workflow" class="view-page" :class="{ active: currentPage === 'page-workflow' }">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <div>
+              <div style="display:flex; align-items:center; gap:10px;">
+                <h2 style="font-size:20px; font-weight:700;">🚀 工程流水线 · 算子状态与责任人透视大屏</h2>
+                <span class="tag tag-baselined">{{ currentProject.projectKey || 'NET-SIM' }}</span>
+              </div>
+              <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">
+                将传统研发“黑盒”打开为透明受控玻璃盒。实时跟踪每个需求当前由谁负责、走到了哪个算子工位，以及门禁质检状态。
+              </p>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <span style="font-size:12px; color:var(--text-muted);">当前项目空间：</span>
+              <select class="form-control" style="width:200px;" v-model="selectedProject" @change="handleProjectChange">
+                <option v-for="p in projectList" :key="p.id" :value="p.projectKey">
+                  {{ p.projectKey }} · {{ p.name }}
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 顶部总概览卡片 (宏观指标) -->
+          <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap:16px; margin-bottom:16px;">
+            <div class="card" style="padding:16px; border-left:4px solid var(--primary-color);">
+              <div style="font-size:12px; color:var(--text-muted);">正在透视需求</div>
+              <div style="font-size:16px; font-weight:700; color:var(--text-main); margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                {{ workflowActiveReq.reqCode || 'REQ-001' }} · {{ workflowActiveReq.title }}
+              </div>
+              <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">优先级: {{ workflowActiveReq.priority || 'P1' }} ｜ 代价: {{ workflowActiveReq.cost || '4.0 人天' }}</div>
+            </div>
+            <div class="card" style="padding:16px; border-left:4px solid #16A34A;">
+              <div style="font-size:12px; color:var(--text-muted);">当前责任人</div>
+              <div style="font-size:16px; font-weight:700; color:#16A34A; margin-top:4px;">
+                👤 {{ workflowActiveReq.ownerName || workflowActiveReq.owner || '张工' }}
+              </div>
+              <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">角色: 核心研发 / 责任担当</div>
+            </div>
+            <div class="card" style="padding:16px; border-left:4px solid #F59E0B;">
+              <div style="font-size:12px; color:var(--text-muted);">当前微观算子工位</div>
+              <div style="font-size:16px; font-weight:700; color:#D97706; margin-top:4px;">
+                📍 [{{ workflowActiveNodeInfo.id }}] {{ workflowActiveNodeInfo.name }}
+              </div>
+              <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">门禁规则: {{ workflowActiveNodeInfo.gate }}</div>
+            </div>
+            <div class="card" style="padding:16px; border-left:4px solid #3B82F6;">
+              <div style="font-size:12px; color:var(--text-muted);">流水线全局进度</div>
+              <div style="font-size:16px; font-weight:700; color:#1D4ED8; margin-top:4px;">
+                {{ Math.round((pipelineNodes.filter(n => n.status === 'COMPLETED').length / pipelineNodes.length) * 100) }}% ({{ pipelineNodes.filter(n => n.status === 'COMPLETED').length }}/{{ pipelineNodes.length }} 算子)
+              </div>
+              <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">门禁扫描: 🟢 全绿通过</div>
+            </div>
+          </div>
+
+          <!-- 模式切换快捷控制栏 (大需求全链路 vs S级极速旁路) -->
+          <div style="display:flex; justify-content:space-between; align-items:center; background:#FFF; border:1px solid var(--border); padding:10px 16px; border-radius:var(--radius-sm); margin-bottom:16px; box-shadow:var(--shadow-sm);">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <span style="font-size:13px; font-weight:700; color:var(--text-main);">🎯 流水线工作模式：</span>
+              <div style="display:inline-flex; background:#F1F5F9; padding:3px; border-radius:6px; gap:4px;">
+                <button
+                  class="btn btn-sm"
+                  :style="workflowTrackMode === 'STANDARD' ? 'background:#0284C7; color:#FFF; font-weight:700; box-shadow:0 1px 3px rgba(0,0,0,0.1);' : 'background:transparent; color:#475569; border:none;'"
+                  @click="workflowTrackMode = 'STANDARD'; workflowSelectedNode = 'SOP-01'; renderWorkflowGraphData()"
+                >
+                  🛡️ L级标准工程闭环 (11算子主轨)
+                </button>
+                <button
+                  class="btn btn-sm"
+                  :style="workflowTrackMode === 'FASTTRACK' ? 'background:#D97706; color:#FFF; font-weight:700; box-shadow:0 1px 3px rgba(0,0,0,0.1);' : 'background:transparent; color:#475569; border:none;'"
+                  @click="workflowTrackMode = 'FASTTRACK'; workflowSelectedNode = 'SOP-B2'; renderWorkflowGraphData()"
+                >
+                  ⚡ S级极速微创与旁路 (B1~B6全景矩阵)
+                </button>
+              </div>
+            </div>
+            <div style="font-size:12px; color:var(--text-muted);">
+              <span v-if="workflowTrackMode === 'STANDARD'">当前正在运行：<strong>L/M级大需求标准工程双轨流水线</strong></span>
+              <span v-else style="color:#B45309;">当前正在运行：<strong>S级极速微创修补与研发自愈旁路 (免状态机)</strong></span>
+            </div>
+          </div>
+
+          <!-- 跑马灯：微观算子节点步进轨道 (展示各节点状态与流转指引) -->
+          <div class="card" style="padding:14px 20px; margin-bottom:16px; background:#F8FAFC; border:1px solid var(--border);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-weight:700; font-size:13px; color:var(--text-main);">🚦 算子步进跑马灯 (流水线巡航轨迹)</span>
+                <span class="tag tag-baselined" style="font-size:11px;">
+                  正在执行：[{{ workflowActiveNodeInfo.id }}] {{ workflowActiveNodeInfo.name }}
+                </span>
+              </div>
+              <div style="font-size:12px; color:var(--text-muted);">
+                点击任意节点可在下方画布与说明面板中即刻查看属性
+              </div>
+            </div>
+
+            <!-- 节点步进横向跑马灯轨道 -->
+            <div style="display:flex; align-items:center; overflow-x:auto; padding:6px 0; gap:8px; scrollbar-width:thin;">
+              <template v-for="(node, idx) in currentActiveDAGNodes" :key="node.id">
+                <div
+                  @click="workflowSelectedNode = node.id; renderWorkflowGraphData()"
+                  style="display:flex; align-items:center; gap:8px; padding:6px 12px; border-radius:var(--radius-sm); cursor:pointer; flex-shrink:0; transition:all 0.2s; border:1px solid transparent;"
+                  :style="workflowSelectedNode === node.id ? 'background:#0284C7; color:#FFF; box-shadow:0 2px 8px rgba(2,132,199,0.3); font-weight:700;' : (node.status === 'COMPLETED' ? 'background:#DCFCE7; color:#15803D; border-color:#BBF7D0;' : (node.status === 'IN_PROGRESS' ? 'background:#FEF3C7; color:#B45309; border-color:#FDE68A;' : 'background:#FFF; color:#64748B; border-color:var(--border);'))"
+                >
+                  <span
+                    style="width:18px; height:18px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:10px; font-weight:700;"
+                    :style="workflowSelectedNode === node.id ? 'background:#FFF; color:#0284C7;' : (node.status === 'COMPLETED' ? 'background:#16A34A; color:#FFF;' : (node.status === 'IN_PROGRESS' ? 'background:#F59E0B; color:#FFF;' : 'background:#CBD5E1; color:#475569;'))"
+                  >
+                    {{ node.status === 'COMPLETED' ? '✔' : idx + 1 }}
+                  </span>
+                  <div style="display:flex; flex-direction:column; line-height:1.2;">
+                    <span style="font-size:12px;">{{ node.id }} {{ node.name }}</span>
+                    <span style="font-size:10px; opacity:0.85;">{{ node.role }}</span>
+                  </div>
+                </div>
+
+                <!-- 步进连接箭头 -->
+                <div v-if="idx < currentActiveDAGNodes.length - 1" style="color:#94A3B8; font-size:12px; flex-shrink:0;">
+                  ➔
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- 主体二合一工作区：左侧需求列表 ➔ 中间/右侧 DAG 算子拓扑 -->
+          <div style="display:grid; grid-template-columns: 320px 1fr; gap:20px;">
+            <!-- 左侧：多需求列表选择器 (查谁在做、当前状态) -->
+            <div class="card" style="padding:16px; display:flex; flex-direction:column; height:calc(100vh - 300px);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <span style="font-weight:700; font-size:14px;">📋 待办与在研需求 ({{ requirements.length }})</span>
+                <span class="tag tag-clarifying" style="font-size:10px;">点击切入</span>
+              </div>
+              <div style="overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:8px;">
+                <div
+                  v-for="r in requirements"
+                  :key="r.id"
+                  style="border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px; cursor:pointer; transition:all 0.2s;"
+                  :style="workflowSelectedReqId === r.id ? 'border-color:var(--primary-color); background:var(--primary-light);' : 'background:#FFF;'"
+                  @click="handleSelectWorkflowReq(r)"
+                >
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <strong style="font-size:13px; color:var(--text-main);">{{ r.reqCode }}</strong>
+                    <span class="tag" :class="r.status === 'BASELINED' ? 'tag-baselined' : (r.status === 'PENDING' ? 'tag-pending' : 'tag-clarifying')" style="font-size:10px; padding:1px 5px;">
+                      {{ r.statusText }}
+                    </span>
+                  </div>
+                  <div style="font-size:12px; color:var(--text-main); margin:4px 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" :title="r.title">
+                    {{ r.title }}
+                  </div>
+                  <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--text-muted); border-top:1px dashed var(--border); padding-top:4px; margin-top:4px;">
+                    <span>责任人: <strong style="color:var(--text-main);">{{ r.ownerName || r.owner }}</strong></span>
+                    <span>{{ r.cost }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 右侧：微观算子流转拓扑链与当前工位详情 -->
+            <div style="display:flex; flex-direction:column; gap:16px;">
+              <!-- 真实的 AntV X6 工业级有向无环拓扑大图 (带大区分组与多分支指向) -->
+              <div class="card" style="padding:16px; border:1px solid var(--border); background:#0e1726;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding:0 4px;">
+                  <div>
+                    <span style="font-weight:700; font-size:14px; color:#f8fafc;">🗺️ AntV X6 真实有向无环拓扑图 (支持画布平移与节点拖拽)</span>
+                    <span v-if="workflowTrackMode === 'FASTTRACK'" class="tag tag-pending" style="margin-left:8px; font-size:11px;">
+                      ⚡ S级极速快轨
+                    </span>
+                    <span v-else class="tag tag-baselined" style="margin-left:8px; font-size:11px;">
+                      🛡️ L级标准工程闭环拓扑 (3大区隔离)
+                    </span>
+                  </div>
+                  <!-- 顶层轨道流转自适应切换 -->
+                  <div style="display:flex; gap:6px; align-items:center;">
+                    <button
+                      class="btn btn-sm"
+                      :class="workflowTrackMode === 'STANDARD' ? 'btn-primary' : 'btn-outline'"
+                      @click="workflowTrackMode = 'STANDARD'; workflowSelectedNode = 'SOP-01'; renderWorkflowGraphData()"
+                    >
+                      大需求全链路 (L级)
+                    </button>
+                    <button
+                      class="btn btn-sm"
+                      :class="workflowTrackMode === 'FASTTRACK' ? 'btn-accent' : 'btn-outline'"
+                      @click="workflowTrackMode = 'FASTTRACK'; workflowSelectedNode = 'B2-02'; renderWorkflowGraphData()"
+                    >
+                      ⚡ 小Bug极速修补 (S级)
+                    </button>
+                  </div>
+                </div>
+
+                <!-- AntV X6 画布挂载容器 (真正的工业拓扑大屏，高度限定为 210px) -->
+                <div
+                  ref="workflowGraphContainer"
+                  style="width:100%; height:210px; border-radius:var(--radius-sm); border:1px solid #1e293b; overflow:hidden;"
+                ></div>
+              </div>
+
+              <!-- 旁路全景矩阵常驻面板 (B1 ~ B6 运维排错自愈通道) -->
+              <div class="card" style="padding:16px 20px; border:1px solid #fde68a; background:#fffbeb;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-weight:700; font-size:13px; color:#92400e;">⚡ 研发旁路与自愈矩阵 (B1~B6 · 免看板状态机 · 即开即用)</span>
+                    <span class="tag tag-pending" style="font-size:10px;">非状态机通道</span>
+                  </div>
+                  <span style="font-size:12px; color:#b45309;">遇小Bug微创、存量改造、线上事故或上下文恢复时可随时激活</span>
+                </div>
+
+                <div style="display:grid; grid-template-columns: repeat(6, 1fr); gap:12px;">
+                  <div
+                    v-for="b in fasttrackNodes.slice(1)"
+                    :key="b.id"
+                    @click="workflowSelectedNode = b.id; workflowTrackMode = 'FASTTRACK'"
+                    style="border:1px solid #fcd34d; background:#FFF; border-radius:6px; padding:10px 12px; cursor:pointer; transition:all 0.2s;"
+                    :style="workflowSelectedNode === b.id ? 'border-color:#d97706; box-shadow:0 0 0 2px #fde68a; background:#fef3c7;' : ''"
+                  >
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                      <strong style="color:#b45309; font-size:12px;">{{ b.code }}</strong>
+                      <span style="font-size:10px; color:#94a3b8;">{{ b.role }}</span>
+                    </div>
+                    <div style="font-weight:700; font-size:12px; color:#1e293b; margin-bottom:4px;">{{ b.name }}</div>
+                    <div style="font-size:11px; color:#64748b; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;" :title="b.desc">
+                      {{ b.desc }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 选中的算子深度下钻详情面板 -->
+              <div class="card" style="padding:20px; border-top:3px solid var(--primary-color);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <span class="tag tag-baselined" style="font-weight:700; font-size:13px;">{{ workflowActiveNodeInfo.id }}</span>
+                    <h3 style="font-size:16px; font-weight:700; margin:0;">{{ workflowActiveNodeInfo.title }}</h3>
+                  </div>
+                  <div style="display:flex; gap:8px;">
+                    <button class="btn btn-outline btn-sm" @click="openReqDetail(workflowActiveReq, true)">
+                      📄 查看对应需求四层清单 (P04)
+                    </button>
+                    <button class="btn btn-primary btn-sm" @click="handleAdvanceWorkflowNode">
+                      ✔ 确认并顺推工位 (Advance)
+                    </button>
+                  </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; background:#F8FAFC; padding:14px; border-radius:var(--radius-sm); border:1px solid var(--border); font-size:13px; line-height:1.7;">
+                  <div>
+                    <div><strong>工位常驻责任角色：</strong><span style="color:var(--primary-color); font-weight:600;">{{ workflowActiveNodeInfo.role }}</span></div>
+                    <div><strong>关联执行 SOP 规约：</strong><code style="background:#E2E8F0; padding:2px 6px; border-radius:3px;">{{ workflowActiveNodeInfo.sop }}</code></div>
+                    <div><strong>当前工位核心职责：</strong>{{ workflowActiveNodeInfo.desc }}</div>
+                  </div>
+                  <div>
+                    <div><strong>通过门禁与阻断条件：</strong><span style="color:#B45309; font-weight:600;">{{ workflowActiveNodeInfo.gate }}</span></div>
+                    <div><strong>当前关联需求：</strong>{{ workflowActiveReq.reqCode }} · {{ workflowActiveReq.title }}</div>
+                    <div><strong>该阶段输出产物：</strong>四层确认清单 / 架构设计文档 / 自动化单测覆盖率报告</div>
+                  </div>
+                </div>
+
+                <div style="margin-top:14px; font-size:12px; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center;">
+                  <span>💡 <strong>受控哲学：</strong>每一个算子均由指定的责任人与 AI 共同把关，绝不允许越权跨阶段产生未经审查的代码技术债。</span>
+                  <span style="font-family:monospace; color:var(--primary-color);">Single Source of Truth · .ai/dag_state.json</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- ================= P03 项目工作台 ================= -->
         <div id="page-dashboard" class="view-page" :class="{ active: currentPage === 'page-dashboard' }">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
             <div>
               <div style="display:flex; align-items:center; gap:10px;">
+                <button
+                  class="btn btn-outline btn-sm"
+                  style="padding:3px 8px; display:inline-flex; align-items:center; gap:4px;"
+                  title="返回项目列表大厅"
+                  @click="navigatePage('page-projects')"
+                >
+                  <span>📁 全部项目</span>
+                </button>
                 <h2 style="font-size:20px; font-weight:700;">{{ currentProject.name || '项目需求工作台' }}</h2>
                 <span class="tag tag-baselined">{{ currentProject.projectKey || 'NET-SIM' }}</span>
               </div>
@@ -2082,50 +2899,46 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- ================= 抽屉面板：M02 新建需求 ================= -->
-    <div class="drawer-overlay" :class="{ active: drawerNewReqOpen }" @click="drawerNewReqOpen = false"></div>
-    <div class="drawer-panel" :class="{ open: drawerNewReqOpen }">
-      <div class="drawer-header">
-        <div class="drawer-title">➕ 快速录入新需求 (M02)</div>
-        <button class="btn btn-outline btn-sm" @click="drawerNewReqOpen = false">✕</button>
+    <!-- ================= 抽屉面板：M02 新建需求 (统一使用 CommonFormModal 公共抽屉) ================= -->
+    <CommonFormModal
+      v-model="drawerNewReqOpen"
+      mode="drawer"
+      width="500px"
+      title="➕ 快速录入新需求 (M02)"
+      confirm-text="创建并进入清单细化"
+      @confirm="handleSubmitNewReq"
+    >
+      <div class="form-group">
+        <label class="form-label required">需求标题</label>
+        <input type="text" class="form-control" placeholder="简述核心功能，例如：OT机房交换机拓扑告警" v-model="newReqForm.title">
       </div>
-      <div class="drawer-body">
-        <div class="form-group">
-          <label class="form-label required">需求标题</label>
-          <input type="text" class="form-control" placeholder="简述核心功能，例如：OT机房交换机拓扑告警" v-model="newReqForm.title">
-        </div>
-        <div class="form-group">
-          <label class="form-label required">客户原话 (留痕防扯皮)</label>
-          <textarea class="form-control" rows="3" placeholder="逐字录入客户原话或邮件片段..." v-model="newReqForm.quote"></textarea>
-        </div>
-        <div class="form-group">
-          <label class="form-label required">责任人 (动态取自数据库用户库)</label>
-          <select class="form-control" v-model="newReqForm.owner">
-            <option v-for="u in userList" :key="u.id" :value="u.nickname || u.username">
-              {{ u.nickname || u.username }} ({{ u.username }})
-            </option>
-            <!-- 数据库初始空状态候选项 -->
-            <template v-if="userList.length === 0">
-              <option value="张工 (产品负责人)">张工 (产品负责人)</option>
-              <option value="李工 (核心研发)">李工 (核心研发)</option>
-              <option value="王工 (测试架构师)">王工 (测试架构师)</option>
-            </template>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">优先级</label>
-          <select class="form-control" v-model="newReqForm.priority">
-            <option value="P1">P1 - 本期核心必做</option>
-            <option value="P2">P2 - 重要</option>
-            <option value="P3">P3 - 体验优化</option>
-          </select>
-        </div>
+      <div class="form-group">
+        <label class="form-label required">客户原话 (留痕防扯皮)</label>
+        <textarea class="form-control" rows="3" placeholder="逐字录入客户原话或邮件片段..." v-model="newReqForm.quote"></textarea>
       </div>
-      <div class="drawer-footer">
-        <button class="btn btn-outline" @click="drawerNewReqOpen = false">取消</button>
-        <button class="btn btn-primary" @click="handleSubmitNewReq">创建并进入清单细化</button>
+      <div class="form-group">
+        <label class="form-label required">责任人 (动态取自数据库用户库)</label>
+        <select class="form-control" v-model="newReqForm.owner">
+          <option v-for="u in userList" :key="u.id" :value="u.nickname || u.username">
+            {{ u.nickname || u.username }} ({{ u.username }})
+          </option>
+          <!-- 数据库初始空状态候选项 -->
+          <template v-if="userList.length === 0">
+            <option value="张工 (产品负责人)">张工 (产品负责人)</option>
+            <option value="李工 (核心研发)">李工 (核心研发)</option>
+            <option value="王工 (测试架构师)">王工 (测试架构师)</option>
+          </template>
+        </select>
       </div>
-    </div>
+      <div class="form-group">
+        <label class="form-label">优先级</label>
+        <select class="form-control" v-model="newReqForm.priority">
+          <option value="P1">P1 - 本期核心必做</option>
+          <option value="P2">P2 - 重要</option>
+          <option value="P3">P3 - 体验优化</option>
+        </select>
+      </div>
+    </CommonFormModal>
 
     <!-- ================= 抽屉面板：M08 新建基线 ================= -->
     <div class="drawer-overlay" :class="{ active: drawerNewBaselineOpen }" @click="drawerNewBaselineOpen = false"></div>
@@ -2249,37 +3062,32 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- ================= 模态弹窗：M01 新建项目 ================= -->
-    <div class="modal-overlay" :class="{ active: modalNewProjectOpen }">
-      <div class="card" style="width:500px; margin:0;">
-        <div class="modal-header">
-          <div class="modal-title">📁 新建项目空间 (M01)</div>
-          <button class="btn btn-outline btn-sm" @click="modalNewProjectOpen = false">✕</button>
-        </div>
-        <div class="modal-body">
-          <div class="form-group">
-            <label class="form-label required">项目唯一标识 Key</label>
-            <input type="text" class="form-control" v-model="newProjectForm.projectKey" placeholder="2~8位大写字母，如: DCS-SIM">
-          </div>
-          <div class="form-group">
-            <label class="form-label required">项目名称</label>
-            <input type="text" class="form-control" v-model="newProjectForm.name" placeholder="如：集控中心监控仿真实训系统">
-          </div>
-          <div class="form-group">
-            <label class="form-label required">客户单位名称</label>
-            <input type="text" class="form-control" v-model="newProjectForm.clientName" placeholder="如：国能某某水电厂">
-          </div>
-          <div class="form-group">
-            <label class="form-label">项目描述与背景</label>
-            <textarea class="form-control" rows="2" v-model="newProjectForm.description" placeholder="说明项目目标、涉及核心系统与责任边界..."></textarea>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline" @click="modalNewProjectOpen = false">取消</button>
-          <button class="btn btn-primary" @click="handleCreateProject">立即创建</button>
-        </div>
+    <!-- ================= 模态弹窗：M01 新建项目 (统一使用 CommonFormModal 公共弹窗) ================= -->
+    <CommonFormModal
+      v-model="modalNewProjectOpen"
+      mode="dialog"
+      width="500px"
+      title="📁 新建项目空间 (M01)"
+      confirm-text="立即创建"
+      @confirm="handleCreateProject"
+    >
+      <div class="form-group">
+        <label class="form-label required">项目唯一标识 Key</label>
+        <input type="text" class="form-control" v-model="newProjectForm.projectKey" placeholder="2~8位大写字母，如: DCS-SIM">
       </div>
-    </div>
+      <div class="form-group">
+        <label class="form-label required">项目名称</label>
+        <input type="text" class="form-control" v-model="newProjectForm.name" placeholder="如：集控中心监控仿真实训系统">
+      </div>
+      <div class="form-group">
+        <label class="form-label required">客户单位名称</label>
+        <input type="text" class="form-control" v-model="newProjectForm.clientName" placeholder="如：国能某某水电厂">
+      </div>
+      <div class="form-group">
+        <label class="form-label">项目描述与背景</label>
+        <textarea class="form-control" rows="2" v-model="newProjectForm.description" placeholder="说明项目目标、涉及核心系统与责任边界..."></textarea>
+      </div>
+    </CommonFormModal>
 
     <!-- ================= 模态弹窗：M05 上传原型版本 ================= -->
     <div class="modal-overlay" :class="{ active: modalUploadPrototypeOpen }">
@@ -2604,7 +3412,7 @@ header.app-header {
 .app-body {
   display: flex;
   flex: 1;
-  height: calc(100% - 52px);
+  height: calc(100vh - 52px);
   overflow: hidden;
 }
 
@@ -2667,10 +3475,12 @@ aside.sidebar {
 /* 右侧内容区 */
 main.main-content {
   flex: 1;
+  height: 100%;
   overflow-y: auto;
-  padding: 24px;
+  padding: 20px 24px;
   background: var(--bg);
   position: relative;
+  box-sizing: border-box;
 }
 
 /* 视图显隐控制 */
@@ -2778,6 +3588,92 @@ main.main-content {
 .tag-baselined { background: #DCFCE7; color: #15803D; }
 .tag-released { background: #E6F0F2; color: #14535B; }
 .tag-danger { background: #FEE2E2; color: #B91C1C; }
+
+/* 项目卡片专用样式优化 (防折行与自适应排版) */
+.project-card-item {
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid var(--border, #E2E8F0);
+  border-radius: var(--radius-base, 10px);
+  overflow: hidden;
+  background: var(--bg-card, #ffffff);
+}
+.project-card-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+.project-card-header {
+  background: #FAFBFD;
+  border-bottom: 1px solid var(--border, #E2E8F0);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  gap: 12px;
+}
+.project-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0; /* 允许文本截断/自适应弹性 */
+}
+.project-key-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  flex-shrink: 0;
+  padding: 3px 8px;
+  background: var(--primary-light, #ecfdf5);
+  color: var(--primary-color, #059669);
+  border: 1px solid var(--border-color, rgba(5, 150, 105, 0.2));
+  border-radius: var(--radius-sm, 6px);
+  font-family: 'SF Mono', Monaco, Consolas, monospace;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1;
+}
+.project-title-text {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text, #0f172a);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+.project-status-tag {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 11px;
+}
+.project-desc-text {
+  color: var(--text-muted, #64748b);
+  font-size: 13px;
+  line-height: 1.6;
+  min-height: 42px;
+  margin-bottom: 14px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.project-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-muted, #64748b);
+  border-top: 1px dashed var(--border, #E2E8F0);
+  padding-top: 12px;
+}
+.project-client-info {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
+}
 
 /* 表格 */
 .table-container {

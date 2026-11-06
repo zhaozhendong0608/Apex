@@ -37,6 +37,18 @@ const routes = [
         meta: { title: '网络拓扑仿真工作台' }
       },
       {
+        path: '/req/projects',
+        name: 'ReqProjects',
+        component: () => import('@/modules/req-management/views/ReqManagementView.vue'),
+        meta: { title: '项目列表' }
+      },
+      {
+        path: '/req/workflow',
+        name: 'ReqWorkflow',
+        component: () => import('@/modules/req-management/views/ReqManagementView.vue'),
+        meta: { title: '工程流水线' }
+      },
+      {
         path: '/req/dashboard',
         name: 'ReqDashboard',
         component: () => import('@/modules/req-management/views/ReqManagementView.vue'),

@@ -255,24 +255,29 @@ VALUES (30, 0, '需求治理平台', 'M', '/req', '', 'req:platform:view', 3)
 ON DUPLICATE KEY UPDATE `menu_name` = VALUES(`menu_name`), `path` = VALUES(`path`), `sort` = VALUES(`sort`);
 
 -- 二级菜单: 项目空间与全局配置菜单 (挂载于需求治理平台 ID: 30 之下)
+-- 架构调整: 贯彻蓝皮书信息架构，将全局菜单入口设为【项目列表 (P02)】，【工程流水线 (Pipeline)】负责展示多需求与微观算子状态
 INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_name`, `menu_type`, `path`, `component`, `permission`, `sort`)
 VALUES
-  (301, 30, '项目工作台', 'C', '/req/dashboard', 'modules/req-management/views/ReqManagementView', 'req:dashboard:view', 1),
-  -- 302: 需求详情下钻页 (由工作台列表点击进入，不作为左侧常驻导航展示)
-  (302, 30, '需求详情 & 清单', 'C', '/req/detail', 'modules/req-management/views/ReqManagementView', 'req:detail:view', 2),
+  (300, 30, '项目列表', 'C', '/req/projects', 'modules/req-management/views/ReqManagementView', 'req:projects:view', 1),
+  (310, 30, '工程流水线', 'C', '/req/workflow', 'modules/req-management/views/ReqManagementView', 'req:workflow:view', 2),
   (303, 30, '原型版本与托管', 'C', '/req/prototypes', 'modules/req-management/views/ReqManagementView', 'req:prototypes:view', 3),
-  (304, 30, '需求基线与签字', 'C', '/req/baselines', 'modules/req-management/views/ReqManagementView', 'req:baselines:view', 4),
-  (305, 30, '基线差异对比', 'C', '/req/baseline-diff', 'modules/req-management/views/ReqManagementView', 'req:diff:view', 5),
-  (306, 30, '发布版本追踪', 'C', '/req/releases', 'modules/req-management/views/ReqManagementView', 'req:releases:view', 6),
-  (307, 30, '需求演进时间线', 'C', '/req/timeline', 'modules/req-management/views/ReqManagementView', 'req:timeline:view', 7),
-  (308, 30, '码表配置中心', 'C', '/req/enums', 'modules/req-management/views/ReqManagementView', 'req:enums:view', 8),
-  (309, 30, '外观与工业主题', 'C', '/req/theme', 'modules/req-management/views/ReqManagementView', 'req:theme:view', 9)
+  (306, 30, '发布版本追踪', 'C', '/req/releases', 'modules/req-management/views/ReqManagementView', 'req:releases:view', 4),
+  (307, 30, '需求演进时间线', 'C', '/req/timeline', 'modules/req-management/views/ReqManagementView', 'req:timeline:view', 5),
+  (308, 30, '码表配置中心', 'C', '/req/enums', 'modules/req-management/views/ReqManagementView', 'req:enums:view', 6),
+  (309, 30, '外观与工业主题', 'C', '/req/theme', 'modules/req-management/views/ReqManagementView', 'req:theme:view', 7),
+  -- 301/302/304/305: 下钻子页面 (由项目卡片或需求详情点击进入，前端不作为左侧侧边栏展示，但保留系统权限控制)
+  (301, 30, '项目工作台', 'C', '/req/dashboard', 'modules/req-management/views/ReqManagementView', 'req:dashboard:view', 11),
+  (302, 30, '需求详情 & 清单', 'C', '/req/detail', 'modules/req-management/views/ReqManagementView', 'req:detail:view', 12),
+  (304, 30, '需求基线与签字', 'C', '/req/baselines', 'modules/req-management/views/ReqManagementView', 'req:baselines:view', 13),
+  (305, 30, '基线差异对比', 'C', '/req/baseline-diff', 'modules/req-management/views/ReqManagementView', 'req:diff:view', 14)
 ON DUPLICATE KEY UPDATE `menu_name` = VALUES(`menu_name`), `parent_id` = VALUES(`parent_id`), `path` = VALUES(`path`), `component` = VALUES(`component`), `permission` = VALUES(`permission`), `sort` = VALUES(`sort`);
 
 -- 授予超级管理员(role_id=1)全量需求治理菜单权限
 INSERT IGNORE INTO `sys_role_menu` (`role_id`, `menu_id`)
 VALUES
   (1, 30),
+  (1, 300),
+  (1, 310),
   (1, 301),
   (1, 302),
   (1, 303),

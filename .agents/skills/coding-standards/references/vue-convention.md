@@ -86,3 +86,121 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
 <style scoped>
 .order-container { padding: 16px; }
 </style>
+
+---
+
+## 📦 5. 全局通用公共组件规约 (Common Components)
+
+全项目所有包含表格、卡片网格等分页场景的页面，**强制统一使用通用分页组件**，禁止在业务页面内直接散落零碎的 `<el-pagination>`。
+
+### 5.1 组件路径与参数契约
+* **组件路径**：`@/components/common/CommonPagination.vue`
+* **参数契约**：
+
+| 属性 / 事件 | 类型 | 默认值 | 说明 |
+| :--- | :--- | :--- | :--- |
+| `v-model:page` | `number` | `1` | 当前页码 (双向绑定) |
+| `v-model:limit` | `number` | `10` | 每页条数 (双向绑定) |
+| `total` | `number` | `0` | 总记录数 (必传) |
+| `pageSizes` | `number[]` | `[6, 12, 24, 48]` | 每页大小候选下拉列表 |
+| `background` | `boolean` | `true` | 是否带背景卡片样式 |
+| `@pagination` | `(payload: { page, limit }) => void` | - | 页码或条数变化统一回调 |
+
+### 5.2 标准使用范例
+```vue
+<script setup lang="ts">
+import { ref } from 'vue'
+import CommonPagination from '@/components/common/CommonPagination.vue'
+
+const pageNo = ref(1)
+const pageSize = ref(10)
+const total = ref(100)
+
+const handlePagination = ({ page, limit }: { page: number; limit: number }) => {
+  fetchTableData(page, limit)
+}
+</script>
+
+<template>
+  <div class="table-container">
+    <!-- 数据展示区域 -->
+    <el-table ... />
+
+    <!-- 统一底部分页组件 -->
+    <CommonPagination
+      v-model:page="pageNo"
+      v-model:limit="pageSize"
+      :total="total"
+      @pagination="handlePagination"
+    />
+  </div>
+</template>
+```
+
+---
+
+## 🪟 6. 表单新增/编辑通用模态组件规约 (CommonFormModal)
+
+为保证项目交互规范的一致性与高奢 Apple 质感，全系统所有“新增”、“编辑”、“参数配置”录入场景，**统一强制使用 `@/components/common/CommonFormModal.vue`**。
+
+### 6.1 抽屉 (Drawer) vs 弹窗 (Dialog) 的选型基准
+在业务场景中必须遵循以下选型规约：
+1. **优先使用侧边抽屉 (`mode="drawer"`)**：
+   * **业务场景**：复杂业务录入、长表单、具有上下文对照参考诉求（如：**快速录入需求**、编辑确认清单、创建基线）。
+   * **交互优势**：右侧滑出不遮挡左侧主体工作台信息，支持自然向下长滚动，提供充足的思考和校验空间。
+2. **轻量场景使用居中弹窗 (`mode="dialog"`)**：
+   * **业务场景**：字段极少（≤4项）、短平快操作（如：**新建项目空间**、上传文件附件、输入驳回原因等）。
+
+### 6.2 组件契约参数
+
+| 参数 / 事件 | 类型 | 默认值 | 说明 |
+| :--- | :--- | :--- | :--- |
+| `v-model` | `boolean` | `false` | 显示/隐藏状态 (双向绑定) |
+| `mode` | `'drawer' \| 'dialog'` | `'drawer'` | 展示模式 (抽屉或弹窗) |
+| `title` | `string` | `''` | 头部标题 |
+| `width` | `string \| number` | `'520px'` | 宽度 (抽屉默认 520px，弹窗建议 480~580px) |
+| `confirmText` | `string` | `'确定提交'` | 提交确认按钮文案 |
+| `cancelText` | `string` | `'取消'` | 取消按钮文案 |
+| `confirmLoading` | `boolean` | `false` | 提交按钮加载中状态 |
+| `@confirm` | `() => void` | - | 点击提交按钮回调 |
+| `@cancel` | `() => void` | - | 点击取消或右上角关闭回调 |
+
+### 6.3 标准使用范例
+```vue
+<script setup lang="ts">
+import { ref } from 'vue'
+import CommonFormModal from '@/components/common/CommonFormModal.vue'
+
+const drawerVisible = ref(false)
+const submitting = ref(false)
+
+const handleSave = async () => {
+  submitting.value = true
+  try {
+    await saveFormApi()
+    drawerVisible.value = false
+  } finally {
+    submitting.value = false
+  }
+}
+</script>
+
+<template>
+  <!-- 抽屉模式 -->
+  <CommonFormModal
+    v-model="drawerVisible"
+    mode="drawer"
+    width="500px"
+    title="➕ 快速录入新需求"
+    confirm-text="保存并细化"
+    :confirm-loading="submitting"
+    @confirm="handleSave"
+  >
+    <el-form label-position="top">
+      <el-form-item label="需求标题" required>
+        <el-input placeholder="请输入需求标题" />
+      </el-form-item>
+    </el-form>
+  </CommonFormModal>
+</template>
+```

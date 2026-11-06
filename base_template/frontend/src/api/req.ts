@@ -45,6 +45,23 @@ export function deleteProjectApi(id: number): Promise<ApiResponse<void>> {
   })
 }
 
+// 0.1 DAG 工作流运行时真实状态
+export function getWorkflowDagStateApi(params?: { reqCode?: string; trackMode?: string }): Promise<ApiResponse<any>> {
+  return request({
+    url: '/req/workflow/dag-state',
+    method: 'GET',
+    params
+  })
+}
+
+export function advanceWorkflowDagApi(params: { reqCode: string; targetNode: string; status?: string; operator?: string }): Promise<ApiResponse<any>> {
+  return request({
+    url: '/req/workflow/advance',
+    method: 'POST',
+    params
+  })
+}
+
 // 1. 需求与四层清单管理
 export function createRequirementApi(data: any): Promise<ApiResponse<any>> {
   return request({

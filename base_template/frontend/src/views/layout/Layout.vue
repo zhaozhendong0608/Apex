@@ -123,15 +123,19 @@ const themeOptions: { label: string; value: ThemeType }[] = [
               <el-icon><Document /></el-icon>
               <span>需求治理平台</span>
             </template>
-            <el-menu-item index="/req/dashboard">
-              <el-icon><Odometer /></el-icon>
-              <span>项目工作台</span>
+            <el-menu-item index="/req/projects">
+              <el-icon><Folder /></el-icon>
+              <span>项目列表</span>
+            </el-menu-item>
+            <el-menu-item index="/req/workflow">
+              <el-icon><Share /></el-icon>
+              <span>工程流水线</span>
             </el-menu-item>
             <el-menu-item index="/req/prototypes">
               <el-icon><Picture /></el-icon>
               <span>原型版本与托管</span>
             </el-menu-item>
-            <!-- 方案A：需求基线与签字、基线差异对比 已收拢至需求详情页内下钻，不在全局主菜单平铺 -->
+            <!-- 架构规约: 项目工作台 (/req/dashboard) 已收拢为从项目列表点击进入的下钻视窗，不在此常驻展示 -->
             <el-menu-item index="/req/releases">
               <el-icon><Promotion /></el-icon>
               <span>发布版本追踪</span>
@@ -152,7 +156,7 @@ const themeOptions: { label: string; value: ThemeType }[] = [
         </el-menu>
       </aside>
 
-      <main class="app-content" :class="{ 'is-fullscreen': route.path.includes('/network-sim/designer') || route.path.startsWith('/req') }">
+      <main class="app-content" :class="{ 'is-fullscreen': route.path.includes('/network-sim/designer') || route.path === '/req/workflow' }">
         <router-view />
       </main>
     </div>
@@ -271,5 +275,9 @@ const themeOptions: { label: string; value: ThemeType }[] = [
 .app-content.is-fullscreen {
   padding: 0 !important;
   overflow: hidden !important;
+}
+
+:deep(.el-message) {
+  max-width: 420px;
 }
 </style>
