@@ -128,6 +128,22 @@ export function cloneWorkflowTemplateApi(data: {
   })
 }
 
+export function initDefaultWorkflowTemplateApi(operator?: string): Promise<ApiResponse<any>> {
+  return request({
+    url: '/req/workflow/templates/init-default',
+    method: 'POST',
+    params: { operator }
+  })
+}
+
+export function createNewDefaultWorkflowTemplateApi(data?: { name?: string; operator?: string }): Promise<ApiResponse<any>> {
+  return request({
+    url: '/req/workflow/templates/create-default',
+    method: 'POST',
+    params: data
+  })
+}
+
 export function updateWorkflowTemplateApi(id: number, data: {
   name?: string
   description?: string
@@ -158,6 +174,14 @@ export function getWorkflowScriptsApi(): Promise<ApiResponse<any[]>> {
   return request({
     url: '/req/workflow/scripts',
     method: 'GET'
+  })
+}
+
+export function getWorkflowFileContentApi(path: string): Promise<ApiResponse<{ path: string; name: string; extension: string; content: string }>> {
+  return request({
+    url: '/req/workflow/file-content',
+    method: 'GET',
+    params: { path }
   })
 }
 

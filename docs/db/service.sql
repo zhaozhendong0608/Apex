@@ -109,7 +109,7 @@ CREATE TABLE IF NOT EXISTS `t_req_requirement` (
   `owner_name` VARCHAR(64) NOT NULL COMMENT '责任产品经理/研发',
   `current_node_id` VARCHAR(32) NOT NULL DEFAULT 'SOP-01' COMMENT '当前绑定的工程流水线微观工位(如 SOP-01, SOP-02, SOP-03)',
   `current_track_mode` VARCHAR(32) NOT NULL DEFAULT 'STANDARD' COMMENT '当前执行路径模式: STANDARD大需求主轨, FASTTRACK极速微创旁路',
-  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP   COMMENT '创建时间',
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_req_code` (`project_id`, `req_code`),
@@ -242,7 +242,7 @@ CREATE TABLE IF NOT EXISTS `t_req_workflow_record` (
 CREATE TABLE IF NOT EXISTS `t_req_workflow_template` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `template_code` VARCHAR(64) NOT NULL COMMENT '模板代号 (如 TPL-DEFAULT, TPL-ENERGY)',
-  `name` VARCHAR(128) NOT NULL COMMENT '模板名称 (如 全局默认·钧天四层一体化研发工作流)',
+  `name` VARCHAR(128) NOT NULL COMMENT '模板名称 (如 全局默认·AI辅助四层一体化研发工作流)',
   `description` VARCHAR(512) DEFAULT NULL COMMENT '模板适用场景与工程规约说明',
   `is_system_default` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否系统唯一默认蓝本 (1:是, 0:否)',
   `scope_type` VARCHAR(32) NOT NULL DEFAULT 'GLOBAL' COMMENT '作用域类型 (GLOBAL:全局公共, PROJECT:项目专属)',
@@ -270,8 +270,8 @@ INSERT INTO `t_req_workflow_template` (`id`, `template_code`, `name`, `descripti
 VALUES (
   1,
   'TPL-DEFAULT',
-  '全局默认 · 钧天四层一体化研发工作流',
-  '钧天标准生产工艺：4-Layer 全景拓扑（SOP指令轨 + AI Skill专家轨 + 控制中枢轨 + 确定性物理产物轨），支持双轨延迟汇合与 B2 旁路微创快轨。',
+  '全局默认 · AI辅助四层一体化研发工作流',
+  'Apex 标准生产工艺：4-Layer 全景拓扑（SOP指令轨 + AI Skill专家轨 + 控制中枢轨 + 确定性物理产物轨），支持双轨延迟汇合与 B2 旁路微创快轨。',
   1,
   'GLOBAL',
   NULL,
@@ -308,7 +308,7 @@ VALUES
 
 
 -- ------------------------------------------------------------------------------
--- 4.9 钧天科技 Apex 动态菜单与权限配置 (sys_menu & sys_role_menu)
+-- 4.9 Apex 动态菜单与权限配置 (sys_menu & sys_role_menu)
 -- 菜单排序规则 (Sort Order):
 --   1. 工作流工艺资产 (/workflow-center, ID: 40) - 顶层全局规范与工艺资产
 --   2. 需求治理平台 (/req, ID: 30) - 业务需求流转与项目研发

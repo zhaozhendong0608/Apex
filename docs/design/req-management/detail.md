@@ -3,7 +3,7 @@
 > **归属模块**：`req-management` (业务核心域)  
 > **设计模式**：模式 A (只写模块施工图，不动全局底层内核)  
 > **前置契约源**：[prd-req-management-v1.0.md](../../modules/req-management/prd-req-management-v1.0.md) ｜ [mockup.html](../../modules/req-management/mockup.html)  
-> **遵循规范**：钧天科技《02-sop-tech-design.md》必含 5 节硬标准与看门狗契约冻结。
+> **遵循规范**：遵循 Apex《02-sop-tech-design.md》必含 5 节硬标准与看门狗契约冻结。
 
 ---
 

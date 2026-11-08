@@ -2,7 +2,7 @@
 
 > **归属模块**：`req-management` (需求与版本管理平台核心域)  
 > **单一事实源绑定原型**：[`docs/modules/req-management/mockup.html`](mockup.html)  
-> **依据规范**：遵循钧天科技架构规范、`01-sop-planning.md` 需求规划及 `archetype-architect` 标准。
+> **依据规范**：遵循 Apex 架构规范、`01-sop-planning.md` 需求规划及 `archetype-architect` 标准。
 
 ---
 

@@ -1,6 +1,6 @@
 # 💡 Design-Spec-Architect 标杆范例 (用户管理模块 HLD & DLD 完整产出示例)
 
-> **范例说明**：本示例展示了在完成 `prd-user-v1.0.md` 规划后，激活 `design-spec-architect` Skill 遵循【钧天科技 V1.0 标准】生成的概要设计说明书 (HLD) 与详细设计说明书 (DLD) 规范落盘示例。
+> **范例说明**：本示例展示了在完成 `prd-user-v1.0.md` 规划后，激活 `design-spec-architect` Skill 遵循【Apex 架构 V1.0 标准】生成的概要设计说明书 (HLD) 与详细设计说明书 (DLD) 规范落盘示例。
 
 ---
 

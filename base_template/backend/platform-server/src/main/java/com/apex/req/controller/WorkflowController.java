@@ -340,6 +340,99 @@ public class WorkflowController {
     }
 
     /**
+     * 一键重置/初始化官方默认工作流模板 (TPL-DEFAULT)
+     * 若数据库不存在则自动创建，若已存在则更新恢复为出厂标准设置
+     */
+    @PostMapping("/templates/init-default")
+    public Result<ReqWorkflowTemplate> initDefaultTemplate(@RequestParam(value = "operator", defaultValue = "admin") String operator) {
+        return createOrUpdateSystemTemplate("TPL-DEFAULT", "全局默认 · AI辅助四层一体化研发工作流", 
+                "Apex 标准生产工艺：4-Layer 全景拓扑（SOP指令轨 + AI Skill专家轨 + 控制中枢轨 + 确定性物理产物轨），支持双轨延迟汇合与 B2 旁路微创快轨。", operator);
+    }
+
+    /**
+     * 一键追加/新建一个新的默认工作流模板
+     * 每次点击均生成一个新的具有独立唯一编号的默认工作流模板 (如 TPL-DEF-1234)
+     */
+    @PostMapping("/templates/create-default")
+    public Result<ReqWorkflowTemplate> createNewDefaultTemplate(
+            @RequestParam(value = "name", required = false) String customName,
+            @RequestParam(value = "operator", defaultValue = "admin") String operator) {
+        if (workflowTemplateMapper == null) {
+            return Result.error(500, "数据库服务未就绪");
+        }
+        try {
+            long suffix = System.currentTimeMillis() % 10000;
+            String newCode = "TPL-DEF-" + suffix;
+            String tplName = (customName != null && !customName.trim().isEmpty()) 
+                    ? customName.trim() 
+                    : "全局默认 · AI辅助研发工作流 (#" + suffix + ")";
+
+            String defaultNodes = "[{\"id\":\"SOP-00\",\"name\":\"体系总览\",\"role\":\"全员\",\"skill\":\"-\",\"sop\":\".ai/sop/00-sop-overview.md\",\"gate\":\"自适应分流\"},{\"id\":\"SOP-01\",\"name\":\"需求规划\",\"role\":\"产品/张工\",\"skill\":\"requirement-discovery\",\"sop\":\".ai/sop/01-sop-planning.md\",\"gate\":\"四层清单齐备\"},{\"id\":\"SOP-02\",\"name\":\"方案设计\",\"role\":\"研发/李工\",\"skill\":\"design-spec-architect\",\"sop\":\".ai/sop/02-sop-tech-design.md\",\"gate\":\"python3 gate.py --sql\"},{\"id\":\"TC-GEN\",\"name\":\"测试用例矩阵\",\"role\":\"测试/王工\",\"skill\":\"quality-verifier\",\"sop\":\".ai/sop/01-sop-planning.md\",\"gate\":\"用例覆盖100%\"},{\"id\":\"SOP-03\",\"name\":\"TDD编码\",\"role\":\"研发/李工\",\"skill\":\"coding-standards\",\"sop\":\".ai/sop/03-sop-coding.md\",\"gate\":\"单元测试全绿\"},{\"id\":\"SOP-04\",\"name\":\"机器门禁\",\"role\":\"看门狗探针\",\"skill\":\"code-quality-reviewer\",\"sop\":\".ai/sop/04-sop-code-review.md\",\"gate\":\"python3 gate.py --staged [LGTM]\"},{\"id\":\"SOP-05\",\"name\":\"人工评审\",\"role\":\"架构师/程工\",\"skill\":\"code-quality-reviewer\",\"sop\":\".ai/sop/05-sop-review.md\",\"gate\":\"架构师签字核准\"},{\"id\":\"SOP-06\",\"name\":\"集成测试\",\"role\":\"测试/王工\",\"skill\":\"quality-verifier\",\"sop\":\".ai/sop/06-sop-integration.md\",\"gate\":\"TC用例100%碰撞通过\"},{\"id\":\"SOP-07\",\"name\":\"双向验收\",\"role\":\"看门狗探针\",\"skill\":\"quality-verifier\",\"sop\":\".ai/sop/07-sop-acceptance.md\",\"gate\":\"board.py verify放行\"},{\"id\":\"SOP-08\",\"name\":\"容器部署\",\"role\":\"运维/李工\",\"skill\":\"-\",\"sop\":\".ai/sop/08-sop-deploy.md\",\"gate\":\"健康检查通过\"},{\"id\":\"SOP-09\",\"name\":\"Git发布\",\"role\":\"交付/张工\",\"skill\":\"-\",\"sop\":\".ai/sop/09-sop-git-release.md\",\"gate\":\"Release资产落盘\"},{\"id\":\"SOP-B2\",\"name\":\"极速修补\",\"role\":\"研发/李工\",\"skill\":\"quality-verifier\",\"sop\":\".ai/sop/B2-sop-fasttrack.md\",\"gate\":\"单文件≤20行\"}]";
+
+            ReqWorkflowTemplate tpl = ReqWorkflowTemplate.builder()
+                    .templateCode(newCode)
+                    .name(tplName)
+                    .description("Apex 标准生产工艺：4-Layer 全景拓扑（SOP指令轨 + AI Skill专家轨 + 控制中枢轨 + 确定性物理产物轨），支持双轨延迟汇合与 B2 旁路微创快轨。")
+                    .isSystemDefault(1)
+                    .scopeType("GLOBAL")
+                    .projectId(null)
+                    .projectKey(null)
+                    .nodesConfig(defaultNodes)
+                    .edgesConfig("[]")
+                    .createdBy(operator)
+                    .createdAt(LocalDateTime.now())
+                    .updatedAt(LocalDateTime.now())
+                    .build();
+
+            workflowTemplateMapper.insert(tpl);
+            return Result.success(tpl, "已成功追加一个新的默认工作流模板 [" + tplName + "]！");
+        } catch (Exception e) {
+            return Result.error(500, "追加默认工作流模板失败: " + e.getMessage());
+        }
+    }
+
+    private Result<ReqWorkflowTemplate> createOrUpdateSystemTemplate(String code, String name, String desc, String operator) {
+        try {
+            LambdaQueryWrapper<ReqWorkflowTemplate> query = new LambdaQueryWrapper<>();
+            query.eq(ReqWorkflowTemplate::getTemplateCode, code);
+            ReqWorkflowTemplate exist = workflowTemplateMapper.selectOne(query);
+
+            String defaultNodes = "[{\"id\":\"SOP-00\",\"name\":\"体系总览\",\"role\":\"全员\",\"skill\":\"-\",\"sop\":\".ai/sop/00-sop-overview.md\",\"gate\":\"自适应分流\"},{\"id\":\"SOP-01\",\"name\":\"需求规划\",\"role\":\"产品/张工\",\"skill\":\"requirement-discovery\",\"sop\":\".ai/sop/01-sop-planning.md\",\"gate\":\"四层清单齐备\"},{\"id\":\"SOP-02\",\"name\":\"方案设计\",\"role\":\"研发/李工\",\"skill\":\"design-spec-architect\",\"sop\":\".ai/sop/02-sop-tech-design.md\",\"gate\":\"python3 gate.py --sql\"},{\"id\":\"TC-GEN\",\"name\":\"测试用例矩阵\",\"role\":\"测试/王工\",\"skill\":\"quality-verifier\",\"sop\":\".ai/sop/01-sop-planning.md\",\"gate\":\"用例覆盖100%\"},{\"id\":\"SOP-03\",\"name\":\"TDD编码\",\"role\":\"研发/李工\",\"skill\":\"coding-standards\",\"sop\":\".ai/sop/03-sop-coding.md\",\"gate\":\"单元测试全绿\"},{\"id\":\"SOP-04\",\"name\":\"机器门禁\",\"role\":\"看门狗探针\",\"skill\":\"code-quality-reviewer\",\"sop\":\".ai/sop/04-sop-code-review.md\",\"gate\":\"python3 gate.py --staged [LGTM]\"},{\"id\":\"SOP-05\",\"name\":\"人工评审\",\"role\":\"架构师/程工\",\"skill\":\"code-quality-reviewer\",\"sop\":\".ai/sop/05-sop-review.md\",\"gate\":\"架构师签字核准\"},{\"id\":\"SOP-06\",\"name\":\"集成测试\",\"role\":\"测试/王工\",\"skill\":\"quality-verifier\",\"sop\":\".ai/sop/06-sop-integration.md\",\"gate\":\"TC用例100%碰撞通过\"},{\"id\":\"SOP-07\",\"name\":\"双向验收\",\"role\":\"看门狗探针\",\"skill\":\"quality-verifier\",\"sop\":\".ai/sop/07-sop-acceptance.md\",\"gate\":\"board.py verify放行\"},{\"id\":\"SOP-08\",\"name\":\"容器部署\",\"role\":\"运维/李工\",\"skill\":\"-\",\"sop\":\".ai/sop/08-sop-deploy.md\",\"gate\":\"健康检查通过\"},{\"id\":\"SOP-09\",\"name\":\"Git发布\",\"role\":\"交付/张工\",\"skill\":\"-\",\"sop\":\".ai/sop/09-sop-git-release.md\",\"gate\":\"Release资产落盘\"},{\"id\":\"SOP-B2\",\"name\":\"极速修补\",\"role\":\"研发/李工\",\"skill\":\"quality-verifier\",\"sop\":\".ai/sop/B2-sop-fasttrack.md\",\"gate\":\"单文件≤20行\"}]";
+
+            if (exist != null) {
+                exist.setName(name);
+                exist.setDescription(desc);
+                exist.setIsSystemDefault(1);
+                exist.setScopeType("GLOBAL");
+                exist.setNodesConfig(defaultNodes);
+                exist.setEdgesConfig("[]");
+                exist.setUpdatedAt(LocalDateTime.now());
+                workflowTemplateMapper.updateById(exist);
+                return Result.success(exist, "官方系统默认工作流模板已恢复并更新！后续可为任意项目挂载绑定。");
+            } else {
+                ReqWorkflowTemplate tpl = ReqWorkflowTemplate.builder()
+                        .templateCode(code)
+                        .name(name)
+                        .description(desc)
+                        .isSystemDefault(1)
+                        .scopeType("GLOBAL")
+                        .projectId(null)
+                        .projectKey(null)
+                        .nodesConfig(defaultNodes)
+                        .edgesConfig("[]")
+                        .createdBy(operator)
+                        .createdAt(LocalDateTime.now())
+                        .updatedAt(LocalDateTime.now())
+                        .build();
+                workflowTemplateMapper.insert(tpl);
+                return Result.success(tpl, "官方系统默认工作流模板已一键初始化创建成功！");
+            }
+        } catch (Exception e) {
+            return Result.error(500, "操作默认工作流模板失败: " + e.getMessage());
+        }
+    }
+
+    /**
      * 基于已有模板进行复制克隆 (Clone/Fork)
      */
     @PostMapping("/templates/clone")
@@ -385,7 +478,7 @@ public class WorkflowController {
     }
 
     /**
-     * 更新保存定制模板 (禁止篡改系统唯一默认模板)
+     * 更新保存工作流模板拓扑蓝本配置
      */
     @PutMapping("/templates/{id}")
     public Result<ReqWorkflowTemplate> updateTemplate(
@@ -399,9 +492,6 @@ public class WorkflowController {
             if (exist == null) {
                 return Result.error(404, "工作流模板不存在");
             }
-            if (Integer.valueOf(1).equals(exist.getIsSystemDefault())) {
-                return Result.error(400, "系统默认工作流模板受法律级保护，禁止直接篡改！请先点击「复制克隆」创建衍生定制模板。");
-            }
 
             if (body.containsKey("name")) exist.setName((String) body.get("name"));
             if (body.containsKey("description")) exist.setDescription((String) body.get("description"));
@@ -410,29 +500,60 @@ public class WorkflowController {
             exist.setUpdatedAt(LocalDateTime.now());
 
             workflowTemplateMapper.updateById(exist);
-            return Result.success(exist, "定制工作流模板配置已更新保存！");
+            return Result.success(exist, "工作流模板配置已成功保存！");
         } catch (Exception e) {
             return Result.error(500, "保存工作流模板失败: " + e.getMessage());
         }
     }
 
     /**
-     * 删除定制模板 (系统默认模板禁止删除)
+     * 删除工作流模板 (级联解绑关联的项目并安全清理)
+     * 规则保护：唯一出厂默认模板 TPL-DEFAULT 禁止删除，保证系统至少保留一套基准规范
      */
     @DeleteMapping("/templates/{id}")
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public Result<Void> deleteTemplate(@PathVariable("id") Long id) {
         if (workflowTemplateMapper == null) {
             return Result.error(500, "数据库服务未就绪");
         }
-        ReqWorkflowTemplate exist = workflowTemplateMapper.selectById(id);
-        if (exist == null) {
-            return Result.error(404, "模板不存在");
+        try {
+            ReqWorkflowTemplate exist = workflowTemplateMapper.selectById(id);
+            if (exist == null) {
+                return Result.error(404, "工作流模板不存在");
+            }
+            if ("TPL-DEFAULT".equalsIgnoreCase(exist.getTemplateCode())) {
+                return Result.error(400, "系统官方唯一出厂基准模板 [TPL-DEFAULT] 受核心保护，禁止删除！");
+            }
+
+            // 1. 查询所有原本挂载在此模板上的关联项目
+            Long fallbackTplId = 1L;
+            LambdaQueryWrapper<ReqWorkflowTemplate> baseQuery = new LambdaQueryWrapper<>();
+            baseQuery.eq(ReqWorkflowTemplate::getTemplateCode, "TPL-DEFAULT");
+            ReqWorkflowTemplate baseTpl = workflowTemplateMapper.selectOne(baseQuery);
+            if (baseTpl != null) {
+                fallbackTplId = baseTpl.getId();
+            }
+
+            if (projectMapper != null) {
+                LambdaQueryWrapper<ReqProject> pQuery = new LambdaQueryWrapper<>();
+                pQuery.eq(ReqProject::getWorkflowTemplateId, id);
+                List<ReqProject> boundProjects = projectMapper.selectList(pQuery);
+
+                if (boundProjects != null && !boundProjects.isEmpty()) {
+                    // 将挂载此模板的项目回退重置绑定到官方基础默认模板
+                    for (ReqProject p : boundProjects) {
+                        p.setWorkflowTemplateId(fallbackTplId);
+                        projectMapper.updateById(p);
+                    }
+                }
+            }
+
+            // 2. 物理删除工作流模板记录
+            workflowTemplateMapper.deleteById(id);
+            return Result.success(null, "工作流模板 [" + exist.getName() + "] 及其项目关联已全部安全解除并删除！");
+        } catch (Exception e) {
+            return Result.error(500, "删除工作流模板失败: " + e.getMessage());
         }
-        if (Integer.valueOf(1).equals(exist.getIsSystemDefault())) {
-            return Result.error(400, "系统默认模板为全局蓝本，禁止删除！");
-        }
-        workflowTemplateMapper.deleteById(id);
-        return Result.success(null, "工作流模板已成功删除！");
     }
 
     /**
@@ -508,6 +629,41 @@ public class WorkflowController {
             }
         }
         return Result.success(list, "自动化脚本资产列表读取成功");
+    }
+
+    /*
+      📄 通用工作流规约/脚本文件在线透视读取
+      支持读取 .ai/sop*//*.md, .ai/scripts/*.py, .agents/skills/**//*SKILL.md 等工程白皮书
+    */
+    @GetMapping("/file-content")
+    public Result<Map<String, Object>> getWorkflowFileContent(@RequestParam("path") String relativePath) {
+        if (relativePath == null || relativePath.trim().isEmpty()) {
+            return Result.error(400, "文件路径不能为空");
+        }
+        // 安全拦截路径穿越攻击
+        if (relativePath.contains("..")) {
+            return Result.error(400, "非法文件访问路径");
+        }
+
+        File rootDir = getWorkspaceRootDir();
+        String cleanPath = relativePath.trim().startsWith("/") ? relativePath.trim().substring(1) : relativePath.trim();
+        File targetFile = new File(rootDir, cleanPath);
+
+        if (!targetFile.exists() || !targetFile.isFile()) {
+            return Result.error(404, "规约/源文件不存在: " + cleanPath);
+        }
+
+        try {
+            String content = new String(java.nio.file.Files.readAllBytes(targetFile.toPath()), java.nio.charset.StandardCharsets.UTF_8);
+            Map<String, Object> map = new HashMap<>();
+            map.put("path", cleanPath);
+            map.put("name", targetFile.getName());
+            map.put("extension", targetFile.getName().contains(".") ? targetFile.getName().substring(targetFile.getName().lastIndexOf(".") + 1) : "txt");
+            map.put("content", content);
+            return Result.success(map, "文件内容读取成功");
+        } catch (Exception e) {
+            return Result.error(500, "读取文件失败: " + e.getMessage());
+        }
     }
 
     /**

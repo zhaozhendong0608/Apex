@@ -1,6 +1,6 @@
 # 📐 [HLD-NET-01] 网络拓扑仿真系统概要设计说明书 (High-Level Design)
 
-> 遵循【钧天科技 V1.0 架构标准】8 大章节规约，系统性阐述个人多模块学习平台 (Learning Platform) 首个核心子模块——网络拓扑仿真系统 (Module-Network-Sim) 的总体架构。
+> 遵循【Apex 架构标准】8 大章节规约，系统性阐述个人多模块学习平台 (Learning Platform) 首个核心子模块——网络拓扑仿真系统 (Module-Network-Sim) 的总体架构。
 
 ---
 

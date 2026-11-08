@@ -39,6 +39,7 @@ const pageToRouteMap: Record<string, string> = {
   'page-theme': '/req/theme'
 }
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { NODE_KNOWLEDGE_BASE } from '../constants/workflowKnowledge'
 import {
   getProjectListApi,
   getProjectStatsApi,
@@ -61,10 +62,13 @@ import {
   getTemplateMountedProjectsApi,
   mountProjectsToTemplateApi,
   cloneWorkflowTemplateApi,
+  initDefaultWorkflowTemplateApi,
+  createNewDefaultWorkflowTemplateApi,
   updateWorkflowTemplateApi,
   deleteWorkflowTemplateApi,
   getWorkflowSkillsApi,
-  getWorkflowScriptsApi
+  getWorkflowScriptsApi,
+  getWorkflowFileContentApi
 } from '@/api/req'
 import { Graph } from '@antv/x6'
 import { getUserListApi } from '@/api/user'
@@ -956,7 +960,7 @@ const activeDetailNode = ref<any>({
 // 系统内所有可用 AI Skill 专家库清单 (可供节点动态切换)
 const availableSkillRegistry = ref<any[]>([
   { id: 'requirement-discovery', name: '需求发现与白话澄清专家', desc: '白话挖掘隐性需求，披萨式切片，拒做无谓过度设计', icon: '🤖', path: '.agents/skills/requirement-discovery/SKILL.md', content: '' },
-  { id: 'design-spec-architect', name: '概要与详细设计说明书专家', desc: '推演系统分层与表结构，严格对齐钧天8大章节', icon: '📐', path: '.agents/skills/design-spec-architect/SKILL.md', content: '' },
+  { id: 'design-spec-architect', name: '概要与详细设计说明书专家', desc: '推演系统分层与表结构，严格对齐 8 大章节架构规范', icon: '📐', path: '.agents/skills/design-spec-architect/SKILL.md', content: '' },
   { id: 'archetype-architect', name: '原型架构与模块关系梳理专家', desc: '解析静态 HTML 原型，反向质询补全隐藏业务逻辑', icon: '🎨', path: '.agents/skills/archetype-architect/SKILL.md', content: '' },
   { id: 'coding-standards', name: '代码规范与契约强绑定专家', desc: '逐字对齐 DLD 表字段与 API 契约，分层规约约束', icon: '💻', path: '.agents/skills/coding-standards/SKILL.md', content: '' },
   { id: 'poc-tech-prototype', name: '技术原型与 PoC 攻关专家', desc: '第三方 API 沙盒联调，复杂算法与并发锁推演验证', icon: '🔬', path: '.agents/skills/poc-tech-prototype/SKILL.md', content: '' },
@@ -1140,6 +1144,54 @@ const handleOpenScriptDetail = (script: any) => {
   selectedScriptDetail.value = script
   drawerScriptDetailVisible.value = true
 }
+
+// 快速透视指定 SOP 规范文件或脚本源码
+const handleQuickInspectFile = async (filePath: string, title?: string) => {
+  if (!filePath || filePath.trim() === '-' || filePath.trim() === '') {
+    ElMessage.info('当前未指定具体规约文件或脚本')
+    return
+  }
+  const clean = filePath.trim()
+  try {
+    // 1. 如果是以 .py/.sh 结尾，或者匹配到已登记的脚本
+    const foundScript = availableScriptRegistry.value.find(s => s.id === clean || s.path === clean || clean.endsWith(s.id))
+    if (foundScript && foundScript.content) {
+      selectedScriptDetail.value = foundScript
+      drawerScriptDetailVisible.value = true
+      return
+    }
+
+    // 2. 调后端通用文件透视接口获取内容
+    const res = await getWorkflowFileContentApi(clean)
+    if (res.data) {
+      const fileData = res.data
+      if (fileData.extension === 'md') {
+        selectedSkillDetail.value = {
+          name: title || fileData.name,
+          id: fileData.name,
+          path: fileData.path,
+          desc: `工作流工位专属规范文档：${fileData.path}`,
+          content: fileData.content
+        }
+        skillViewMode.value = 'rendered'
+        drawerSkillDetailVisible.value = true
+      } else {
+        selectedScriptDetail.value = {
+          name: title || fileData.name,
+          id: fileData.name,
+          path: fileData.path,
+          runtime: fileData.extension === 'py' ? 'Python 3' : (fileData.extension === 'sh' ? 'Shell Script' : 'Plain Text'),
+          desc: `工位底层看门狗 / 自动化执行脚本源码：${fileData.path}`,
+          cmd: fileData.extension === 'py' ? `python3 ${fileData.path}` : `bash ${fileData.path}`,
+          content: fileData.content
+        }
+        drawerScriptDetailVisible.value = true
+      }
+    }
+  } catch (e: any) {
+    ElMessage.error(e.message || `未能读取到规约文件 [${clean}]`)
+  }
+}
 const availableScriptRegistry = ref<any[]>([
   {
     id: 'gate.py',
@@ -1197,345 +1249,7 @@ const availableScriptRegistry = ref<any[]>([
   }
 ])
 
-// 节点全景原理与透视知识库 (Under the Hood Knowledge Base)
-const NODE_KNOWLEDGE_BASE: Record<string, any> = {
-  'SOP-00': {
-    name: '[0] 体系总览与规模分流识别',
-    category: 'instruction',
-    categoryName: '👤 SOP 指令主轨',
-    role: '全员 / 流程中枢',
-    skill: '-',
-    sop: '.ai/sop/00-sop-overview.md',
-    gate: '自适应分流判定完毕',
-    principle: '依据需求规模 (P1/P2/P3) 与变更烈度，智能决策走标准研发主轨（需门禁与基线闭环）还是极速微创快轨（单文件≤20行免门禁）。消除传统流程“改一个错别字也要走九个流程”的官僚主义，实现敏捷与受控的黄金平衡。',
-    inputs: ['业务原始提报', '需求描述口语'],
-    outputs: ['自适应分流图谱', '目标执行轨迹 (STANDARD / FASTTRACK)']
-  },
-  'SOP-01': {
-    name: '[1] 需求规划与白话澄清',
-    category: 'instruction',
-    categoryName: '👤 SOP 指令主轨',
-    role: '产品 / 张工',
-    skill: 'requirement-discovery',
-    sop: '.ai/sop/01-sop-planning.md',
-    gate: '四层清单 (P04) 齐备并冻结',
-    principle: 'AI 主导的反向质询 (Grill Protocol)。在代码动工前，先将抽象口语翻译为具备“范围、规则、异常、不做项”的四层清单。同时进行披萨式轻量切片，将大项目分解为单次 0.5~2 天即可验证的独立原子增量，并向测试轨平行分流。',
-    inputs: ['SOP-00 分流结果', '客户口语化原话 (留痕防扯皮)'],
-    outputs: ['四层清单基线草案 (P04)', 'S1~S3 披萨切片清单', 'TC-GEN 测试用例并行触发信标']
-  },
-  'SOP-02': {
-    name: '[2] 研发轨方案设计与契约冻结',
-    category: 'instruction',
-    categoryName: '👤 SOP 指令主轨',
-    role: '研发 / 李工',
-    skill: 'design-spec-architect',
-    sop: '.ai/sop/02-sop-tech-design.md',
-    gate: 'python3 gate.py --sql 校验通过',
-    principle: '基于四层清单推演完整分层架构、API 契约标准及 service.sql 结构。坚持“契约先于代码”理念，由 board.py 作为状态机唯一合法入口强制固化表结构与 DLD 文档，严禁研发人员未经设计直接凭空写代码。',
-    inputs: ['四层清单基线 (P04)', '静态原型 HTML/Mockup'],
-    outputs: ['docs/design/detail.md (DLD 详细设计)', 'docs/db/service.sql (表结构定义)', 'board.py 状态机迁移锁定']
-  },
-  'TC-GEN': {
-    name: '[TC] 测试用例矩阵先行 (测试解耦轨)',
-    category: 'instruction',
-    categoryName: '👤 SOP 指令主轨',
-    role: '测试 / 王工',
-    skill: 'quality-verifier',
-    sop: '.ai/sop/01-sop-planning.md',
-    gate: '用例矩阵 100% 覆盖关键链路',
-    principle: '测试轨与研发轨绝对平行解耦！在李工写业务代码的同时，王工与 quality-verifier 专家基于需求清单同步编写独立的 docs/test-cases 矩阵。研发人员写完代码后必须接受此用例矩阵的碰撞考验，杜绝“既当运动员又当裁判员”的伪测试。',
-    inputs: ['四层清单基线 (P04)', 'detail.md 接口契约'],
-    outputs: ['docs/test-cases/ 自动化测试用例集', 'E2E 离线穿透验证探针']
-  },
-  'SOP-03': {
-    name: '[3] 单焦点 TDD 红绿循环编码',
-    category: 'instruction',
-    categoryName: '👤 SOP 指令主轨',
-    role: '研发 / 李工',
-    skill: 'coding-standards',
-    sop: '.ai/sop/03-sop-coding.md',
-    gate: '单元测试全绿 (0 Failure / 0 Error)',
-    principle: '严格践行红绿单测循环：先写红灯报错测试 ➔ 编写最小化业务实现 ➔ 单测变绿 ➔ 重构优化。严厉禁止使用假 Mock 伪造成功。遇到第三方 API 必须保留真实沙盒联调日志，杜绝未经联调的代码流入下游。',
-    inputs: ['detail.md 契约约束', 'service.sql 数据库结构'],
-    outputs: ['src/ 业务模块源码', '第三方 API 真实联调日志', '.ai/tier3_status.md 任务更新']
-  },
-  'SOP-04': {
-    name: '[4] 代码审查机器门禁 (gate.py)',
-    category: 'instruction',
-    categoryName: '👤 SOP 指令主轨',
-    role: '看门狗探针',
-    skill: 'code-quality-reviewer',
-    sop: '.ai/sop/04-sop-code-review.md',
-    gate: 'python3 gate.py --staged [LGTM 阻断拦截]',
-    principle: '代码合并前的终极防线。由 gate.py 看门狗自动化执行 6 项高压扫描：① 严禁假 Mock / 假写死；② 严禁野公网依赖；③ DDL 与回滚配对检查；④ 密钥硬编码拦截；⑤ 圈复杂度超标拦截；⑥ NPE 空指针潜在隐患。任意一项违规立刻直接阻断！',
-    inputs: ['git staged 暂存区改动', 'src/ 业务源码工程'],
-    outputs: ['gate.py 扫描报告 (LGTM)', '违规代码拦截警报与微创重构建议']
-  },
-  'SOP-05': {
-    name: '[5] 架构与契约人工评审',
-    category: 'instruction',
-    categoryName: '👤 SOP 指令主轨',
-    role: '架构师 / 程工',
-    skill: 'code-quality-reviewer',
-    sop: '.ai/sop/05-sop-review.md',
-    gate: '架构师三方签字核准',
-    principle: '机器看门狗放行后的第二重专家把关。架构师基于 5 维清单对代码架构、性能并发安全、反向破坏性测试进行最终复核，确认符合团队长期资产沉淀标准后签署放行。',
-    inputs: ['gate.py LGTM 机器报告', 'src/ 业务源码工程'],
-    outputs: ['人工评审确认凭证 (APPROVED)', '技术债与优化备忘录']
-  },
-  'SOP-06': {
-    name: '[6] 双轨延迟汇合与集成穿透',
-    category: 'instruction',
-    categoryName: '👤 SOP 指令主轨',
-    role: '测试 / 王工',
-    skill: 'quality-verifier',
-    sop: '.ai/sop/06-sop-integration.md',
-    gate: 'TC 用例 100% 碰撞通过',
-    principle: '【关键核心节点 · 双轨延迟汇合】：在此工位，研发轨产出的 src 业务工程与测试轨在 SOP-01 阶段独立编写的 TC 用例矩阵首次进行严苛的闭环碰撞。双方在同一沙盒内跑通全链路 E2E 穿透，确保研发没有偷工减料，测试没有放水。',
-    inputs: ['SOP-05 交付的研发源码', 'TC-GEN 阶段冻结的测试用例矩阵'],
-    outputs: ['E2E 离线穿透验证报告', '0 Error 构建凭证', '全绿碰撞测试单']
-  },
-  'SOP-07': {
-    name: '[7] 交付双向验收门禁 (唯一归档出口)',
-    category: 'instruction',
-    categoryName: '👤 SOP 指令主轨',
-    role: '看门狗探针',
-    skill: 'quality-verifier',
-    sop: '.ai/sop/07-sop-acceptance.md',
-    gate: 'board.py verify ➔ complete --accept',
-    principle: '整个生命周期中需求唯一合法的归档出口！强制执行 board.py verify 防伪校验：验证四层清单、设计图、源码、门禁报告、测试报告全量资产无缺失且哈希对齐，人工核放后打上放行徽标。',
-    inputs: ['SOP-06 集成测试报告', '全生命周期各工位归档文件'],
-    outputs: ['board.py verify 验收凭据', '4 维终验合格清单', 'tier3_status.md 全标绿']
-  },
-  'SOP-08': {
-    name: '[8] 容器编排与离线部署',
-    category: 'instruction',
-    categoryName: '👤 SOP 指令主轨',
-    role: '运维 / 李工',
-    skill: '-',
-    sop: '.ai/sop/08-sop-deploy.md',
-    gate: '容器健康检查全通',
-    principle: '打包 Docker 离线镜像与 docker-compose.yml 编排清单，生成幂等一键部署脚本 install.sh。提供容器心跳检测与自动拉起自愈机制，确保交付物在内网断网环境下可一键点火启动。',
-    inputs: ['编译打包后的 JAR / 前端 Dist', 'docs/db/service.sql'],
-    outputs: ['docker-compose.yml 编排配置', 'install.sh 幂等安装脚本', '离线镜像包']
-  },
-  'SOP-09': {
-    name: '[9] Git 发布与版本打标',
-    category: 'instruction',
-    categoryName: '👤 SOP 指令主轨',
-    role: '交付 / 张工',
-    skill: '-',
-    sop: '.ai/sop/09-sop-git-release.md',
-    gate: 'Release 资产落盘完毕',
-    principle: '打上标准语义化 Git Tag (如 v1.2.0)，生成正式 Release 发版说明书，并将数据库迁移脚本 (docs/db/migrations) 与回滚方案 1:1 配对归档，完成生命周期最终归档。',
-    inputs: ['SOP-07 验收凭证', 'SOP-08 部署包'],
-    outputs: ['Git 语义化 Tag', 'docs/db/migrations 升级回滚对', 'Release 最终发布文档']
-  },
-  'SOP-B2': {
-    name: '⚡ [B2] 极速微创修补 (免状态机)',
-    category: 'instruction',
-    categoryName: '👤 旁路快速通道',
-    role: '研发 / 李工',
-    skill: 'quality-verifier',
-    sop: '.ai/sop/B2-sop-fasttrack.md',
-    gate: '严格限制单文件≤20行改动',
-    principle: '专为紧急 Bug 修复、文案微调、样式修补设计的非状态机极速通道。单文件改动严格控制在 20 行以内，免走繁重状态机流转与多重门禁，改动完成后直通 SOP-09 发布打标，兼顾速度与安全。',
-    inputs: ['紧急缺陷报告', '代码行级微创修改点'],
-    outputs: ['微创代码补丁', '.ai/tier1_snapshot.md 静默刷新']
-  },
-  'SKILL-01': {
-    name: '🤖 requirement-discovery 专家',
-    category: 'skill',
-    categoryName: '🧩 AI 技能专家',
-    role: 'AI 产品专家',
-    skill: 'requirement-discovery',
-    sop: '.agents/skills/requirement-discovery/SKILL.md',
-    gate: '反向质询无遗漏',
-    principle: '采用反诘式引导 (Grill Protocol)，先在内部推演目标、场景、异常、生命周期与边界，再只向用户抛出具有决策价值的高含金量问题，帮助非专业用户无痛理清业务逻辑。',
-    inputs: ['模糊的用户一句话需求'],
-    outputs: ['四层确认清单 (范围/规则/异常/不做项)']
-  },
-  'SKILL-02': {
-    name: '🤖 design-spec-architect 专家',
-    category: 'skill',
-    categoryName: '🧩 AI 技能专家',
-    role: 'AI 架构专家',
-    skill: 'design-spec-architect',
-    sop: '.agents/skills/design-spec-architect/SKILL.md',
-    gate: '钧天 8 大章节对齐',
-    principle: '依据需求清单自动推演出完整的概要设计 (HLD) 与详细设计 (DLD)。严格遵守钧天科技 V1.0 规范，输出标准表结构 DDL 与 API 契约，支持需求变更时增量更新架构文档。',
-    inputs: ['四层需求清单', '静态交互原型'],
-    outputs: ['detail.md 详细设计说明书', 'service.sql 数据库脚本']
-  },
-  'SKILL-03': {
-    name: '🤖 coding-standards 专家',
-    category: 'skill',
-    categoryName: '🧩 AI 技能专家',
-    role: 'AI 编码规范守卫',
-    skill: 'coding-standards',
-    sop: '.agents/skills/coding-standards/SKILL.md',
-    gate: '逐字对齐 DLD 契约',
-    principle: '强约束 AI 逐字绑定 DLD 说明书中的表名、字段名与 API 契约。遵循分层开发规约（Controller/Service/DAO），杜绝 AI 编码中常见的臆造字段或逻辑跑偏。',
-    inputs: ['DLD 契约文档', '数据库 DDL'],
-    outputs: ['高质量 Java / Vue 符合分层规约源码']
-  },
-  'SKILL-04': {
-    name: '🤖 code-quality-reviewer 专家',
-    category: 'skill',
-    categoryName: '🧩 AI 技能专家',
-    role: 'AI 静态质量审查专家',
-    skill: 'code-quality-reviewer',
-    sop: '.agents/skills/code-quality-reviewer/SKILL.md',
-    gate: '静态扫描 0 风险',
-    principle: '在代码提交前深度扫描代码隐患：NPE 空指针风险、流或连接未关闭/内存泄漏、并发不安全线程竞争、超标圈复杂度，并提供可直接执行的微创重构落地方案。',
-    inputs: ['业务源码差异 (git diff)'],
-    outputs: ['代码审查诊断报告', '微创重构补丁']
-  },
-  'SKILL-06': {
-    name: '🤖 quality-verifier 专家',
-    category: 'skill',
-    categoryName: '🧩 AI 技能专家',
-    role: 'AI 质量验证与排错专家',
-    skill: 'quality-verifier',
-    sop: '.agents/skills/quality-verifier/SKILL.md',
-    gate: '全量单测全绿',
-    principle: '质量验证与小黄鸭排错专家。在编码前根据契约自动生成测试用例；在发生编译/运行时错误时，激活小黄鸭探针（日志抓取 ➔ 根因分析 ➔ 最小化修改验证）精准排错。',
-    inputs: ['接口契约定义', '错误日志堆栈'],
-    outputs: ['自动化测试脚本', '小黄鸭排错报告']
-  },
-  'SKILL-00': {
-    name: '🏛️ legacy-archaeologist 专家',
-    category: 'skill',
-    categoryName: '🧩 AI 技能专家',
-    role: 'AI 逆向考古专家',
-    skill: 'legacy-archaeologist',
-    sop: '.agents/skills/legacy-archaeologist/SKILL.md',
-    gate: '行为锁死探针就绪',
-    principle: '面对无文档的庞杂老项目时，自顶向下扫描路由与链路切片，逆向提取 API 契约与表关系，输出 legacy_hld.md，并编写反向行为锁死探针，防止重构改崩旧业务。',
-    inputs: ['存量遗留源码库'],
-    outputs: ['legacy_hld.md 逆向设计', '反向行为锁死单测探针']
-  },
-  'CTRL-SNAP': {
-    name: '⚡ tier1_snapshot.md 记忆卡',
-    category: 'control',
-    categoryName: '🧠 控制中枢轨 (.ai/)',
-    role: '系统记忆中枢',
-    skill: '-',
-    sop: '.ai/tier1_snapshot.md',
-    gate: '单文件严格控制 ≤30 行',
-    principle: 'AI 会话冷启动的“名片卡”。单文件严格约束不超过 30 行，仅记录项目代号、当前活跃需求、当前工位与关键阻塞项，确保大模型在极短上下文内瞬间恢复工作记忆。',
-    inputs: ['工作流最新流转事件'],
-    outputs: ['极简上下文快照 (30行内)']
-  },
-  'CTRL-BOARD': {
-    name: '🛠️ board.py 状态机看板脚本',
-    category: 'control',
-    categoryName: '🧠 控制中枢轨 (.ai/)',
-    role: '状态机看门狗',
-    skill: '-',
-    sop: '.ai/board.py',
-    gate: '状态迁移严格校验',
-    principle: '整个系统状态机的唯一合法入口！任何工位迁移、工件校验、归档放行都必须经由 board.py 执行校验并原子性更新数据库，严禁外部脚本或人工手工纂改工位。',
-    inputs: ['advance/verify/complete 命令行指令'],
-    outputs: ['原子状态跃迁', '防伪校验凭证']
-  },
-  'CTRL-STATUS': {
-    name: '📋 tier3_status.md 任务看板',
-    category: 'control',
-    categoryName: '🧠 控制中枢轨 (.ai/)',
-    role: '任务看板中枢',
-    skill: '-',
-    sop: '.ai/tier3_status.md',
-    gate: '任务清单全量跟踪',
-    principle: '任务与切片的物理跟踪清单。以 Markdown 表格形式实时维护 ACTIVE 与 DONE 状态列表，作为开发人员与 AI 协同的实时工作台。',
-    inputs: ['开发切片任务分解'],
-    outputs: ['任务进行中/已完成看板']
-  },
-  'CTRL-GATE': {
-    name: '🔒 gate.py 机器门禁看门狗',
-    category: 'control',
-    categoryName: '🧠 控制中枢轨 (.ai/)',
-    role: '质量门禁中枢',
-    skill: '-',
-    sop: 'gate.py',
-    gate: '6项刚性扫描全绿',
-    principle: '工程合并看门狗，内置 AST 抽象语法树与静态扫描器，包含 6 大高压红线规则，执行 exit code!=0 强行阻断。',
-    inputs: ['提交代码 diff'],
-    outputs: ['LGTM 扫描放行报告']
-  },
-  'CTRL-HANDOVER': {
-    name: '📦 tier3_handover.md 历史长效黑匣子',
-    category: 'control',
-    categoryName: '🧠 控制中枢轨 (.ai/)',
-    role: '长效交接中枢',
-    skill: '-',
-    sop: '.ai/tier3_handover.md',
-    gate: '版本交接资产固化',
-    principle: '记录所有技术债务、设计取舍、遗留 Bug 与后续版本的演进规划，为下一任维护者或未来的 AI 会话提供完整的历史推演依据。',
-    inputs: ['版本交付验收结果'],
-    outputs: ['长效资产交接文档']
-  },
-  'ART-01': {
-    name: '📝 四层清单基线草案 (P04)',
-    category: 'artifact',
-    categoryName: '📄 确定性物理产物',
-    role: '产物管理',
-    skill: 'requirement-discovery',
-    sop: 'docs/requirements/P04.md',
-    gate: '签字锁定',
-    principle: '从口语对撞中提炼出的结构化清单，包含范围(Scope)、规则(Rule)、异常(Exception)、不做(Non-goal)，是后续所有架构设计与测试用例的唯一源头。',
-    inputs: ['用户口语输入'],
-    outputs: ['四层决策条目', '基线版本 BL-v1.0']
-  },
-  'ART-02': {
-    name: '🎨 mockup.html / PRD / detail.md',
-    category: 'artifact',
-    categoryName: '📄 确定性物理产物',
-    role: '产物管理',
-    skill: 'design-spec-architect',
-    sop: 'docs/design/detail.md',
-    gate: 'DDL 与 DLD 一致性',
-    principle: '包含可交互的纯 HTML 原型快照，以及包含数据库表结构 DDL 与 API 契约的详细设计说明书，作为前后端开发与联调的物理契约。',
-    inputs: ['四层清单'],
-    outputs: ['mockup.html 原型包', 'detail.md 详细设计', 'service.sql']
-  },
-  'ART-03': {
-    name: '💻 src/ 业务源码工程与联调日志',
-    category: 'artifact',
-    categoryName: '📄 确定性物理产物',
-    role: '产物管理',
-    skill: 'coding-standards',
-    sop: 'base_template/backend & frontend',
-    gate: '单测与编译通过',
-    principle: '经过 TDD 红绿循环洗礼的业务源代码工程，附带第三方 API 的真实请求响应日志，绝不含伪造 Mock 代码。',
-    inputs: ['detail.md 契约'],
-    outputs: ['后端 Java / 前端 Vue 源码', '真实接口联调日志']
-  },
-  'ART-04': {
-    name: '🔒 gate.py LGTM 报告与 E2E 凭证',
-    category: 'artifact',
-    categoryName: '📄 确定性物理产物',
-    role: '产物管理',
-    skill: 'code-quality-reviewer',
-    sop: 'target/gate-report.json',
-    gate: 'LGTM 防伪签名',
-    principle: '由机器门禁 gate.py 与端到端穿透测试共同生成的数字证明，具备不可篡改性，是准许进入终验的必备通行证。',
-    inputs: ['业务源码', '测试用例'],
-    outputs: ['门禁扫描报告 (LGTM)', 'E2E 穿透验证日志']
-  },
-  'ART-05': {
-    name: '🏁 board.py verify 凭据与 Git Tag',
-    category: 'artifact',
-    categoryName: '📄 确定性物理产物',
-    role: '产物管理',
-    skill: 'quality-verifier',
-    sop: 'docs/releases/v1.0.0.md',
-    gate: '双向验签锁定',
-    principle: '包含 board.py verify 全量资产验证单、Git 语义化 Tag 标签与 Release 正式发布说明书，标志着需求正式生命周期闭环。',
-    inputs: ['全部前置产物合集'],
-    outputs: ['Git Tag 标签', 'Release 归档交付包']
-  }
-}
+// 节点全景原理与透视知识库已解耦至 ../constants/workflowKnowledge.ts
 
 // 打开节点全景深度透视抽屉 (只读展示，不可在此随意改动工位工艺)
 const openNodeDetailDrawer = (nodeId: string) => {
@@ -1627,8 +1341,8 @@ const loadWorkflowTemplates = async () => {
         {
           id: 1,
           templateCode: 'TPL-DEFAULT',
-          name: '全局默认 · 钧天四层一体化研发工作流',
-          description: '钧天标准生产工艺：4-Layer 全景拓扑（SOP指令轨 + AI Skill专家轨 + 控制中枢轨 + 确定性物理产物轨），支持双轨延迟汇合与 B2 旁路微创快轨。',
+          name: '全局默认 · AI辅助四层一体化研发工作流',
+          description: 'Apex 标准生产工艺：4-Layer 全景拓扑（SOP指令轨 + AI Skill专家轨 + 控制中枢轨 + 确定性物理产物轨），支持双轨延迟汇合与 B2 旁路微创快轨。',
           isSystemDefault: 1,
           scopeType: 'GLOBAL',
           projectKey: null,
@@ -1639,6 +1353,54 @@ const loadWorkflowTemplates = async () => {
     }
   } catch (e) {
     console.warn('拉取工作流模板失败，使用内置默认蓝本', e)
+  }
+}
+
+// 一键创建/重置官方默认工作流模板
+const handleInitDefaultTemplate = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要创建/初始化「全局默认 · AI辅助四层一体化研发工作流」吗？创建后您可在模板卡片上点击“⚙️ 调整项目挂载”自由绑定至指定项目。',
+      '一键初始化默认蓝本',
+      {
+        confirmButtonText: '立即初始化创建',
+        cancelButtonText: '取消',
+        type: 'info'
+      }
+    )
+    const res = await initDefaultWorkflowTemplateApi(currentOperator.value)
+    ElMessage.success(res.msg || '官方默认工作流模板已成功就绪！')
+    await loadWorkflowTemplates()
+  } catch (e: any) {
+    if (e !== 'cancel') {
+      ElMessage.error(e.message || '初始化默认模板失败')
+    }
+  }
+}
+
+// 一键追加一个新的默认工作流模板
+const handleCreateNewDefaultTemplate = async () => {
+  try {
+    const { value: customName } = await ElMessageBox.prompt(
+      '请输入新默认工作流模板的名称（若直接确认将自动按编号命名）：',
+      '➕ 追加新的默认工作流模板',
+      {
+        confirmButtonText: '立即追加创建',
+        cancelButtonText: '取消',
+        inputValue: '全局默认 · AI辅助研发工作流',
+        inputPlaceholder: '例如：全局默认 · 现代微服务研发工作流'
+      }
+    )
+    const res = await createNewDefaultWorkflowTemplateApi({
+      name: customName,
+      operator: currentOperator.value
+    })
+    ElMessage.success(res.msg || '已成功追加新的默认工作流模板！')
+    await loadWorkflowTemplates()
+  } catch (e: any) {
+    if (e !== 'cancel') {
+      ElMessage.error(e.message || '追加默认模板失败')
+    }
   }
 }
 
@@ -1774,7 +1536,9 @@ const initTemplateDagGraph = () => {
       categoryName: kb.categoryName || (id.startsWith('SKILL-') ? '🧩 AI Skill 专家轨' : (id.startsWith('CTRL-') ? '🧠 控制中枢轨' : (id.startsWith('ART-') ? '📄 确定性物理产物轨' : '👤 SOP 数字指令轨'))),
       principle: kb.principle || '暂无深度设计原理描述。',
       inputs: kb.inputs || [],
-      outputs: kb.outputs || []
+      outputs: kb.outputs || [],
+      inputDemo: kb.inputDemo || '',
+      outputDemo: kb.outputDemo || ''
     }
     drawerTplNodeConfigVisible.value = true
   })
@@ -1997,10 +1761,6 @@ const renderTemplateDagGraphData = () => {
 // 持久化保存模板 DAG 整体配置
 const handleSaveTemplateDag = async () => {
   if (!currentEditingTemplate.value) return
-  if (currentEditingTemplate.value.isSystemDefault === 1) {
-    ElMessageBox.alert('系统默认蓝本为全局工艺基准，禁止直接修改！请先点击复制克隆生成专属模板。', '保护提示')
-    return
-  }
   try {
     const payload = {
       name: currentEditingTemplate.value.name,
@@ -2008,36 +1768,44 @@ const handleSaveTemplateDag = async () => {
       nodesConfig: JSON.stringify(currentEditingTemplate.value.parsedNodes || [])
     }
     await updateWorkflowTemplateApi(currentEditingTemplate.value.id, payload)
-    ElMessage.success(`定制模板 [${currentEditingTemplate.value.name}] 拓扑配置已成功持久化至数据库！`)
+    ElMessage.success(`工作流模板 [${currentEditingTemplate.value.name}] 拓扑配置已成功保存！`)
     await loadWorkflowTemplates()
   } catch (e: any) {
     ElMessage.error(e.message || '保存失败')
   }
 }
 
-// 删除定制模板
+// 删除工作流模板 (级联安全解绑并清理)
 const handleDeleteTemplate = async (tpl: any) => {
-  if (tpl.isSystemDefault === 1) {
-    ElMessage.warning('系统默认模板为全局蓝本，禁止删除！')
+  if (tpl.templateCode === 'TPL-DEFAULT') {
+    ElMessage.warning('系统官方唯一基础默认蓝本 [TPL-DEFAULT] 受核心保护，禁止删除！')
     return
   }
   try {
-    await ElMessageBox.confirm(`确定要删除定制模板 [${tpl.name}] 吗？删除后不可恢复。`, '删除确认', {
-      type: 'warning',
-      confirmButtonText: '确定删除',
-      cancelButtonText: '取消'
-    })
-    await deleteWorkflowTemplateApi(tpl.id)
-    ElMessage.success('模板已删除')
+    await ElMessageBox.confirm(
+      `确定要删除工作流模板 [${tpl.name}] 吗？\n若已有项目挂载了该模板，删除后系统将自动把关联项目安全回退挂载至官方基础默认工作流，避免项目工作流出现孤岛。`,
+      '级联删除确认',
+      {
+        type: 'warning',
+        confirmButtonText: '确定安全删除',
+        cancelButtonText: '取消'
+      }
+    )
+    const res = await deleteWorkflowTemplateApi(tpl.id)
+    ElMessage.success(res.msg || '工作流模板及关联已安全删除')
+    await loadInitialData()
     await loadWorkflowTemplates()
-  } catch (e) {
-    // 取消或失败
+  } catch (e: any) {
+    if (e !== 'cancel') {
+      ElMessage.error(e.message || '删除失败')
+    }
   }
 }
 
 // 视角与路由状态
 const currentPerspective = ref<'internal' | 'client'>('internal')
 const currentPage = ref('page-dashboard')
+const isWorkflowAssetPage = computed(() => ['page-templates', 'page-skills', 'page-scripts'].includes(currentPage.value))
 const clientSubPage = ref<'e02' | 'e03'>('e02')
 const selectedProject = ref('NET-SIM')
 const selectedPrototypeVer = ref('v3')
@@ -2961,8 +2729,8 @@ onMounted(async () => {
 
 <template>
   <div class="req-app-container">
-    <!-- 顶部导航 -->
-    <header class="app-header">
+    <!-- 顶部导航 (仅在需求治理具体业务页面展示；在全局工作流工艺资产页面隐藏，保持全局沉浸与权责独立) -->
+    <header class="app-header" v-if="!isWorkflowAssetPage">
       <div class="header-left">
         <span class="logo-badge">APEX</span>
         <div class="app-title">
@@ -3353,6 +3121,14 @@ onMounted(async () => {
               </div>
               <div style="display:flex; gap:10px;">
                 <button class="btn btn-outline btn-sm" @click="loadWorkflowTemplates">🔄 刷新模板库</button>
+                <button class="btn btn-outline btn-sm" style="display:inline-flex; align-items:center; gap:6px;" @click="handleInitDefaultTemplate" title="重置或修复官方基础基准蓝本 (TPL-DEFAULT)">
+                  <span>🔄</span>
+                  <span>初始化/重置基础蓝本</span>
+                </button>
+                <button class="btn btn-primary btn-sm" style="display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 8px rgba(2, 132, 199, 0.25);" @click="handleCreateNewDefaultTemplate">
+                  <span>➕</span>
+                  <span>追加新默认工作流</span>
+                </button>
               </div>
             </div>
 
@@ -3424,7 +3200,7 @@ onMounted(async () => {
                       <span>📋 复制为新模板</span>
                     </button>
                     <button
-                      v-if="tpl.isSystemDefault !== 1"
+                      v-if="tpl.templateCode !== 'TPL-DEFAULT'"
                       class="btn btn-outline btn-sm"
                       style="color:#dc2626;"
                       @click="handleDeleteTemplate(tpl)"
@@ -3450,40 +3226,25 @@ onMounted(async () => {
                   ⬅ 返回模板库列表
                 </button>
                 <div style="height:20px; width:1px; background:#334155;"></div>
-                <span
-                  class="tag"
-                  :style="{
-                    background: currentEditingTemplate.isSystemDefault === 1 ? '#0284c7' : '#10b981',
-                    color: '#fff',
-                    fontWeight: 700
-                  }"
-                >
-                  {{ currentEditingTemplate.isSystemDefault === 1 ? '官方系统蓝本' : '定制蓝本' }}
-                </span>
                 <span style="font-size:16px; font-weight:700; color:#f8fafc;">
-                  {{ currentEditingTemplate.name }} ({{ currentEditingTemplate.templateCode }})
+                  {{ currentEditingTemplate.name }}
                 </span>
-                <span style="font-size:12px; color:#94a3b8;">
+                <code style="font-size:11px; background:#1e293b; color:#38bdf8; padding:2px 8px; border-radius:4px;">
+                  {{ currentEditingTemplate.templateCode }}
+                </code>
+                <span style="font-size:12px; color:#94a3b8; margin-left:6px;">
                   💡 提示：点击任意工位节点即可配置其专属 AI Skill 专家与门禁规约
                 </span>
               </div>
 
               <div style="display:flex; gap:10px; align-items:center;">
                 <button
-                  v-if="currentEditingTemplate.isSystemDefault !== 1"
                   class="btn btn-primary btn-sm"
-                  style="background:#10b981; border:none; font-weight:700; padding:6px 16px;"
+                  style="background:#0284c7; border:none; font-weight:700; padding:6px 16px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 8px rgba(2, 132, 199, 0.35);"
                   @click="handleSaveTemplateDag"
                 >
-                  💾 保存拓扑蓝本配置
-                </button>
-                <button
-                  v-else
-                  class="btn btn-primary btn-sm"
-                  style="background:#0284c7; border:none; font-weight:700; padding:6px 16px;"
-                  @click="handleOpenCloneModal(currentEditingTemplate)"
-                >
-                  📋 复制为此模板的定制副本
+                  <span>💾</span>
+                  <span>保存拓扑蓝本配置</span>
                 </button>
               </div>
             </div>
@@ -3518,35 +3279,51 @@ onMounted(async () => {
             </div>
           </div>
 
-          <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap:16px;">
+          <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap:20px;">
             <div 
               v-for="sk in availableSkillRegistry" 
               :key="sk.id" 
-              class="card"
-              style="margin:0; display:flex; flex-direction:column; justify-content:space-between; border-left:4px solid #0284c7;"
+              class="expert-skill-card"
             >
-              <div>
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                  <span style="font-size:16px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:6px;">
-                    <span>{{ sk.icon }}</span>
-                    <span>{{ sk.id }}</span>
-                  </span>
-                  <span class="tag" style="background:var(--primary-light); color:var(--primary); font-size:11px;">Agent 专家</span>
+              <!-- 顶部高光微装饰线 -->
+              <div class="skill-card-indicator"></div>
+
+              <div class="skill-card-main">
+                <!-- 头部：图标 + 代号 + 勋章 -->
+                <div class="skill-card-header">
+                  <div class="skill-avatar-box">
+                    <span class="skill-avatar-icon">{{ sk.icon || '🤖' }}</span>
+                  </div>
+                  <div class="skill-title-block">
+                    <div class="skill-id-row">
+                      <span class="skill-id-text">{{ sk.id }}</span>
+                      <span class="skill-badge-agent">Agent 专家</span>
+                    </div>
+                    <div class="skill-name-text">{{ sk.name }}</div>
+                  </div>
                 </div>
-                <div style="font-size:14px; font-weight:600; color:var(--text-secondary); margin-bottom:8px;">
-                  {{ sk.name }}
-                </div>
-                <p style="font-size:12px; color:var(--text-muted); line-height:1.5; margin-bottom:12px;">
-                  {{ sk.desc }}
+
+                <!-- 描述 -->
+                <p class="skill-desc-text">
+                  {{ sk.desc || '专属智能研发专家，严密规范工程契约与落地质量。' }}
                 </p>
-                <div style="font-size:11px; font-family:monospace; color:#64748b; background:var(--bg); padding:4px 8px; border-radius:4px; margin-bottom:12px;">
-                  📂 {{ sk.path || `.agents/skills/${sk.id}/SKILL.md` }}
+
+                <!-- 路径标签 -->
+                <div class="skill-path-box">
+                  <span class="skill-path-icon">📂</span>
+                  <span class="skill-path-code">{{ sk.path || `.agents/skills/${sk.id}/SKILL.md` }}</span>
                 </div>
               </div>
-              <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:12px; margin-top:8px;">
-                <span style="font-size:11px; color:#10b981; font-weight:600;">● 已挂载工作流拓扑</span>
-                <button class="btn btn-primary btn-sm" @click="handleOpenSkillDetail(sk)">
-                  📖 查看规约详情 (SKILL.md)
+
+              <!-- 底部操作与挂载状态 -->
+              <div class="skill-card-footer">
+                <div class="skill-status-indicator">
+                  <span class="pulse-dot"></span>
+                  <span class="pulse-text">已挂载工作流拓扑</span>
+                </div>
+                <button class="btn btn-primary btn-sm skill-action-btn" @click="handleOpenSkillDetail(sk)">
+                  <span>📖 查看规约 (SKILL.md)</span>
+                  <span class="arrow-icon">→</span>
                 </button>
               </div>
             </div>
@@ -3570,35 +3347,51 @@ onMounted(async () => {
             </div>
           </div>
 
-          <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap:16px;">
+          <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap:20px;">
             <div 
               v-for="sc in availableScriptRegistry" 
               :key="sc.id" 
-              class="card"
-              style="margin:0; display:flex; flex-direction:column; justify-content:space-between; border-left:4px solid #10b981;"
+              class="script-asset-card"
             >
-              <div>
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                  <span style="font-size:16px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:6px;">
-                    <span>{{ sc.icon }}</span>
-                    <span>{{ sc.id }}</span>
-                  </span>
-                  <span class="tag" style="background:#064e3b; color:#34d399; font-size:11px;">{{ sc.runtime }}</span>
+              <!-- 顶部极光绿装饰条 -->
+              <div class="script-card-indicator"></div>
+
+              <div class="script-card-main">
+                <!-- 头部：图标 + 脚本文件名 + 运行环境胶囊 -->
+                <div class="script-card-header">
+                  <div class="script-avatar-box">
+                    <span class="script-avatar-icon">{{ sc.icon || '🛠️' }}</span>
+                  </div>
+                  <div class="script-title-block">
+                    <div class="script-id-row">
+                      <span class="script-id-text">{{ sc.id }}</span>
+                      <span class="script-badge-runtime">{{ sc.runtime || 'Python 3' }}</span>
+                    </div>
+                    <div class="script-name-text">{{ sc.name }}</div>
+                  </div>
                 </div>
-                <div style="font-size:14px; font-weight:600; color:var(--text-secondary); margin-bottom:8px;">
-                  {{ sc.name }}
-                </div>
-                <p style="font-size:12px; color:var(--text-muted); line-height:1.5; margin-bottom:12px;">
-                  {{ sc.desc }}
+
+                <!-- 脚本功能说明 -->
+                <p class="script-desc-text">
+                  {{ sc.desc || '底层自动化执行/看门狗脚本，纳管质量门禁与状态机流转。' }}
                 </p>
-                <div style="background:#0f172a; padding:6px 10px; border-radius:6px; font-family:monospace; color:#38bdf8; font-size:11px; margin-bottom:12px; overflow-x:auto;">
-                  $ {{ sc.cmd }}
+
+                <!-- 命令行调用样例代码盒 -->
+                <div class="script-cli-terminal">
+                  <span class="cli-prompt">$</span>
+                  <span class="cli-command">{{ sc.cmd }}</span>
                 </div>
               </div>
-              <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:12px; margin-top:8px;">
-                <span style="font-size:11px; color:#10b981; font-weight:600;">● 看门狗就绪</span>
-                <button class="btn btn-outline btn-sm" @click="handleOpenScriptDetail(sc)">
-                  💻 在线透视源码
+
+              <!-- 底部操作与看门狗就绪状态 -->
+              <div class="script-card-footer">
+                <div class="script-status-indicator">
+                  <span class="pulse-dot-green"></span>
+                  <span class="pulse-text-green">看门狗就绪</span>
+                </div>
+                <button class="btn btn-outline btn-sm script-action-btn" @click="handleOpenScriptDetail(sc)">
+                  <span>💻 在线透视源码</span>
+                  <span class="arrow-icon">→</span>
                 </button>
               </div>
             </div>
@@ -5144,7 +4937,7 @@ onMounted(async () => {
                 {{ sc.icon }} {{ sc.id }} ({{ sc.name }})
               </option>
             </select>
-            <!-- 脚本详情实时名片卡 -->
+            <!-- 脚本详情实时名片卡 (支持点击一键透视源码) -->
             <div 
               v-if="activeTplConfigNode.scriptId && activeTplConfigNode.scriptId !== '-'" 
               style="margin-top:8px; padding:10px 12px; background:#0b1320; border:1px solid #10b981; border-radius:6px; font-size:12px;"
@@ -5154,9 +4947,19 @@ onMounted(async () => {
                   {{ availableScriptRegistry.find(s => s.id === activeTplConfigNode.scriptId)?.icon }}
                   {{ availableScriptRegistry.find(s => s.id === activeTplConfigNode.scriptId)?.name }}
                 </span>
-                <span class="tag" style="background:#064e3b; color:#34d399; font-size:10px;">
-                  {{ availableScriptRegistry.find(s => s.id === activeTplConfigNode.scriptId)?.runtime }}
-                </span>
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <span class="tag" style="background:#064e3b; color:#34d399; font-size:10px;">
+                    {{ availableScriptRegistry.find(s => s.id === activeTplConfigNode.scriptId)?.runtime }}
+                  </span>
+                  <button 
+                    type="button" 
+                    class="btn btn-outline btn-sm" 
+                    style="padding:1px 6px; font-size:11px; color:#34d399; border-color:#059669;"
+                    @click="handleQuickInspectFile(activeTplConfigNode.scriptId, availableScriptRegistry.find(s => s.id === activeTplConfigNode.scriptId)?.name)"
+                  >
+                    💻 查看源码
+                  </button>
+                </div>
               </div>
               <div style="color:#94a3b8; font-size:11px; margin-bottom:6px;">
                 {{ availableScriptRegistry.find(s => s.id === activeTplConfigNode.scriptId)?.desc }}
@@ -5171,7 +4974,18 @@ onMounted(async () => {
             <input type="text" class="form-control" style="background:#1e293b; border-color:#334155; color:#fff;" v-model="activeTplConfigNode.gate">
           </div>
           <div class="form-group">
-            <label class="form-label" style="color:#f8fafc;">绑定执行 SOP 规范文件</label>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <label class="form-label" style="color:#f8fafc; margin-bottom:0;">绑定执行 SOP 规范文件</label>
+              <button 
+                v-if="activeTplConfigNode.sop && activeTplConfigNode.sop !== '-'" 
+                type="button" 
+                class="btn btn-outline btn-sm" 
+                style="padding:2px 8px; font-size:11px; color:#38bdf8; border-color:#0284c7; background:rgba(2, 132, 199, 0.1);"
+                @click="handleQuickInspectFile(activeTplConfigNode.sop, `SOP 规范：${activeTplConfigNode.name}`)"
+              >
+                📖 查看 SOP 规约原文
+              </button>
+            </div>
             <input type="text" class="form-control" style="background:#1e293b; border-color:#334155; color:#fff;" v-model="activeTplConfigNode.sop">
           </div>
         </template>
@@ -5191,14 +5005,24 @@ onMounted(async () => {
             <div style="padding:8px 12px; background:#1e293b; border-radius:6px; color:#ef4444; font-weight:600;">{{ activeTplConfigNode.gate }}</div>
           </div>
           <div class="form-group" v-if="activeTplConfigNode.sop && activeTplConfigNode.sop !== '-'">
-            <label class="form-label" style="color:#f8fafc;">对应底层规约文件 / 脚本</label>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <label class="form-label" style="color:#f8fafc; margin-bottom:0;">对应底层规约文件 / 脚本</label>
+              <button 
+                type="button" 
+                class="btn btn-outline btn-sm" 
+                style="padding:2px 8px; font-size:11px; color:#38bdf8; border-color:#0284c7; background:rgba(2, 132, 199, 0.1);"
+                @click="handleQuickInspectFile(activeTplConfigNode.sop, activeTplConfigNode.name)"
+              >
+                🔍 点击查看文件源内容
+              </button>
+            </div>
             <div style="padding:8px 12px; background:#1e293b; border-radius:6px; font-family:monospace; color:#38bdf8;">{{ activeTplConfigNode.sop }}</div>
           </div>
         </template>
 
         <!-- 节点输入与输出数据流 -->
         <div style="margin-top:16px; border-top:1px solid #1e293b; padding-top:12px;">
-          <div style="display:flex; gap:16px;">
+          <div style="display:flex; gap:16px; margin-bottom:14px;">
             <div style="flex:1;">
               <div style="font-weight:600; color:#94a3b8; margin-bottom:6px; font-size:12px;">📥 输入前提 (Inputs)</div>
               <ul style="margin:0; padding-left:16px; color:#cbd5e1; font-size:12px; line-height:1.6;">
@@ -5212,6 +5036,30 @@ onMounted(async () => {
                 <li v-for="(out, i) in (activeTplConfigNode.outputs || [])" :key="i">{{ out }}</li>
                 <li v-if="!activeTplConfigNode.outputs?.length" style="color:#64748b;">下游工位状态变迁</li>
               </ul>
+            </div>
+          </div>
+
+          <!-- 💡 输入与输出真实工程 Demo 示例对比透视 -->
+          <div v-if="activeTplConfigNode.inputDemo || activeTplConfigNode.outputDemo" style="margin-top:12px; display:flex; flex-direction:column; gap:10px;">
+            <div style="font-size:12px; font-weight:700; color:#38bdf8; display:flex; align-items:center; gap:6px;">
+              <span>💡</span>
+              <span>输入与输出工程 Demo 示例 (帮助理解此工位)</span>
+            </div>
+
+            <!-- 输入示例 -->
+            <div v-if="activeTplConfigNode.inputDemo" style="background:#020617; border:1px solid #1e293b; border-left:3px solid #38bdf8; border-radius:6px; padding:10px 12px;">
+              <div style="font-size:11px; font-weight:700; color:#38bdf8; margin-bottom:4px; display:flex; align-items:center; gap:4px;">
+                <span>📥 输入 Demo 样例：</span>
+              </div>
+              <pre style="margin:0; font-family:ui-monospace, SFMono-Regular, monospace; font-size:11px; color:#94a3b8; line-height:1.5; white-space:pre-wrap; word-break:break-word;">{{ activeTplConfigNode.inputDemo }}</pre>
+            </div>
+
+            <!-- 输出示例 -->
+            <div v-if="activeTplConfigNode.outputDemo" style="background:#020617; border:1px solid #1e293b; border-left:3px solid #10b981; border-radius:6px; padding:10px 12px;">
+              <div style="font-size:11px; font-weight:700; color:#10b981; margin-bottom:4px; display:flex; align-items:center; gap:4px;">
+                <span>📤 产出 Demo 样例：</span>
+              </div>
+              <pre style="margin:0; font-family:ui-monospace, SFMono-Regular, monospace; font-size:11px; color:#cbd5e1; line-height:1.5; white-space:pre-wrap; word-break:break-word;">{{ activeTplConfigNode.outputDemo }}</pre>
             </div>
           </div>
         </div>
@@ -5395,7 +5243,7 @@ onMounted(async () => {
       <div class="form-group">
         <label class="form-label">绑定研发工作流模板</label>
         <select class="form-control" v-model="(newProjectForm as any).workflowTemplateId">
-          <option :value="undefined">默认：全局默认 · 钧天四层一体化研发工作流 (TPL-DEFAULT)</option>
+          <option :value="undefined">默认：全局默认 · AI辅助四层一体化研发工作流 (TPL-DEFAULT)</option>
           <option v-for="tpl in workflowTemplates" :key="tpl.id" :value="tpl.id">
             {{ tpl.name }} ({{ tpl.templateCode }})
           </option>
@@ -6675,5 +6523,331 @@ table.data-table tr:hover td {
   transform: translateY(-50%);
   z-index: 1;
   border-radius: 2px;
+}
+
+/* ================= 🤖 AI Skills 专家中心精美卡片样式 ================= */
+.expert-skill-card {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.expert-skill-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 24px -4px rgba(2, 132, 199, 0.12), 0 8px 12px -4px rgba(0, 0, 0, 0.04);
+  border-color: #bae6fd;
+}
+.skill-card-indicator {
+  height: 4px;
+  background: linear-gradient(90deg, #0284c7 0%, #38bdf8 50%, #818cf8 100%);
+  width: 100%;
+}
+.skill-card-main {
+  padding: 20px 20px 14px 20px;
+  flex: 1;
+}
+.skill-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.skill-avatar-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 1px solid #bae6fd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(2, 132, 199, 0.06);
+}
+.skill-title-block {
+  flex: 1;
+  min-width: 0;
+}
+.skill-id-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.skill-id-text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.2px;
+  word-break: break-all;
+}
+.skill-badge-agent {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+  white-space: nowrap;
+}
+.skill-name-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0284c7;
+  line-height: 1.4;
+}
+.skill-desc-text {
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.6;
+  margin-bottom: 14px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 56px;
+}
+.skill-path-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: #64748b;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  overflow: hidden;
+}
+.skill-path-code {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.skill-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: #fcfdfe;
+  border-top: 1px solid #f1f5f9;
+}
+.skill-status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+  display: inline-block;
+}
+.pulse-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: #059669;
+}
+.skill-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.2);
+  transition: all 0.2s;
+}
+.skill-action-btn:hover {
+  transform: translateX(2px);
+  box-shadow: 0 4px 10px rgba(2, 132, 199, 0.3);
+}
+.arrow-icon {
+  font-size: 12px;
+  transition: transform 0.2s;
+}
+.skill-action-btn:hover .arrow-icon {
+  transform: translateX(3px);
+}
+
+/* ================= 🛠️ 自动化脚本资产中心精美卡片样式 ================= */
+.script-asset-card {
+  position: relative;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.script-asset-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 24px -4px rgba(16, 185, 129, 0.12), 0 8px 12px -4px rgba(0, 0, 0, 0.04);
+  border-color: #a7f3d0;
+}
+.script-card-indicator {
+  height: 4px;
+  background: linear-gradient(90deg, #10b981 0%, #34d399 50%, #06b6d4 100%);
+  width: 100%;
+}
+.script-card-main {
+  padding: 20px 20px 14px 20px;
+  flex: 1;
+}
+.script-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.script-avatar-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  border: 1px solid #a7f3d0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.06);
+}
+.script-title-block {
+  flex: 1;
+  min-width: 0;
+}
+.script-id-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.script-id-text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.2px;
+  word-break: break-all;
+}
+.script-badge-runtime {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+  white-space: nowrap;
+}
+.script-name-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #059669;
+  line-height: 1.4;
+}
+.script-desc-text {
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.6;
+  margin-bottom: 14px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 40px;
+}
+.script-cli-terminal {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #090d16;
+  border: 1px solid #1e293b;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+.cli-prompt {
+  color: #10b981;
+  font-weight: 700;
+  user-select: none;
+}
+.cli-command {
+  color: #38bdf8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+.script-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: #fcfdfe;
+  border-top: 1px solid #f1f5f9;
+}
+.script-status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pulse-dot-green {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+  display: inline-block;
+}
+.pulse-text-green {
+  font-size: 11px;
+  font-weight: 600;
+  color: #059669;
+}
+.script-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-weight: 600;
+  color: #334155;
+  border-color: #cbd5e1;
+  background: #ffffff;
+  transition: all 0.2s;
+}
+.script-action-btn:hover {
+  color: #059669;
+  border-color: #10b981;
+  background: #f0fdf4;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15);
+  transform: translateX(2px);
+}
+.script-action-btn:hover .arrow-icon {
+  transform: translateX(3px);
 }
 </style>

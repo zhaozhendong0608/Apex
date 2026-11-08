@@ -1,6 +1,6 @@
 # 📐 Design-Spec-Architect (架构设计说明书与变更同步专家)
 
-> **技能定位**：基于 PRD 和原型推演系统分层架构（HLD）与详细设计（DLD，严格遵循钧天科技 V1.0 8大章节标准），并在需求变更时自动对比旧版文档执行增量 Diff 更新与 Revision History 日志记录。
+> **技能定位**：基于 PRD 和原型推演系统分层架构（HLD）与详细设计（DLD，严格遵循 Apex 8 大章节标准），并在需求变更时自动对比旧版文档执行增量 Diff 更新与 Revision History 日志记录。
 
 ---
 
@@ -12,8 +12,8 @@
 - **`references/`**：
   - **[change_sync_rules.md](./references/change_sync_rules.md)**：需求变更增量 Diff 与修订历史追加规约。
 - **`templates/`**：
-  - **[hld_template.md](./templates/hld_template.md)**：概要设计说明书 (High-Level Design) 模版（钧天科技 V1.0 标准）。
-  - **[dld_template.md](./templates/dld_template.md)**：详细设计说明书 (Detailed Design) 模版（钧天科技 V1.0 标准）。
+  - **[hld_template.md](./templates/hld_template.md)**：概要设计说明书 (High-Level Design) 模版（Apex 架构 V1.0 标准）。
+  - **[dld_template.md](./templates/dld_template.md)**：详细设计说明书 (Detailed Design) 模版（Apex 架构 V1.0 标准）。
 
 ---
 

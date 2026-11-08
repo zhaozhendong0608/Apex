@@ -115,7 +115,7 @@ onMounted(() => {
     <header class="sign-header">
       <div class="brand">
         <span class="logo">⚡</span>
-        <span>钧天科技 · 客户法定免登签署平台</span>
+        <span>Apex · 客户法定免登签署平台</span>
       </div>
       <div class="security-badge">
         <el-icon><Lock /></el-icon>
