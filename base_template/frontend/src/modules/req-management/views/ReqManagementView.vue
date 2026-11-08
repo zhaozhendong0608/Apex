@@ -8,6 +8,9 @@ const router = useRouter()
 const routeToPageMap: Record<string, string> = {
   '/req/projects': 'page-projects',
   '/req/workflow': 'page-workflow',
+  '/req/templates': 'page-templates',
+  '/req/skills': 'page-skills',
+  '/req/scripts': 'page-scripts',
   '/req/dashboard': 'page-dashboard',
   '/req/detail': 'page-req-detail',
   '/req/prototypes': 'page-prototypes',
@@ -22,6 +25,9 @@ const routeToPageMap: Record<string, string> = {
 const pageToRouteMap: Record<string, string> = {
   'page-projects': '/req/projects',
   'page-workflow': '/req/workflow',
+  'page-templates': '/req/templates',
+  'page-skills': '/req/skills',
+  'page-scripts': '/req/scripts',
   'page-dashboard': '/req/dashboard',
   'page-req-detail': '/req/detail',
   'page-prototypes': '/req/prototypes',
@@ -50,7 +56,15 @@ import {
   getBaselineListApi,
   getWorkflowDagStateApi,
   advanceWorkflowDagApi,
-  getWorkflowRecordsApi
+  getWorkflowRecordsApi,
+  getWorkflowTemplateListApi,
+  getTemplateMountedProjectsApi,
+  mountProjectsToTemplateApi,
+  cloneWorkflowTemplateApi,
+  updateWorkflowTemplateApi,
+  deleteWorkflowTemplateApi,
+  getWorkflowSkillsApi,
+  getWorkflowScriptsApi
 } from '@/api/req'
 import { Graph } from '@antv/x6'
 import { getUserListApi } from '@/api/user'
@@ -561,7 +575,7 @@ const renderWorkflowGraphData = () => {
   createGraphEdge('CTRL-GATE', 'ART-04', '#ef4444', true, 'bottom', 'top', 'smooth')
   createGraphEdge('SOP-07', 'ART-05', '#10b981', true, 'bottom', 'top', 'smooth')
 
-  // 绑定节点点击事件：点击任意工位节点或技能专家均可联动查看
+  // 绑定节点点击事件：点击任意工位节点或技能专家均可联动查看并唤起右侧深度透视抽屉
   workflowGraph.on('node:click', ({ node }) => {
     const id = node.id
     if (!id.startsWith('zone_')) {
@@ -574,6 +588,8 @@ const renderWorkflowGraphData = () => {
         : (id === 'ART-05' ? 'SOP-07' : id)))))
       workflowSelectedNode.value = mappedId
       renderWorkflowGraphData()
+      // 🚀 点击任意节点均可打开右侧全景深度透视抽屉
+      openNodeDetailDrawer(id)
     }
   })
 }
@@ -917,6 +933,635 @@ const aiNextActionAdvice = computed(() => {
 // 历史审计流转记录
 const workflowRecords = ref<any[]>([])
 
+// ========================================================
+// 🚀 全流程节点深度透视抽屉 (Drawer) 与 Skill 专家动态选配系统
+// ========================================================
+const drawerWorkflowDetailVisible = ref(false)
+const drawerActiveTab = ref<'overview' | 'skill' | 'artifacts' | 'troubleshoot'>('overview')
+const activeDetailNode = ref<any>({
+  id: '',
+  name: '',
+  category: '',
+  categoryName: '',
+  role: '',
+  skill: '',
+  sop: '',
+  gate: '',
+  principle: '',
+  inputArtifacts: [] as string[],
+  outputArtifacts: [] as string[],
+  status: 'PENDING'
+})
+
+// 系统内所有可用 AI Skill 专家库清单 (可供节点动态切换)
+const availableSkillRegistry = ref<any[]>([
+  { id: 'requirement-discovery', name: '需求发现与白话澄清专家', desc: '白话挖掘隐性需求，披萨式切片，拒做无谓过度设计', icon: '🤖', path: '.agents/skills/requirement-discovery/SKILL.md', content: '' },
+  { id: 'design-spec-architect', name: '概要与详细设计说明书专家', desc: '推演系统分层与表结构，严格对齐钧天8大章节', icon: '📐', path: '.agents/skills/design-spec-architect/SKILL.md', content: '' },
+  { id: 'archetype-architect', name: '原型架构与模块关系梳理专家', desc: '解析静态 HTML 原型，反向质询补全隐藏业务逻辑', icon: '🎨', path: '.agents/skills/archetype-architect/SKILL.md', content: '' },
+  { id: 'coding-standards', name: '代码规范与契约强绑定专家', desc: '逐字对齐 DLD 表字段与 API 契约，分层规约约束', icon: '💻', path: '.agents/skills/coding-standards/SKILL.md', content: '' },
+  { id: 'poc-tech-prototype', name: '技术原型与 PoC 攻关专家', desc: '第三方 API 沙盒联调，复杂算法与并发锁推演验证', icon: '🔬', path: '.agents/skills/poc-tech-prototype/SKILL.md', content: '' },
+  { id: 'code-quality-reviewer', name: '静态质量审查与门禁拦截专家', desc: '深度扫描 NPE 空指针、并发竞争、泄漏与微创重构', icon: '🔒', path: '.agents/skills/code-quality-reviewer/SKILL.md', content: '' },
+  { id: 'quality-verifier', name: '质量验证与小黄鸭探针排错专家', desc: 'TDD 测试用例先行，契约碰撞测试，最小化排错', icon: '🦆', path: '.agents/skills/quality-verifier/SKILL.md', content: '' },
+  { id: 'legacy-archaeologist', name: '老项目逆向考古与代码解密专家', desc: '自顶向下逆向切片提取 API 与表关系，打锁死探针', icon: '🏛️', path: '.agents/skills/legacy-archaeologist/SKILL.md', content: '' }
+])
+
+// 资产管理抽屉与选中的详细资产
+const drawerSkillDetailVisible = ref(false)
+const selectedSkillDetail = ref<any>(null)
+const skillViewMode = ref<'rendered' | 'raw'>('rendered') // 默认富文本排版渲染模式，支持自由切换原始 Markdown
+const drawerScriptDetailVisible = ref(false)
+const selectedScriptDetail = ref<any>(null)
+
+// 简易安全 Markdown 转 HTML 解析器 (将标题、列表、粗体、代码块、引用等优雅排版呈现)
+const renderMarkdownToHtml = (mdText: string) => {
+  if (!mdText) return ''
+  let html = mdText
+    // 转义 HTML 核心标签以保安全
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+
+  // 1. 代码块 ```code```
+  html = html.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (_m, lang, code) => {
+    return `<div class="md-code-block"><div class="md-code-header">${lang || 'code'}</div><pre class="md-code-body"><code>${code.trim()}</code></pre></div>`
+  })
+
+  // 2. 行内代码 `code`
+  html = html.replace(/`([^`]+)`/g, '<code class="md-inline-code">$1</code>')
+
+  // 3. 标题 # ~ ####
+  html = html.replace(/^#### (.*$)/gim, '<h4 class="md-h4">$1</h4>')
+  html = html.replace(/^### (.*$)/gim, '<h3 class="md-h3">$1</h3>')
+  html = html.replace(/^## (.*$)/gim, '<h2 class="md-h2">$1</h2>')
+  html = html.replace(/^# (.*$)/gim, '<h1 class="md-h1">$1</h1>')
+
+  // 4. 引用块 > quote
+  html = html.replace(/^\> (.*$)/gim, '<blockquote class="md-blockquote">$1</blockquote>')
+
+  // 5. 分割线 ---
+  html = html.replace(/^---$/gim, '<hr class="md-hr" />')
+
+  // 6. 粗体与斜体
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong class="md-strong">$1</strong>')
+  html = html.replace(/\*([^*]+)\*/g, '<em class="md-em">$1</em>')
+
+  // 7. 无序列表 - item
+  html = html.replace(/^\s*[-*]\s+(.*$)/gim, '<div class="md-list-item"><span class="md-bullet">•</span><span>$1</span></div>')
+
+  // 8. 数字列表 1. item
+  html = html.replace(/^\s*(\d+)\.\s+(.*$)/gim, '<div class="md-list-item"><span class="md-num">$1.</span><span>$2</span></div>')
+
+  // 9. 段落与空行
+  html = html.replace(/\n\n/g, '<div class="md-paragraph-break"></div>')
+  html = html.replace(/\n/g, '<br/>')
+
+  return html
+}
+
+// 🐍 Python / Shell 源码语法高亮着色器 (关键字、注释、字符串、内置函数、数字)
+const highlightScriptCode = (code: string) => {
+  if (!code) return ''
+
+  // 1. 转义 HTML 特殊字符
+  let escaped = code
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+
+  // 临时占位符数组，防止字符串和注释内的字符被关键字二次替换
+  const tokens: string[] = []
+  const saveToken = (html: string) => {
+    const idx = tokens.length
+    tokens.push(html)
+    return `___APEX_TOKEN_${idx}___`
+  }
+
+  // 2. 匹配三引号多行注释/Docstring """ ... """ 或 ''' ... '''
+  escaped = escaped.replace(/("""[\s\S]*?"""|'''[\s\S]*?''')/g, match => {
+    return saveToken(`<span class="hl-docstring">${match}</span>`)
+  })
+
+  // 3. 匹配单行注释 # ...
+  escaped = escaped.replace(/(#[^\n]*)/g, match => {
+    return saveToken(`<span class="hl-comment">${match}</span>`)
+  })
+
+  // 4. 匹配双引号或单引号字符串 "..." / '...'
+  escaped = escaped.replace(/("(\\"|[^"\n])*"|'(\\'|[^'\n])*')/g, match => {
+    return saveToken(`<span class="hl-string">${match}</span>`)
+  })
+
+  // 5. 关键字高亮
+  const keywords = [
+    'def', 'class', 'import', 'from', 'as', 'return', 'if', 'elif', 'else',
+    'while', 'for', 'in', 'try', 'except', 'finally', 'raise', 'with', 'pass',
+    'lambda', 'yield', 'global', 'nonlocal', 'assert', 'break', 'continue',
+    'async', 'await'
+  ]
+  const kwRegex = new RegExp(`\\b(${keywords.join('|')})\\b`, 'g')
+  escaped = escaped.replace(kwRegex, '<span class="hl-keyword">$1</span>')
+
+  // 6. 核心布尔与空值
+  escaped = escaped.replace(/\b(True|False|None)\b/g, '<span class="hl-bool">$1</span>')
+
+  // 7. 内置常见函数与类型
+  const builtins = ['print', 'len', 'range', 'open', 'isinstance', 'str', 'int', 'float', 'list', 'dict', 'set', 'tuple', 'super', 'type']
+  const builtinRegex = new RegExp(`\\b(${builtins.join('|')})\\b`, 'g')
+  escaped = escaped.replace(builtinRegex, '<span class="hl-builtin">$1</span>')
+
+  // 8. 装饰器高亮 @something
+  escaped = escaped.replace(/(@[a-zA-Z0-9_.]+)/g, '<span class="hl-decorator">$1</span>')
+
+  // 9. 数字高亮
+  escaped = escaped.replace(/\b(\d+(\.\d+)?)\b/g, '<span class="hl-number">$1</span>')
+
+  // 10. 恢复被保护的注释和字符串
+  for (let i = 0; i < tokens.length; i++) {
+    escaped = escaped.replace(new RegExp(`___APEX_TOKEN_${i}___`, 'g'), tokens[i])
+  }
+
+  // 11. 分行并添加行号
+  const lines = escaped.split('\n')
+  return lines.map((line, idx) => {
+    const lineNum = idx + 1
+    return `<div class="code-line"><span class="code-lineno">${lineNum}</span><span class="code-text">${line || ' '}</span></div>`
+  }).join('')
+}
+
+// 异步加载后台真实 Skills 与 Scripts 列表及源码
+const loadSkillsAndScriptsAssets = async () => {
+  try {
+    const [resSkills, resScripts] = await Promise.all([
+      getWorkflowSkillsApi(),
+      getWorkflowScriptsApi()
+    ])
+    if (resSkills.data && resSkills.data.length > 0) {
+      // 合并图标与静态配置
+      availableSkillRegistry.value = resSkills.data.map(item => {
+        const exist = availableSkillRegistry.value.find(s => s.id === item.id)
+        return {
+          id: item.id,
+          name: exist?.name || item.name,
+          desc: item.desc || exist?.desc,
+          icon: exist?.icon || '🤖',
+          path: item.path,
+          content: item.content
+        }
+      })
+    }
+    if (resScripts.data && resScripts.data.length > 0) {
+      availableScriptRegistry.value = resScripts.data.map(item => {
+        const exist = availableScriptRegistry.value.find(s => s.id === item.id)
+        return {
+          id: item.id,
+          name: exist?.name || item.name,
+          runtime: item.runtime || exist?.runtime || 'Python 3',
+          path: item.path,
+          icon: exist?.icon || '🛠️',
+          cmd: exist?.cmd || `python3 ${item.path}`,
+          desc: exist?.desc || '底层自动化执行/看门狗脚本。',
+          content: item.content
+        }
+      })
+    }
+  } catch (e) {
+    console.warn('拉取真实 Skills/Scripts 资产失败，采用内置元数据', e)
+  }
+}
+
+// 打开 Skill 详情抽屉
+const handleOpenSkillDetail = (skill: any) => {
+  selectedSkillDetail.value = skill
+  drawerSkillDetailVisible.value = true
+}
+
+// 打开 Script 详情抽屉
+const handleOpenScriptDetail = (script: any) => {
+  selectedScriptDetail.value = script
+  drawerScriptDetailVisible.value = true
+}
+const availableScriptRegistry = ref<any[]>([
+  {
+    id: 'gate.py',
+    name: '质量门禁看门狗脚本',
+    runtime: 'Python 3',
+    path: '.ai/scripts/gate.py',
+    icon: '🔒',
+    cmd: 'python3 .ai/scripts/gate.py --staged',
+    desc: '语言无关质量门禁编排器：涵盖 SQL 回滚配对、密钥泄露扫描、AST 语法 Lint 及工作流自检。'
+  },
+  {
+    id: 'board.py',
+    name: '任务看板与状态机管控脚本',
+    runtime: 'Python 3',
+    path: '.ai/scripts/board.py',
+    icon: '🛠️',
+    cmd: 'python3 .ai/scripts/board.py list',
+    desc: '任务看板唯一合法修改入口：HTML 锚点状态转移、先验后收 verify、原子归档到交接黑匣子。'
+  },
+  {
+    id: 'sync_tree.py',
+    name: '目录拓扑与 Skill 路由同步脚本',
+    runtime: 'Python 3',
+    path: '.ai/scripts/sync_tree.py',
+    icon: '🌲',
+    cmd: 'python3 .ai/scripts/sync_tree.py --watch',
+    desc: '提取 YAML Frontmatter 自动构建自解释目录树，动态发现 .agents/skills 并写回 Cursor/Windsurf 规则。'
+  },
+  {
+    id: 'install_hooks.py',
+    name: 'Git Hooks 自动安装与探针注入',
+    runtime: 'Python 3',
+    path: '.ai/scripts/install_hooks.py',
+    icon: '🪝',
+    cmd: 'python3 .ai/scripts/install_hooks.py',
+    desc: '向本地 .git/hooks 注入 pre-commit 机器看门狗，阻断不合规代码提交入库。'
+  },
+  {
+    id: 'dag_chain.py',
+    name: 'DAG 拓扑链路推演与验证',
+    runtime: 'Python 3',
+    path: '.ai/scripts/dag_chain.py',
+    icon: '⛓️',
+    cmd: 'python3 .ai/scripts/dag_chain.py',
+    desc: '负责四层拓扑依赖有向无环校验、工位孤岛识别与双轨汇合延迟判定。'
+  },
+  {
+    id: 'req_agent_flow.py',
+    name: '需求与 Agent 编排调度流',
+    runtime: 'Python 3',
+    path: 'scripts/req_agent_flow.py',
+    icon: '⚡',
+    cmd: 'python3 scripts/req_agent_flow.py',
+    desc: '端到端需求意图转化 Agent 管道，驱动需求从口语发现切片到代码单测验证。'
+  }
+])
+
+// 节点全景原理与透视知识库 (Under the Hood Knowledge Base)
+const NODE_KNOWLEDGE_BASE: Record<string, any> = {
+  'SOP-00': {
+    name: '[0] 体系总览与规模分流识别',
+    category: 'instruction',
+    categoryName: '👤 SOP 指令主轨',
+    role: '全员 / 流程中枢',
+    skill: '-',
+    sop: '.ai/sop/00-sop-overview.md',
+    gate: '自适应分流判定完毕',
+    principle: '依据需求规模 (P1/P2/P3) 与变更烈度，智能决策走标准研发主轨（需门禁与基线闭环）还是极速微创快轨（单文件≤20行免门禁）。消除传统流程“改一个错别字也要走九个流程”的官僚主义，实现敏捷与受控的黄金平衡。',
+    inputs: ['业务原始提报', '需求描述口语'],
+    outputs: ['自适应分流图谱', '目标执行轨迹 (STANDARD / FASTTRACK)']
+  },
+  'SOP-01': {
+    name: '[1] 需求规划与白话澄清',
+    category: 'instruction',
+    categoryName: '👤 SOP 指令主轨',
+    role: '产品 / 张工',
+    skill: 'requirement-discovery',
+    sop: '.ai/sop/01-sop-planning.md',
+    gate: '四层清单 (P04) 齐备并冻结',
+    principle: 'AI 主导的反向质询 (Grill Protocol)。在代码动工前，先将抽象口语翻译为具备“范围、规则、异常、不做项”的四层清单。同时进行披萨式轻量切片，将大项目分解为单次 0.5~2 天即可验证的独立原子增量，并向测试轨平行分流。',
+    inputs: ['SOP-00 分流结果', '客户口语化原话 (留痕防扯皮)'],
+    outputs: ['四层清单基线草案 (P04)', 'S1~S3 披萨切片清单', 'TC-GEN 测试用例并行触发信标']
+  },
+  'SOP-02': {
+    name: '[2] 研发轨方案设计与契约冻结',
+    category: 'instruction',
+    categoryName: '👤 SOP 指令主轨',
+    role: '研发 / 李工',
+    skill: 'design-spec-architect',
+    sop: '.ai/sop/02-sop-tech-design.md',
+    gate: 'python3 gate.py --sql 校验通过',
+    principle: '基于四层清单推演完整分层架构、API 契约标准及 service.sql 结构。坚持“契约先于代码”理念，由 board.py 作为状态机唯一合法入口强制固化表结构与 DLD 文档，严禁研发人员未经设计直接凭空写代码。',
+    inputs: ['四层清单基线 (P04)', '静态原型 HTML/Mockup'],
+    outputs: ['docs/design/detail.md (DLD 详细设计)', 'docs/db/service.sql (表结构定义)', 'board.py 状态机迁移锁定']
+  },
+  'TC-GEN': {
+    name: '[TC] 测试用例矩阵先行 (测试解耦轨)',
+    category: 'instruction',
+    categoryName: '👤 SOP 指令主轨',
+    role: '测试 / 王工',
+    skill: 'quality-verifier',
+    sop: '.ai/sop/01-sop-planning.md',
+    gate: '用例矩阵 100% 覆盖关键链路',
+    principle: '测试轨与研发轨绝对平行解耦！在李工写业务代码的同时，王工与 quality-verifier 专家基于需求清单同步编写独立的 docs/test-cases 矩阵。研发人员写完代码后必须接受此用例矩阵的碰撞考验，杜绝“既当运动员又当裁判员”的伪测试。',
+    inputs: ['四层清单基线 (P04)', 'detail.md 接口契约'],
+    outputs: ['docs/test-cases/ 自动化测试用例集', 'E2E 离线穿透验证探针']
+  },
+  'SOP-03': {
+    name: '[3] 单焦点 TDD 红绿循环编码',
+    category: 'instruction',
+    categoryName: '👤 SOP 指令主轨',
+    role: '研发 / 李工',
+    skill: 'coding-standards',
+    sop: '.ai/sop/03-sop-coding.md',
+    gate: '单元测试全绿 (0 Failure / 0 Error)',
+    principle: '严格践行红绿单测循环：先写红灯报错测试 ➔ 编写最小化业务实现 ➔ 单测变绿 ➔ 重构优化。严厉禁止使用假 Mock 伪造成功。遇到第三方 API 必须保留真实沙盒联调日志，杜绝未经联调的代码流入下游。',
+    inputs: ['detail.md 契约约束', 'service.sql 数据库结构'],
+    outputs: ['src/ 业务模块源码', '第三方 API 真实联调日志', '.ai/tier3_status.md 任务更新']
+  },
+  'SOP-04': {
+    name: '[4] 代码审查机器门禁 (gate.py)',
+    category: 'instruction',
+    categoryName: '👤 SOP 指令主轨',
+    role: '看门狗探针',
+    skill: 'code-quality-reviewer',
+    sop: '.ai/sop/04-sop-code-review.md',
+    gate: 'python3 gate.py --staged [LGTM 阻断拦截]',
+    principle: '代码合并前的终极防线。由 gate.py 看门狗自动化执行 6 项高压扫描：① 严禁假 Mock / 假写死；② 严禁野公网依赖；③ DDL 与回滚配对检查；④ 密钥硬编码拦截；⑤ 圈复杂度超标拦截；⑥ NPE 空指针潜在隐患。任意一项违规立刻直接阻断！',
+    inputs: ['git staged 暂存区改动', 'src/ 业务源码工程'],
+    outputs: ['gate.py 扫描报告 (LGTM)', '违规代码拦截警报与微创重构建议']
+  },
+  'SOP-05': {
+    name: '[5] 架构与契约人工评审',
+    category: 'instruction',
+    categoryName: '👤 SOP 指令主轨',
+    role: '架构师 / 程工',
+    skill: 'code-quality-reviewer',
+    sop: '.ai/sop/05-sop-review.md',
+    gate: '架构师三方签字核准',
+    principle: '机器看门狗放行后的第二重专家把关。架构师基于 5 维清单对代码架构、性能并发安全、反向破坏性测试进行最终复核，确认符合团队长期资产沉淀标准后签署放行。',
+    inputs: ['gate.py LGTM 机器报告', 'src/ 业务源码工程'],
+    outputs: ['人工评审确认凭证 (APPROVED)', '技术债与优化备忘录']
+  },
+  'SOP-06': {
+    name: '[6] 双轨延迟汇合与集成穿透',
+    category: 'instruction',
+    categoryName: '👤 SOP 指令主轨',
+    role: '测试 / 王工',
+    skill: 'quality-verifier',
+    sop: '.ai/sop/06-sop-integration.md',
+    gate: 'TC 用例 100% 碰撞通过',
+    principle: '【关键核心节点 · 双轨延迟汇合】：在此工位，研发轨产出的 src 业务工程与测试轨在 SOP-01 阶段独立编写的 TC 用例矩阵首次进行严苛的闭环碰撞。双方在同一沙盒内跑通全链路 E2E 穿透，确保研发没有偷工减料，测试没有放水。',
+    inputs: ['SOP-05 交付的研发源码', 'TC-GEN 阶段冻结的测试用例矩阵'],
+    outputs: ['E2E 离线穿透验证报告', '0 Error 构建凭证', '全绿碰撞测试单']
+  },
+  'SOP-07': {
+    name: '[7] 交付双向验收门禁 (唯一归档出口)',
+    category: 'instruction',
+    categoryName: '👤 SOP 指令主轨',
+    role: '看门狗探针',
+    skill: 'quality-verifier',
+    sop: '.ai/sop/07-sop-acceptance.md',
+    gate: 'board.py verify ➔ complete --accept',
+    principle: '整个生命周期中需求唯一合法的归档出口！强制执行 board.py verify 防伪校验：验证四层清单、设计图、源码、门禁报告、测试报告全量资产无缺失且哈希对齐，人工核放后打上放行徽标。',
+    inputs: ['SOP-06 集成测试报告', '全生命周期各工位归档文件'],
+    outputs: ['board.py verify 验收凭据', '4 维终验合格清单', 'tier3_status.md 全标绿']
+  },
+  'SOP-08': {
+    name: '[8] 容器编排与离线部署',
+    category: 'instruction',
+    categoryName: '👤 SOP 指令主轨',
+    role: '运维 / 李工',
+    skill: '-',
+    sop: '.ai/sop/08-sop-deploy.md',
+    gate: '容器健康检查全通',
+    principle: '打包 Docker 离线镜像与 docker-compose.yml 编排清单，生成幂等一键部署脚本 install.sh。提供容器心跳检测与自动拉起自愈机制，确保交付物在内网断网环境下可一键点火启动。',
+    inputs: ['编译打包后的 JAR / 前端 Dist', 'docs/db/service.sql'],
+    outputs: ['docker-compose.yml 编排配置', 'install.sh 幂等安装脚本', '离线镜像包']
+  },
+  'SOP-09': {
+    name: '[9] Git 发布与版本打标',
+    category: 'instruction',
+    categoryName: '👤 SOP 指令主轨',
+    role: '交付 / 张工',
+    skill: '-',
+    sop: '.ai/sop/09-sop-git-release.md',
+    gate: 'Release 资产落盘完毕',
+    principle: '打上标准语义化 Git Tag (如 v1.2.0)，生成正式 Release 发版说明书，并将数据库迁移脚本 (docs/db/migrations) 与回滚方案 1:1 配对归档，完成生命周期最终归档。',
+    inputs: ['SOP-07 验收凭证', 'SOP-08 部署包'],
+    outputs: ['Git 语义化 Tag', 'docs/db/migrations 升级回滚对', 'Release 最终发布文档']
+  },
+  'SOP-B2': {
+    name: '⚡ [B2] 极速微创修补 (免状态机)',
+    category: 'instruction',
+    categoryName: '👤 旁路快速通道',
+    role: '研发 / 李工',
+    skill: 'quality-verifier',
+    sop: '.ai/sop/B2-sop-fasttrack.md',
+    gate: '严格限制单文件≤20行改动',
+    principle: '专为紧急 Bug 修复、文案微调、样式修补设计的非状态机极速通道。单文件改动严格控制在 20 行以内，免走繁重状态机流转与多重门禁，改动完成后直通 SOP-09 发布打标，兼顾速度与安全。',
+    inputs: ['紧急缺陷报告', '代码行级微创修改点'],
+    outputs: ['微创代码补丁', '.ai/tier1_snapshot.md 静默刷新']
+  },
+  'SKILL-01': {
+    name: '🤖 requirement-discovery 专家',
+    category: 'skill',
+    categoryName: '🧩 AI 技能专家',
+    role: 'AI 产品专家',
+    skill: 'requirement-discovery',
+    sop: '.agents/skills/requirement-discovery/SKILL.md',
+    gate: '反向质询无遗漏',
+    principle: '采用反诘式引导 (Grill Protocol)，先在内部推演目标、场景、异常、生命周期与边界，再只向用户抛出具有决策价值的高含金量问题，帮助非专业用户无痛理清业务逻辑。',
+    inputs: ['模糊的用户一句话需求'],
+    outputs: ['四层确认清单 (范围/规则/异常/不做项)']
+  },
+  'SKILL-02': {
+    name: '🤖 design-spec-architect 专家',
+    category: 'skill',
+    categoryName: '🧩 AI 技能专家',
+    role: 'AI 架构专家',
+    skill: 'design-spec-architect',
+    sop: '.agents/skills/design-spec-architect/SKILL.md',
+    gate: '钧天 8 大章节对齐',
+    principle: '依据需求清单自动推演出完整的概要设计 (HLD) 与详细设计 (DLD)。严格遵守钧天科技 V1.0 规范，输出标准表结构 DDL 与 API 契约，支持需求变更时增量更新架构文档。',
+    inputs: ['四层需求清单', '静态交互原型'],
+    outputs: ['detail.md 详细设计说明书', 'service.sql 数据库脚本']
+  },
+  'SKILL-03': {
+    name: '🤖 coding-standards 专家',
+    category: 'skill',
+    categoryName: '🧩 AI 技能专家',
+    role: 'AI 编码规范守卫',
+    skill: 'coding-standards',
+    sop: '.agents/skills/coding-standards/SKILL.md',
+    gate: '逐字对齐 DLD 契约',
+    principle: '强约束 AI 逐字绑定 DLD 说明书中的表名、字段名与 API 契约。遵循分层开发规约（Controller/Service/DAO），杜绝 AI 编码中常见的臆造字段或逻辑跑偏。',
+    inputs: ['DLD 契约文档', '数据库 DDL'],
+    outputs: ['高质量 Java / Vue 符合分层规约源码']
+  },
+  'SKILL-04': {
+    name: '🤖 code-quality-reviewer 专家',
+    category: 'skill',
+    categoryName: '🧩 AI 技能专家',
+    role: 'AI 静态质量审查专家',
+    skill: 'code-quality-reviewer',
+    sop: '.agents/skills/code-quality-reviewer/SKILL.md',
+    gate: '静态扫描 0 风险',
+    principle: '在代码提交前深度扫描代码隐患：NPE 空指针风险、流或连接未关闭/内存泄漏、并发不安全线程竞争、超标圈复杂度，并提供可直接执行的微创重构落地方案。',
+    inputs: ['业务源码差异 (git diff)'],
+    outputs: ['代码审查诊断报告', '微创重构补丁']
+  },
+  'SKILL-06': {
+    name: '🤖 quality-verifier 专家',
+    category: 'skill',
+    categoryName: '🧩 AI 技能专家',
+    role: 'AI 质量验证与排错专家',
+    skill: 'quality-verifier',
+    sop: '.agents/skills/quality-verifier/SKILL.md',
+    gate: '全量单测全绿',
+    principle: '质量验证与小黄鸭排错专家。在编码前根据契约自动生成测试用例；在发生编译/运行时错误时，激活小黄鸭探针（日志抓取 ➔ 根因分析 ➔ 最小化修改验证）精准排错。',
+    inputs: ['接口契约定义', '错误日志堆栈'],
+    outputs: ['自动化测试脚本', '小黄鸭排错报告']
+  },
+  'SKILL-00': {
+    name: '🏛️ legacy-archaeologist 专家',
+    category: 'skill',
+    categoryName: '🧩 AI 技能专家',
+    role: 'AI 逆向考古专家',
+    skill: 'legacy-archaeologist',
+    sop: '.agents/skills/legacy-archaeologist/SKILL.md',
+    gate: '行为锁死探针就绪',
+    principle: '面对无文档的庞杂老项目时，自顶向下扫描路由与链路切片，逆向提取 API 契约与表关系，输出 legacy_hld.md，并编写反向行为锁死探针，防止重构改崩旧业务。',
+    inputs: ['存量遗留源码库'],
+    outputs: ['legacy_hld.md 逆向设计', '反向行为锁死单测探针']
+  },
+  'CTRL-SNAP': {
+    name: '⚡ tier1_snapshot.md 记忆卡',
+    category: 'control',
+    categoryName: '🧠 控制中枢轨 (.ai/)',
+    role: '系统记忆中枢',
+    skill: '-',
+    sop: '.ai/tier1_snapshot.md',
+    gate: '单文件严格控制 ≤30 行',
+    principle: 'AI 会话冷启动的“名片卡”。单文件严格约束不超过 30 行，仅记录项目代号、当前活跃需求、当前工位与关键阻塞项，确保大模型在极短上下文内瞬间恢复工作记忆。',
+    inputs: ['工作流最新流转事件'],
+    outputs: ['极简上下文快照 (30行内)']
+  },
+  'CTRL-BOARD': {
+    name: '🛠️ board.py 状态机看板脚本',
+    category: 'control',
+    categoryName: '🧠 控制中枢轨 (.ai/)',
+    role: '状态机看门狗',
+    skill: '-',
+    sop: '.ai/board.py',
+    gate: '状态迁移严格校验',
+    principle: '整个系统状态机的唯一合法入口！任何工位迁移、工件校验、归档放行都必须经由 board.py 执行校验并原子性更新数据库，严禁外部脚本或人工手工纂改工位。',
+    inputs: ['advance/verify/complete 命令行指令'],
+    outputs: ['原子状态跃迁', '防伪校验凭证']
+  },
+  'CTRL-STATUS': {
+    name: '📋 tier3_status.md 任务看板',
+    category: 'control',
+    categoryName: '🧠 控制中枢轨 (.ai/)',
+    role: '任务看板中枢',
+    skill: '-',
+    sop: '.ai/tier3_status.md',
+    gate: '任务清单全量跟踪',
+    principle: '任务与切片的物理跟踪清单。以 Markdown 表格形式实时维护 ACTIVE 与 DONE 状态列表，作为开发人员与 AI 协同的实时工作台。',
+    inputs: ['开发切片任务分解'],
+    outputs: ['任务进行中/已完成看板']
+  },
+  'CTRL-GATE': {
+    name: '🔒 gate.py 机器门禁看门狗',
+    category: 'control',
+    categoryName: '🧠 控制中枢轨 (.ai/)',
+    role: '质量门禁中枢',
+    skill: '-',
+    sop: 'gate.py',
+    gate: '6项刚性扫描全绿',
+    principle: '工程合并看门狗，内置 AST 抽象语法树与静态扫描器，包含 6 大高压红线规则，执行 exit code!=0 强行阻断。',
+    inputs: ['提交代码 diff'],
+    outputs: ['LGTM 扫描放行报告']
+  },
+  'CTRL-HANDOVER': {
+    name: '📦 tier3_handover.md 历史长效黑匣子',
+    category: 'control',
+    categoryName: '🧠 控制中枢轨 (.ai/)',
+    role: '长效交接中枢',
+    skill: '-',
+    sop: '.ai/tier3_handover.md',
+    gate: '版本交接资产固化',
+    principle: '记录所有技术债务、设计取舍、遗留 Bug 与后续版本的演进规划，为下一任维护者或未来的 AI 会话提供完整的历史推演依据。',
+    inputs: ['版本交付验收结果'],
+    outputs: ['长效资产交接文档']
+  },
+  'ART-01': {
+    name: '📝 四层清单基线草案 (P04)',
+    category: 'artifact',
+    categoryName: '📄 确定性物理产物',
+    role: '产物管理',
+    skill: 'requirement-discovery',
+    sop: 'docs/requirements/P04.md',
+    gate: '签字锁定',
+    principle: '从口语对撞中提炼出的结构化清单，包含范围(Scope)、规则(Rule)、异常(Exception)、不做(Non-goal)，是后续所有架构设计与测试用例的唯一源头。',
+    inputs: ['用户口语输入'],
+    outputs: ['四层决策条目', '基线版本 BL-v1.0']
+  },
+  'ART-02': {
+    name: '🎨 mockup.html / PRD / detail.md',
+    category: 'artifact',
+    categoryName: '📄 确定性物理产物',
+    role: '产物管理',
+    skill: 'design-spec-architect',
+    sop: 'docs/design/detail.md',
+    gate: 'DDL 与 DLD 一致性',
+    principle: '包含可交互的纯 HTML 原型快照，以及包含数据库表结构 DDL 与 API 契约的详细设计说明书，作为前后端开发与联调的物理契约。',
+    inputs: ['四层清单'],
+    outputs: ['mockup.html 原型包', 'detail.md 详细设计', 'service.sql']
+  },
+  'ART-03': {
+    name: '💻 src/ 业务源码工程与联调日志',
+    category: 'artifact',
+    categoryName: '📄 确定性物理产物',
+    role: '产物管理',
+    skill: 'coding-standards',
+    sop: 'base_template/backend & frontend',
+    gate: '单测与编译通过',
+    principle: '经过 TDD 红绿循环洗礼的业务源代码工程，附带第三方 API 的真实请求响应日志，绝不含伪造 Mock 代码。',
+    inputs: ['detail.md 契约'],
+    outputs: ['后端 Java / 前端 Vue 源码', '真实接口联调日志']
+  },
+  'ART-04': {
+    name: '🔒 gate.py LGTM 报告与 E2E 凭证',
+    category: 'artifact',
+    categoryName: '📄 确定性物理产物',
+    role: '产物管理',
+    skill: 'code-quality-reviewer',
+    sop: 'target/gate-report.json',
+    gate: 'LGTM 防伪签名',
+    principle: '由机器门禁 gate.py 与端到端穿透测试共同生成的数字证明，具备不可篡改性，是准许进入终验的必备通行证。',
+    inputs: ['业务源码', '测试用例'],
+    outputs: ['门禁扫描报告 (LGTM)', 'E2E 穿透验证日志']
+  },
+  'ART-05': {
+    name: '🏁 board.py verify 凭据与 Git Tag',
+    category: 'artifact',
+    categoryName: '📄 确定性物理产物',
+    role: '产物管理',
+    skill: 'quality-verifier',
+    sop: 'docs/releases/v1.0.0.md',
+    gate: '双向验签锁定',
+    principle: '包含 board.py verify 全量资产验证单、Git 语义化 Tag 标签与 Release 正式发布说明书，标志着需求正式生命周期闭环。',
+    inputs: ['全部前置产物合集'],
+    outputs: ['Git Tag 标签', 'Release 归档交付包']
+  }
+}
+
+// 打开节点全景深度透视抽屉 (只读展示，不可在此随意改动工位工艺)
+const openNodeDetailDrawer = (nodeId: string) => {
+  const kb = NODE_KNOWLEDGE_BASE[nodeId] || {}
+  const pipelineNode = pipelineNodes.value.find(n => n.id === nodeId)
+  const isCompleted = pipelineNode?.status === 'COMPLETED' || nodeId === 'SOP-00'
+  const isActive = workflowSelectedNode.value === nodeId
+
+  activeDetailNode.value = {
+    id: nodeId,
+    name: kb.name || nodeId,
+    category: kb.category || 'instruction',
+    categoryName: kb.categoryName || '工位算子',
+    role: kb.role || pipelineNode?.role || '系统核心',
+    skill: pipelineNode?.skill || kb.skill || '-',
+    sop: kb.sop || pipelineNode?.sop || '-',
+    gate: kb.gate || pipelineNode?.gate || '无门禁阻断',
+    principle: kb.principle || '该工位负责工作流的精准流转，确保每一步产物具备确定性与可追溯性。',
+    inputArtifacts: kb.inputs || ['上游交付输入物'],
+    outputArtifacts: kb.outputs || ['本工位标准产出资产'],
+    status: isActive ? 'ACTIVE' : (isCompleted ? 'COMPLETED' : 'PENDING')
+  }
+  drawerActiveTab.value = 'overview'
+  drawerWorkflowDetailVisible.value = true
+}
+
 // 加载历史审计履历
 const loadWorkflowRecords = async () => {
   const reqCode = workflowActiveReq.value?.reqCode || 'REQ-001'
@@ -927,6 +1572,466 @@ const loadWorkflowRecords = async () => {
     }
   } catch (e) {
     workflowRecords.value = []
+  }
+}
+
+// =========================================================================
+// 🗺️ 工作流模板治理状态 (Workflow Templates SSOT & DAG Editor)
+// =========================================================================
+const workflowTemplates = ref<any[]>([])
+const modalCloneTemplateVisible = ref(false)
+const modalMountProjectsVisible = ref(false)
+const mountTemplateInfo = ref<any>(null)
+const selectedMountProjectIds = ref<number[]>([])
+
+// 模板全屏有向无环图 (DAG Editor) 编辑画板状态
+const templateDagEditorOpen = ref(false)
+const currentEditingTemplate = ref<any>(null)
+const tplGraphContainer = ref<HTMLDivElement | null>(null)
+let tplGraph: Graph | null = null
+
+// 节点属性配置抽屉
+const drawerTplNodeConfigVisible = ref(false)
+const activeTplConfigNode = ref<any>({
+  id: '',
+  name: '',
+  role: '',
+  skill: '',
+  scriptId: '-',
+  sop: '',
+  gate: '',
+  category: 'instruction',
+  categoryName: '👤 SOP 指令主轨',
+  principle: '',
+  inputs: [] as string[],
+  outputs: [] as string[]
+})
+
+const cloneForm = ref({
+  sourceTemplateId: 0,
+  sourceName: '',
+  name: '',
+  description: '',
+  targetProjectId: undefined as number | undefined
+})
+
+// 加载工作流模板列表
+const loadWorkflowTemplates = async () => {
+  try {
+    const res = await getWorkflowTemplateListApi()
+    if (res.data && res.data.length > 0) {
+      workflowTemplates.value = res.data
+    } else {
+      // 降级兜底初始默认模板
+      workflowTemplates.value = [
+        {
+          id: 1,
+          templateCode: 'TPL-DEFAULT',
+          name: '全局默认 · 钧天四层一体化研发工作流',
+          description: '钧天标准生产工艺：4-Layer 全景拓扑（SOP指令轨 + AI Skill专家轨 + 控制中枢轨 + 确定性物理产物轨），支持双轨延迟汇合与 B2 旁路微创快轨。',
+          isSystemDefault: 1,
+          scopeType: 'GLOBAL',
+          projectKey: null,
+          createdBy: 'admin',
+          createdAt: '2026-11-08 14:00:00'
+        }
+      ]
+    }
+  } catch (e) {
+    console.warn('拉取工作流模板失败，使用内置默认蓝本', e)
+  }
+}
+
+// 打开克隆模板对话框
+const handleOpenCloneModal = (tpl: any) => {
+  cloneForm.value = {
+    sourceTemplateId: tpl.id,
+    sourceName: tpl.name,
+    name: `${tpl.name} (定制副本)`,
+    description: `基于 [${tpl.name}] 克隆定制，用于专属项目工程交付。`,
+    targetProjectId: currentProject.value?.id || undefined
+  }
+  modalCloneTemplateVisible.value = true
+}
+
+// 提交克隆模板
+const handleSubmitCloneTemplate = async () => {
+  if (!cloneForm.value.name.trim()) {
+    ElMessage.warning('请输入定制模板名称')
+    return
+  }
+  try {
+    const targetProj = projectList.value.find(p => p.id === cloneForm.value.targetProjectId)
+    await cloneWorkflowTemplateApi({
+      sourceTemplateId: cloneForm.value.sourceTemplateId,
+      name: cloneForm.value.name,
+      description: cloneForm.value.description,
+      targetProjectId: cloneForm.value.targetProjectId,
+      targetProjectKey: targetProj?.projectKey,
+      operator: currentOperator.value
+    })
+    ElMessage.success('工作流模板已成功复制！')
+    modalCloneTemplateVisible.value = false
+    await loadWorkflowTemplates()
+  } catch (e: any) {
+    ElMessage.error(e.message || '复制模板失败')
+  }
+}
+
+// 打开模板挂载管理弹窗
+const handleOpenMountProjectsModal = async (tpl: any) => {
+  mountTemplateInfo.value = tpl
+  try {
+    const res = await getTemplateMountedProjectsApi(tpl.id)
+    if (res.data) {
+      selectedMountProjectIds.value = res.data.map(p => p.id)
+    } else {
+      selectedMountProjectIds.value = []
+    }
+  } catch (e) {
+    selectedMountProjectIds.value = []
+  }
+  modalMountProjectsVisible.value = true
+}
+
+// 提交项目挂载关联
+const handleSubmitMountProjects = async () => {
+  if (!mountTemplateInfo.value) return
+  try {
+    await mountProjectsToTemplateApi(mountTemplateInfo.value.id, selectedMountProjectIds.value)
+    ElMessage.success('项目已成功挂载至当前工作流模板！')
+    modalMountProjectsVisible.value = false
+    await loadInitialData()
+    await loadWorkflowTemplates()
+  } catch (e: any) {
+    ElMessage.error(e.message || '挂载项目失败')
+  }
+}
+
+// =========================================================================
+// 🎨 进入模板有向无环图 (DAG Editor) 全屏编辑画板
+// =========================================================================
+const handleOpenTemplateDagEditor = (tpl: any) => {
+  currentEditingTemplate.value = JSON.parse(JSON.stringify(tpl))
+  try {
+    if (typeof currentEditingTemplate.value.nodesConfig === 'string') {
+      currentEditingTemplate.value.parsedNodes = JSON.parse(currentEditingTemplate.value.nodesConfig)
+    } else {
+      currentEditingTemplate.value.parsedNodes = currentEditingTemplate.value.nodesConfig || []
+    }
+  } catch (e) {
+    currentEditingTemplate.value.parsedNodes = []
+  }
+
+  templateDagEditorOpen.value = true
+
+  // 延迟挂载 AntV X6 真实画板
+  setTimeout(() => {
+    initTemplateDagGraph()
+  }, 100)
+}
+
+// 初始化模板专用的 AntV X6 DAG 画布
+const initTemplateDagGraph = () => {
+  if (!tplGraphContainer.value) return
+  if (tplGraph) {
+    tplGraph.dispose()
+    tplGraph = null
+  }
+
+  tplGraph = new Graph({
+    container: tplGraphContainer.value,
+    autoResize: false,
+    width: 1750,
+    height: 520,
+    background: { color: '#0b1320' },
+    grid: { visible: true, type: 'mesh', args: { color: '#1e293b', thickness: 1 } },
+    panning: { enabled: true, eventTypes: ['leftMouseDown'] },
+    mousewheel: { enabled: true, modifiers: ['ctrl', 'meta'] },
+    interacting: { nodeMovable: true, edgeMovable: false }
+  })
+
+  renderTemplateDagGraphData()
+
+  // 节点点击事件：弹出编辑/属性透视抽屉 (支持全 4 层图元透视与配置)
+  tplGraph.on('node:click', ({ node }) => {
+    const id = node.id
+    if (id.startsWith('zone_')) return // 忽略底框背景区
+
+    const kb = NODE_KNOWLEDGE_BASE[id] || {}
+    const foundNode = currentEditingTemplate.value.parsedNodes?.find((n: any) => n.id === id)
+
+    // 构建激活查看/编辑的节点数据模型
+    activeTplConfigNode.value = {
+      id,
+      name: foundNode?.name || kb.name || id,
+      role: foundNode?.role || kb.role || '-',
+      skill: foundNode?.skill || kb.skill || '-',
+      scriptId: foundNode?.scriptId || (id === 'SOP-04' ? 'gate.py' : (id === 'CTRL-BOARD' ? 'board.py' : (id === 'CTRL-GATE' ? 'gate.py' : '-'))),
+      sop: foundNode?.sop || kb.sop || '-',
+      gate: foundNode?.gate || kb.gate || '-',
+      category: kb.category || (id.startsWith('SKILL-') ? 'skill' : (id.startsWith('CTRL-') ? 'control' : (id.startsWith('ART-') ? 'artifact' : 'instruction'))),
+      categoryName: kb.categoryName || (id.startsWith('SKILL-') ? '🧩 AI Skill 专家轨' : (id.startsWith('CTRL-') ? '🧠 控制中枢轨' : (id.startsWith('ART-') ? '📄 确定性物理产物轨' : '👤 SOP 数字指令轨'))),
+      principle: kb.principle || '暂无深度设计原理描述。',
+      inputs: kb.inputs || [],
+      outputs: kb.outputs || []
+    }
+    drawerTplNodeConfigVisible.value = true
+  })
+}
+
+// 渲染模板 DAG 图元 (100% 对齐 WORKFLOW_GUIDE.md §8 四层一体化拓扑：指令轨 + Skill专家轨 + 控制中枢轨 + 确定性物理产物轨)
+const renderTemplateDagGraphData = () => {
+  if (!tplGraph) return
+  tplGraph.clearCells()
+
+  const nodes = currentEditingTemplate.value?.parsedNodes || []
+
+  // ========================================================
+  // 1. 四大阶段大区背景底框 (横向延展至 1750px，纵深容纳四层)
+  // ========================================================
+  tplGraph.addNode({
+    id: 'zone_p1', x: 20, y: 15, width: 320, height: 480,
+    label: '【阶段一 · 需求发现与规划契约区】',
+    attrs: { body: { fill: 'rgba(56, 189, 248, 0.03)', stroke: '#38bdf8', strokeWidth: 1.2, strokeDasharray: '4 4', rx: 8 }, label: { refX: 14, refY: 16, textAnchor: 'start', fill: '#38bdf8', fontSize: 12, fontWeight: 700 } }
+  })
+  tplGraph.addNode({
+    id: 'zone_p2', x: 360, y: 15, width: 620, height: 480,
+    label: '【阶段二 · 研发主轨与测试矩阵解耦双轨区】',
+    attrs: { body: { fill: 'rgba(239, 68, 68, 0.03)', stroke: '#f87171', strokeWidth: 1.2, strokeDasharray: '4 4', rx: 8 }, label: { refX: 14, refY: 16, textAnchor: 'start', fill: '#f87171', fontSize: 12, fontWeight: 700 } }
+  })
+  tplGraph.addNode({
+    id: 'zone_p3', x: 1000, y: 15, width: 340, height: 480,
+    label: '【阶段三 · 双轨延迟汇合与双向验收区】',
+    attrs: { body: { fill: 'rgba(2, 132, 199, 0.04)', stroke: '#0284c7', strokeWidth: 1.2, strokeDasharray: '4 4', rx: 8 }, label: { refX: 14, refY: 16, textAnchor: 'start', fill: '#0284c7', fontSize: 12, fontWeight: 700 } }
+  })
+  tplGraph.addNode({
+    id: 'zone_p4', x: 1360, y: 15, width: 350, height: 480,
+    label: '【阶段四 · 容器编排/发布回滚与旁路自愈区】',
+    attrs: { body: { fill: 'rgba(16, 185, 129, 0.04)', stroke: '#10b981', strokeWidth: 1.2, strokeDasharray: '4 4', rx: 8 }, label: { refX: 14, refY: 16, textAnchor: 'start', fill: '#10b981', fontSize: 12, fontWeight: 700 } }
+  })
+
+  // 辅助添加模板节点
+  const addTplNode = (
+    id: string,
+    name: string,
+    x: number,
+    y: number,
+    defaultColor: string,
+    w = 130,
+    h = 52,
+    category = 'instruction'
+  ) => {
+    let rx = 8
+    let ry = 8
+    let bgFill = '#151c2c'
+    if (category === 'skill') {
+      rx = 16
+      ry = 16
+      bgFill = '#1e1b4b'
+    } else if (category === 'control') {
+      rx = 4
+      ry = 4
+      bgFill = '#2e1065'
+    } else if (category === 'artifact') {
+      rx = 6
+      ry = 6
+      bgFill = '#0f172a'
+    }
+
+    const nodeObj = nodes.find((n: any) => n.id === id)
+    const skillText = (category === 'instruction' && nodeObj?.skill && nodeObj.skill !== '-') ? `\n🤖 ${nodeObj.skill}` : ''
+
+    tplGraph?.addNode({
+      id,
+      x,
+      y,
+      width: w,
+      height: h,
+      label: `${name}${skillText}`,
+      attrs: {
+        body: { fill: bgFill, stroke: defaultColor, strokeWidth: 1.5, rx, ry },
+        label: { fill: '#f1f5f9', fontSize: category === 'artifact' ? 10 : 11, fontWeight: 600, refX: '50%', refY: '50%', textAnchor: 'middle', textVerticalAnchor: 'middle', lineHeight: 15 }
+      },
+      ports: {
+        groups: {
+          left: { position: 'left' },
+          right: { position: 'right' },
+          top: { position: 'top' },
+          bottom: { position: 'bottom' }
+        },
+        items: [{ id: 'left', group: 'left' }, { id: 'right', group: 'right' }, { id: 'top', group: 'top' }, { id: 'bottom', group: 'bottom' }]
+      }
+    })
+  }
+
+  // 辅助添加模板连线
+  const addTplEdge = (
+    source: string,
+    target: string,
+    lineColor: string,
+    dashed = false,
+    sourcePort = 'right',
+    targetPort = 'left',
+    connectorName = 'normal'
+  ) => {
+    const isDirect = connectorName === 'normal'
+    const isSmooth = connectorName === 'smooth'
+    tplGraph?.addEdge({
+      source: { cell: source, port: sourcePort },
+      target: { cell: target, port: targetPort },
+      connector: isDirect ? { name: 'normal' } : (isSmooth ? { name: 'smooth' } : { name: 'rounded', args: { radius: 12 } }),
+      router: isDirect ? { name: 'normal' } : { name: 'er' },
+      attrs: {
+        line: {
+          stroke: lineColor,
+          strokeWidth: 1.5,
+          strokeDasharray: dashed ? '4 4' : '0',
+          targetMarker: { name: 'classic', size: 6, fill: lineColor, stroke: lineColor }
+        }
+      }
+    })
+  }
+
+  // ========================================================
+  // 2. 第一层：【👤 SOP 数字指令主轨】 (y: 48 ~ 115)
+  // ========================================================
+  addTplNode('SOP-00', '[0] 体系总览\n规模分流识别', 38, 48, '#94a3b8', 120, 52, 'instruction')
+  addTplNode('SOP-01', '[1] 需求规划\n白话澄清与切片', 185, 48, '#f59e0b', 130, 52, 'instruction')
+  addTplNode('SOP-02', '[2] 方案设计\n契约与表结构冻结', 385, 48, '#38bdf8', 130, 52, 'instruction')
+  addTplNode('SOP-03', '[3] TDD编码\n单焦点红绿单测', 535, 48, '#94a3b8', 130, 52, 'instruction')
+  addTplNode('SOP-04', '[4] 机器门禁\ngate.py 6项阻断', 685, 48, '#ef4444', 130, 52, 'instruction')
+  addTplNode('SOP-05', '[5] 人工评审\n架构与契约复核', 835, 48, '#f59e0b', 130, 52, 'instruction')
+  addTplNode('TC-GEN', '[TC] 测试用例矩阵\ndocs/test-cases 冻结', 535, 115, '#8b5cf6', 280, 48, 'instruction')
+  addTplNode('SOP-06', '[6] 集成测试\n★ 双轨延迟汇合穿透', 1025, 48, '#0284c7', 135, 52, 'instruction')
+  addTplNode('SOP-07', '[7] 双向验收\n唯一归档出口', 1185, 48, '#ef4444', 135, 52, 'instruction')
+  addTplNode('SOP-08', '[8] 容器部署\nDockerCompose离线', 1380, 48, '#10b981', 135, 52, 'instruction')
+  addTplNode('SOP-09', '[9] Git发布\nTag+Release回滚配对', 1545, 48, '#10b981', 135, 52, 'instruction')
+  addTplNode('SOP-B2', '⚡ [B2] 极速微创修补\n单文件≤20行免门禁', 1380, 115, '#d97706', 300, 48, 'instruction')
+
+  // 指令轨连线
+  addTplEdge('SOP-00', 'SOP-01', '#94a3b8')
+  addTplEdge('SOP-01', 'SOP-02', '#38bdf8', false, 'right', 'left', 'smooth')
+  addTplEdge('SOP-01', 'TC-GEN', '#8b5cf6', true, 'right', 'left', 'smooth')
+  addTplEdge('SOP-02', 'SOP-03', '#38bdf8')
+  addTplEdge('SOP-03', 'SOP-04', '#ef4444')
+  addTplEdge('SOP-04', 'SOP-05', '#f59e0b')
+  addTplEdge('SOP-05', 'SOP-06', '#0284c7', false, 'right', 'left', 'smooth')
+  addTplEdge('TC-GEN', 'SOP-06', '#8b5cf6', false, 'right', 'left', 'smooth')
+  addTplEdge('SOP-06', 'SOP-07', '#ef4444')
+  addTplEdge('SOP-07', 'SOP-08', '#10b981')
+  addTplEdge('SOP-08', 'SOP-09', '#10b981')
+  addTplEdge('SOP-00', 'SOP-B2', '#d97706', true, 'bottom', 'left', 'smooth')
+  addTplEdge('SOP-B2', 'SOP-09', '#d97706', true, 'right', 'bottom', 'smooth')
+
+  // ========================================================
+  // 3. 第二层：【🧩 AI 专属 Skill 技能专家】 (y: 195 ~ 245)
+  // ========================================================
+  addTplNode('SKILL-01', '🤖 requirement-discovery\n需求发现与白话澄清专家', 100, 195, '#0284c7', 220, 50, 'skill')
+  addTplNode('SKILL-02', '🤖 design-spec-architect\n概要与详细设计专家', 385, 195, '#38bdf8', 210, 50, 'skill')
+  addTplNode('SKILL-03', '🤖 coding-standards\n代码规范与契约绑定专家', 610, 195, '#10b981', 200, 50, 'skill')
+  addTplNode('SKILL-04', '🤖 code-quality-reviewer\n静态质量审查与门禁专家', 825, 195, '#ef4444', 210, 50, 'skill')
+  addTplNode('SKILL-06', '🤖 quality-verifier\n质量验证与小黄鸭探针专家', 1080, 195, '#8b5cf6', 220, 50, 'skill')
+  addTplNode('SKILL-00', '🏛️ legacy-archaeologist\n老项目逆向考古专家', 1380, 195, '#f59e0b', 210, 50, 'skill')
+
+  // 指令激活 Skill 连线
+  addTplEdge('SOP-01', 'SKILL-01', '#0284c7', true, 'bottom', 'top', 'smooth')
+  addTplEdge('SOP-02', 'SKILL-02', '#38bdf8', true, 'bottom', 'top', 'smooth')
+  addTplEdge('SOP-03', 'SKILL-03', '#10b981', true, 'bottom', 'top', 'smooth')
+  addTplEdge('SOP-04', 'SKILL-04', '#ef4444', true, 'bottom', 'top', 'smooth')
+  addTplEdge('SOP-06', 'SKILL-06', '#8b5cf6', true, 'bottom', 'top', 'smooth')
+
+  // ========================================================
+  // 4. 第三层：【🧠 状态与记忆控制中枢 (.ai/)】 (y: 285 ~ 335)
+  // ========================================================
+  addTplNode('CTRL-SNAP', '⚡ tier1_snapshot.md\n极简名片卡 (<30行)', 100, 285, '#eab308', 200, 50, 'control')
+  addTplNode('CTRL-BOARD', '🛠️ board.py 看板脚本\n状态机唯一合法入口', 450, 285, '#f97316', 210, 50, 'control')
+  addTplNode('CTRL-STATUS', '📋 tier3_status.md\nACTIVE/DONE 任务看板', 730, 285, '#06b6d4', 220, 50, 'control')
+  addTplNode('CTRL-GATE', '🔒 gate.py 机器门禁\nLGTM 阻断拦截看门狗', 1030, 285, '#ef4444', 200, 50, 'control')
+  addTplNode('CTRL-HANDOVER', '📦 tier3_handover.md\n历史长效交接黑匣子', 1380, 285, '#a855f7', 220, 50, 'control')
+
+  // Skill 驱动 Control 连线
+  addTplEdge('SKILL-02', 'CTRL-BOARD', '#f97316', false, 'bottom', 'top', 'smooth')
+  addTplEdge('CTRL-BOARD', 'CTRL-STATUS', '#06b6d4', false, 'right', 'left', 'normal')
+  addTplEdge('SKILL-04', 'CTRL-GATE', '#ef4444', false, 'bottom', 'top', 'smooth')
+
+  // ========================================================
+  // 5. 第四层：【📄 确定性物理输出产物 (Artifacts)】 (y: 385 ~ 445)
+  // ========================================================
+  addTplNode('ART-01', '📝 四层清单基线草案\n白话对撞决策列表 (P04)', 80, 385, '#38bdf8', 220, 56, 'artifact')
+  addTplNode('ART-02', '🎨 mockup.html / PRD\n📐 detail.md + service.sql', 360, 385, '#38bdf8', 230, 56, 'artifact')
+  addTplNode('ART-03', '💻 src/ 业务源码工程\n🔌 第三方 API 真实联调日志', 660, 385, '#10b981', 230, 56, 'artifact')
+  addTplNode('ART-04', '🔒 gate.py LGTM 报告\n🧪 E2E 离线穿透验证凭据', 970, 385, '#ef4444', 230, 56, 'artifact')
+  addTplNode('ART-05', '🏁 board.py verify 凭据\n🏷️ Git Tag + Release 文档', 1330, 385, '#10b981', 230, 56, 'artifact')
+
+  // 控制/技能驱动物理产物连线
+  addTplEdge('SKILL-01', 'ART-01', '#38bdf8', true, 'bottom', 'top', 'smooth')
+  addTplEdge('CTRL-BOARD', 'ART-02', '#38bdf8', true, 'bottom', 'top', 'smooth')
+  addTplEdge('SKILL-03', 'ART-03', '#10b981', true, 'bottom', 'top', 'smooth')
+  addTplEdge('CTRL-GATE', 'ART-04', '#ef4444', true, 'bottom', 'top', 'smooth')
+  addTplEdge('SOP-07', 'ART-05', '#10b981', true, 'bottom', 'top', 'smooth')
+}
+
+  // 保存节点配置到当前编辑中的模板
+  const handleSaveTplNodeConfig = () => {
+    const node = activeTplConfigNode.value
+    let target = currentEditingTemplate.value.parsedNodes?.find((n: any) => n.id === node.id)
+    if (!target) {
+      if (!currentEditingTemplate.value.parsedNodes) {
+        currentEditingTemplate.value.parsedNodes = []
+      }
+      target = { id: node.id }
+      currentEditingTemplate.value.parsedNodes.push(target)
+    }
+    target.name = node.name
+    target.role = node.role
+    target.skill = node.skill
+    target.scriptId = node.scriptId
+    target.sop = node.sop
+    target.gate = node.gate
+    ElMessage.success(`工位 [${node.id}] 的 Skill 专家、治理脚本与门禁规约已暂存！`)
+    drawerTplNodeConfigVisible.value = false
+    renderTemplateDagGraphData()
+  }
+
+// 持久化保存模板 DAG 整体配置
+const handleSaveTemplateDag = async () => {
+  if (!currentEditingTemplate.value) return
+  if (currentEditingTemplate.value.isSystemDefault === 1) {
+    ElMessageBox.alert('系统默认蓝本为全局工艺基准，禁止直接修改！请先点击复制克隆生成专属模板。', '保护提示')
+    return
+  }
+  try {
+    const payload = {
+      name: currentEditingTemplate.value.name,
+      description: currentEditingTemplate.value.description,
+      nodesConfig: JSON.stringify(currentEditingTemplate.value.parsedNodes || [])
+    }
+    await updateWorkflowTemplateApi(currentEditingTemplate.value.id, payload)
+    ElMessage.success(`定制模板 [${currentEditingTemplate.value.name}] 拓扑配置已成功持久化至数据库！`)
+    await loadWorkflowTemplates()
+  } catch (e: any) {
+    ElMessage.error(e.message || '保存失败')
+  }
+}
+
+// 删除定制模板
+const handleDeleteTemplate = async (tpl: any) => {
+  if (tpl.isSystemDefault === 1) {
+    ElMessage.warning('系统默认模板为全局蓝本，禁止删除！')
+    return
+  }
+  try {
+    await ElMessageBox.confirm(`确定要删除定制模板 [${tpl.name}] 吗？删除后不可恢复。`, '删除确认', {
+      type: 'warning',
+      confirmButtonText: '确定删除',
+      cancelButtonText: '取消'
+    })
+    await deleteWorkflowTemplateApi(tpl.id)
+    ElMessage.success('模板已删除')
+    await loadWorkflowTemplates()
+  } catch (e) {
+    // 取消或失败
   }
 }
 
@@ -1814,11 +2919,43 @@ const loadInitialData = async (targetProjectId?: number) => {
 
 onMounted(async () => {
   await loadInitialData()
+  await loadWorkflowTemplates()
+  await loadSkillsAndScriptsAssets()
   if (route.path === '/req/workflow') {
     setTimeout(() => {
       initWorkflowGraph()
     }, 200)
   }
+
+  // 🔍 自动化视口与溢出探测探针：精准定位右侧黑条与溢出元素
+  setTimeout(() => {
+    const docWidth = document.documentElement.offsetWidth
+    const winWidth = window.innerWidth
+    console.log(`%c[Layout Diagnostic] 视口物理宽度: ${winWidth}px, 页面文档宽度: ${docWidth}px`, 'background:#0284c7;color:#fff;padding:2px 8px;border-radius:4px;')
+    
+    // 递归扫描所有超出视口宽度的 DOM 元素
+    const overflowingElements: any[] = []
+    document.querySelectorAll('*').forEach((el: Element) => {
+      const rect = el.getBoundingClientRect()
+      if (rect.right > winWidth + 2) {
+        overflowingElements.push({
+          tag: el.tagName,
+          className: el.className,
+          id: el.id,
+          right: Math.round(rect.right),
+          width: Math.round(rect.width),
+          overflowDiff: Math.round(rect.right - winWidth),
+          element: el
+        })
+      }
+    })
+
+    if (overflowingElements.length > 0) {
+      console.warn(`[Layout Diagnostic] 发现 ${overflowingElements.length} 个元素向右穿透溢出视口:`, overflowingElements)
+    } else {
+      console.log('[Layout Diagnostic] 🟢 全局扫描完毕，未发现向右侧溢出视口的 DOM 元素。')
+    }
+  }, 1000)
 })
 </script>
 
@@ -2194,6 +3331,275 @@ onMounted(async () => {
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= 🗺️ 工作流模板治理中心 (page-templates) ================= -->
+        <div id="page-templates" class="view-page" :class="{ active: currentPage === 'page-templates' }">
+          
+          <!-- 子视图 1: 独立模板库超市大厅 (不以项目维度设计，展示纯独立模板与挂载数) -->
+          <div v-if="!templateDagEditorOpen">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+              <div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <h2 style="font-size:20px; font-weight:700;">🗺️ 研发工作流模板治理中心</h2>
+                  <span class="tag tag-baselined">组织级通用蓝本库</span>
+                </div>
+                <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">
+                  生产工艺抽象资产库（与单个项目解耦）。点击任意模板卡片即可进入 <strong>「有向无环拓扑画板 (DAG Editor)」</strong> 可视化编辑工位与调配专家。
+                </p>
+              </div>
+              <div style="display:flex; gap:10px;">
+                <button class="btn btn-outline btn-sm" @click="loadWorkflowTemplates">🔄 刷新模板库</button>
+              </div>
+            </div>
+
+            <!-- 模板卡片列表 -->
+            <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(440px, 1fr)); gap:20px; margin-bottom:20px;">
+              <div
+                v-for="tpl in workflowTemplates"
+                :key="tpl.id"
+                class="card"
+                style="padding:22px; display:flex; flex-direction:column; justify-content:space-between; border-top:4px solid; cursor:pointer; transition:transform 0.2s, box-shadow 0.2s;"
+                :style="{ borderTopColor: tpl.isSystemDefault === 1 ? '#0284c7' : '#10b981' }"
+                @click="handleOpenTemplateDagEditor(tpl)"
+              >
+                <div>
+                  <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <span
+                        class="tag"
+                        :style="{
+                          background: tpl.isSystemDefault === 1 ? '#0284c7' : '#10b981',
+                          color: '#fff',
+                          fontWeight: 700,
+                          fontSize: '11px'
+                        }"
+                      >
+                        {{ tpl.isSystemDefault === 1 ? '👑 官方系统蓝本' : '🧩 衍生定制蓝本' }}
+                      </span>
+                      <strong style="font-size:16px; color:var(--text-main);">{{ tpl.name }}</strong>
+                    </div>
+                    <code style="font-size:11px; background:#f1f5f9; padding:2px 6px; border-radius:3px; color:#475569;">
+                      {{ tpl.templateCode }}
+                    </code>
+                  </div>
+
+                  <p style="font-size:13px; color:var(--text-muted); line-height:1.6; margin-bottom:14px;">
+                    {{ tpl.description || '标准生产工艺拓扑蓝本，包含全生命周期四层流转。' }}
+                  </p>
+
+                  <!-- 挂载状态与工程特征徽标 -->
+                  <div style="display:flex; align-items:center; justify-content:space-between; font-size:12px; background:#f8fafc; padding:10px 14px; border-radius:6px; margin-bottom:16px; border:1px solid var(--border);">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                      <span>🔗 挂载状态：</span>
+                      <span class="tag tag-clarifying" style="font-size:11px; font-weight:600;">
+                        已挂载于多个项目
+                      </span>
+                    </div>
+                    <button
+                      class="btn btn-outline btn-sm"
+                      style="padding:2px 8px; font-size:11px;"
+                      @click.stop="handleOpenMountProjectsModal(tpl)"
+                    >
+                      ⚙️ 调整项目挂载
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 底部操作栏 -->
+                <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:14px;" @click.stop>
+                  <span style="font-size:12px; color:var(--primary); font-weight:600; display:flex; align-items:center; gap:4px; cursor:pointer;" @click="handleOpenTemplateDagEditor(tpl)">
+                    <span>🎨 进入 DAG 拓扑画板编辑</span>
+                    <span>➔</span>
+                  </span>
+                  <div style="display:flex; gap:8px;">
+                    <button
+                      class="btn btn-primary btn-sm"
+                      style="display:inline-flex; align-items:center; gap:4px;"
+                      @click="handleOpenCloneModal(tpl)"
+                    >
+                      <span>📋 复制为新模板</span>
+                    </button>
+                    <button
+                      v-if="tpl.isSystemDefault !== 1"
+                      class="btn btn-outline btn-sm"
+                      style="color:#dc2626;"
+                      @click="handleDeleteTemplate(tpl)"
+                    >
+                      🗑️ 删除
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 子视图 2: 模板专属有向无环图 (DAG Editor) 全屏编辑画板 -->
+          <div v-else style="display:flex; flex-direction:column; gap:16px;">
+            <!-- 画板顶部控制导航条 -->
+            <div class="card" style="padding:14px 20px; background:#0b1320; border:1px solid #1e293b; color:#fff; display:flex; justify-content:space-between; align-items:center;">
+              <div style="display:flex; align-items:center; gap:12px;">
+                <button
+                  class="btn btn-outline btn-sm"
+                  style="color:#94a3b8; border-color:#334155; padding:4px 10px;"
+                  @click="templateDagEditorOpen = false"
+                >
+                  ⬅ 返回模板库列表
+                </button>
+                <div style="height:20px; width:1px; background:#334155;"></div>
+                <span
+                  class="tag"
+                  :style="{
+                    background: currentEditingTemplate.isSystemDefault === 1 ? '#0284c7' : '#10b981',
+                    color: '#fff',
+                    fontWeight: 700
+                  }"
+                >
+                  {{ currentEditingTemplate.isSystemDefault === 1 ? '官方系统蓝本' : '定制蓝本' }}
+                </span>
+                <span style="font-size:16px; font-weight:700; color:#f8fafc;">
+                  {{ currentEditingTemplate.name }} ({{ currentEditingTemplate.templateCode }})
+                </span>
+                <span style="font-size:12px; color:#94a3b8;">
+                  💡 提示：点击任意工位节点即可配置其专属 AI Skill 专家与门禁规约
+                </span>
+              </div>
+
+              <div style="display:flex; gap:10px; align-items:center;">
+                <button
+                  v-if="currentEditingTemplate.isSystemDefault !== 1"
+                  class="btn btn-primary btn-sm"
+                  style="background:#10b981; border:none; font-weight:700; padding:6px 16px;"
+                  @click="handleSaveTemplateDag"
+                >
+                  💾 保存拓扑蓝本配置
+                </button>
+                <button
+                  v-else
+                  class="btn btn-primary btn-sm"
+                  style="background:#0284c7; border:none; font-weight:700; padding:6px 16px;"
+                  @click="handleOpenCloneModal(currentEditingTemplate)"
+                >
+                  📋 复制为此模板的定制副本
+                </button>
+              </div>
+            </div>
+
+            <!-- DAG 拓扑编辑画布 -->
+            <div class="card" style="padding:16px; border:1px solid #1e293b; background:#0e1726;">
+              <div class="wf-viewport" style="height:520px;">
+                <div
+                  ref="tplGraphContainer"
+                  class="wf-graph-host"
+                  style="width:100%; height:520px;"
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= 🤖 专门治理菜单：AI Skills 专家中心 ================= -->
+        <div id="page-skills" class="view-page" :class="{ active: currentPage === 'page-skills' }">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <div>
+              <h2 style="font-size:20px; font-weight:700; display:flex; align-items:center; gap:8px;">
+                <span>🤖 AI Skills 专家中心</span>
+                <span class="tag" style="background:#0284c7; color:#fff;">系统级工艺专家库</span>
+              </h2>
+              <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">
+                管理系统内所有已注册的 AI 专属能力专家。支持查看各专家的 SKILL.md 实体规约内容、契约约束、输入输出定义以及赋能工位。
+              </p>
+            </div>
+            <div>
+              <button class="btn btn-outline btn-sm" @click="loadSkillsAndScriptsAssets">🔄 重新探测专家</button>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap:16px;">
+            <div 
+              v-for="sk in availableSkillRegistry" 
+              :key="sk.id" 
+              class="card"
+              style="margin:0; display:flex; flex-direction:column; justify-content:space-between; border-left:4px solid #0284c7;"
+            >
+              <div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                  <span style="font-size:16px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:6px;">
+                    <span>{{ sk.icon }}</span>
+                    <span>{{ sk.id }}</span>
+                  </span>
+                  <span class="tag" style="background:var(--primary-light); color:var(--primary); font-size:11px;">Agent 专家</span>
+                </div>
+                <div style="font-size:14px; font-weight:600; color:var(--text-secondary); margin-bottom:8px;">
+                  {{ sk.name }}
+                </div>
+                <p style="font-size:12px; color:var(--text-muted); line-height:1.5; margin-bottom:12px;">
+                  {{ sk.desc }}
+                </p>
+                <div style="font-size:11px; font-family:monospace; color:#64748b; background:var(--bg); padding:4px 8px; border-radius:4px; margin-bottom:12px;">
+                  📂 {{ sk.path || `.agents/skills/${sk.id}/SKILL.md` }}
+                </div>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:12px; margin-top:8px;">
+                <span style="font-size:11px; color:#10b981; font-weight:600;">● 已挂载工作流拓扑</span>
+                <button class="btn btn-primary btn-sm" @click="handleOpenSkillDetail(sk)">
+                  📖 查看规约详情 (SKILL.md)
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= 🛠️ 专门治理菜单：自动化脚本资产中心 ================= -->
+        <div id="page-scripts" class="view-page" :class="{ active: currentPage === 'page-scripts' }">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <div>
+              <h2 style="font-size:20px; font-weight:700; display:flex; align-items:center; gap:8px;">
+                <span>🛠️ 自动化脚本资产中心</span>
+                <span class="tag" style="background:#10b981; color:#fff;">.ai/scripts 工具链</span>
+              </h2>
+              <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">
+                纳管工程底层核心看门狗与自动化治理脚本。支持在线查看源码、调用参数模板、执行超时及阻断看门狗规约。
+              </p>
+            </div>
+            <div>
+              <button class="btn btn-outline btn-sm" @click="loadSkillsAndScriptsAssets">🔄 重新探测脚本</button>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap:16px;">
+            <div 
+              v-for="sc in availableScriptRegistry" 
+              :key="sc.id" 
+              class="card"
+              style="margin:0; display:flex; flex-direction:column; justify-content:space-between; border-left:4px solid #10b981;"
+            >
+              <div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                  <span style="font-size:16px; font-weight:700; color:var(--text); display:flex; align-items:center; gap:6px;">
+                    <span>{{ sc.icon }}</span>
+                    <span>{{ sc.id }}</span>
+                  </span>
+                  <span class="tag" style="background:#064e3b; color:#34d399; font-size:11px;">{{ sc.runtime }}</span>
+                </div>
+                <div style="font-size:14px; font-weight:600; color:var(--text-secondary); margin-bottom:8px;">
+                  {{ sc.name }}
+                </div>
+                <p style="font-size:12px; color:var(--text-muted); line-height:1.5; margin-bottom:12px;">
+                  {{ sc.desc }}
+                </p>
+                <div style="background:#0f172a; padding:6px 10px; border-radius:6px; font-family:monospace; color:#38bdf8; font-size:11px; margin-bottom:12px; overflow-x:auto;">
+                  $ {{ sc.cmd }}
+                </div>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:12px; margin-top:8px;">
+                <span style="font-size:11px; color:#10b981; font-weight:600;">● 看门狗就绪</span>
+                <button class="btn btn-outline btn-sm" @click="handleOpenScriptDetail(sc)">
+                  💻 在线透视源码
+                </button>
               </div>
             </div>
           </div>
@@ -3306,6 +4712,188 @@ onMounted(async () => {
       </div>
     </div>
 
+    <!-- ================= 抽屉面板：全流程节点深度透视与 Skill 专家动态选配 (Drawer) ================= -->
+    <div class="drawer-overlay" :class="{ active: drawerWorkflowDetailVisible }" @click="drawerWorkflowDetailVisible = false"></div>
+    <div class="drawer-panel" :class="{ open: drawerWorkflowDetailVisible }" style="width:680px; max-width:90vw;">
+      <div class="drawer-header" style="background:#0b1320; border-bottom:1px solid #1e293b; color:#fff;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span
+            class="tag"
+            :style="{
+              background: activeDetailNode.category === 'skill' ? '#6366f1' : (activeDetailNode.category === 'control' ? '#d97706' : (activeDetailNode.category === 'artifact' ? '#059669' : '#0284c7')),
+              color: '#FFF',
+              fontWeight: 700
+            }"
+          >
+            {{ activeDetailNode.categoryName }}
+          </span>
+          <span style="font-size:16px; font-weight:700; color:#f8fafc;">
+            {{ activeDetailNode.id }} · {{ activeDetailNode.name }}
+          </span>
+        </div>
+        <button class="btn btn-outline btn-sm" style="color:#94a3b8; border-color:#334155;" @click="drawerWorkflowDetailVisible = false">✕</button>
+      </div>
+
+      <div class="drawer-body" style="padding:20px; background:#0f172a; color:#cbd5e1; font-size:13px;">
+        <!-- 标签页导航 -->
+        <div style="display:flex; border-bottom:1px solid #334155; margin-bottom:18px; gap:10px;">
+          <button
+            class="checklist-tab-btn"
+            :style="{
+              color: drawerActiveTab === 'overview' ? '#38bdf8' : '#94a3b8',
+              borderBottomColor: drawerActiveTab === 'overview' ? '#38bdf8' : 'transparent',
+              paddingBottom: '8px'
+            }"
+            @click="drawerActiveTab = 'overview'"
+          >
+            🔍 工位全景属性
+          </button>
+          <button
+            class="checklist-tab-btn"
+            :style="{
+              color: drawerActiveTab === 'skill' ? '#38bdf8' : '#94a3b8',
+              borderBottomColor: drawerActiveTab === 'skill' ? '#38bdf8' : 'transparent',
+              paddingBottom: '8px'
+            }"
+            @click="drawerActiveTab = 'skill'"
+          >
+            🤖 专属 AI Skill 专家
+          </button>
+          <button
+            class="checklist-tab-btn"
+            :style="{
+              color: drawerActiveTab === 'artifacts' ? '#38bdf8' : '#94a3b8',
+              borderBottomColor: drawerActiveTab === 'artifacts' ? '#38bdf8' : 'transparent',
+              paddingBottom: '8px'
+            }"
+            @click="drawerActiveTab = 'artifacts'"
+          >
+            📦 物理产物流向
+          </button>
+        </div>
+
+        <!-- TAB 1: 工位全景属性与底层核心运转原理 -->
+        <div v-if="drawerActiveTab === 'overview'" style="display:flex; flex-direction:column; gap:16px;">
+          <!-- 状态徽标卡 -->
+          <div style="background:#1e293b; border:1px solid #334155; border-radius:8px; padding:14px; display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-size:11px; color:#94a3b8;">当前执行态</div>
+              <div style="font-size:15px; font-weight:700; margin-top:2px;">
+                <span v-if="activeDetailNode.status === 'ACTIVE'" style="color:#06b6d4;">● 正在当前执行中 (ACTIVE)</span>
+                <span v-else-if="activeDetailNode.status === 'COMPLETED'" style="color:#10b981;">✔ 已通过并留痕 (COMPLETED)</span>
+                <span v-else style="color:#64748b;">○ 待就绪与前置准备 (PENDING)</span>
+              </div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:11px; color:#94a3b8;">常驻责任角色</div>
+              <div style="font-size:14px; font-weight:600; color:#f8fafc; margin-top:2px;">
+                {{ activeDetailNode.role }}
+              </div>
+            </div>
+          </div>
+
+          <!-- 底层运转核心原理 (Under the Hood) -->
+          <div style="background:#131d31; border:1px solid #1e3a8a; border-left:4px solid #38bdf8; border-radius:6px; padding:16px;">
+            <div style="font-size:14px; font-weight:700; color:#38bdf8; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+              <span>💡 底层核心运转逻辑 (Under the Hood)</span>
+            </div>
+            <p style="line-height:1.7; color:#e2e8f0; margin:0; font-size:13px;">
+              {{ activeDetailNode.principle }}
+            </p>
+          </div>
+
+          <!-- 执行契约规范与阻断条件 -->
+          <div style="background:#1e293b; border:1px solid #334155; border-radius:8px; padding:14px;">
+            <div style="font-size:13px; font-weight:600; color:#f8fafc; margin-bottom:10px;">📋 规约与门禁约束标准</div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+              <div>
+                <span style="color:#94a3b8; font-size:11px;">绑定 SOP 标号：</span>
+                <div style="margin-top:2px;"><code style="background:#0f172a; color:#38bdf8; padding:2px 6px; border-radius:4px; font-size:12px;">{{ activeDetailNode.sop }}</code></div>
+              </div>
+              <div>
+                <span style="color:#94a3b8; font-size:11px;">刚性门禁阻断：</span>
+                <div style="margin-top:2px; color:#f59e0b; font-weight:600;">{{ activeDetailNode.gate }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: AI Skill 专家信息 (受控只读呈现，改配请在工作流模板中心执行) -->
+        <div v-if="drawerActiveTab === 'skill'" style="display:flex; flex-direction:column; gap:16px;">
+          <div style="background:#1e293b; border:1px solid #334155; border-radius:8px; padding:14px;">
+            <div style="font-size:13px; font-weight:600; color:#f8fafc; margin-bottom:6px;">🎯 当前项目锁定的专属 AI 专家</div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span class="tag tag-baselined" style="font-size:13px; font-weight:700; padding:4px 10px;">
+                🤖 {{ activeDetailNode.skill }}
+              </span>
+              <span style="font-size:12px; color:#94a3b8;">
+                根据项目工程工艺规约锁定（需求执行期不可随意篡改）
+              </span>
+            </div>
+          </div>
+
+          <!-- 专家的核心专长与能力定义 -->
+          <div style="background:#131d31; border:1px solid #1e3a8a; border-radius:8px; padding:16px;">
+            <div style="font-size:13px; font-weight:700; color:#38bdf8; margin-bottom:8px;">
+              🛡️ AI 专家执行边界与安全约束
+            </div>
+            <div style="font-size:12px; color:#cbd5e1; line-height:1.7;">
+              本工位由指定的专属 Agent 提供辅助，严格执行对应 SOP 标准规约。如需调整本工位关联的 AI 专家或流程管线，请前往顶级菜单 <strong>「工作流模板管理」</strong> 进行版本克隆与项目级绑定。
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: 确定性物理产物流向与交付清单 -->
+        <div v-if="drawerActiveTab === 'artifacts'" style="display:flex; flex-direction:column; gap:16px;">
+          <!-- 输入产物清单 -->
+          <div style="background:#1e293b; border:1px solid #334155; border-radius:8px; padding:14px;">
+            <div style="font-size:13px; font-weight:600; color:#f8fafc; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+              <span>📥 上游输入资产 (Inputs)</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <div
+                v-for="(inp, iIdx) in activeDetailNode.inputArtifacts"
+                :key="iIdx"
+                style="background:#0f172a; padding:8px 12px; border-radius:4px; border:1px dashed #475569; display:flex; align-items:center; gap:8px; font-size:12px;"
+              >
+                <span style="color:#38bdf8;">📄</span>
+                <span style="color:#e2e8f0;">{{ inp }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 输出产物清单 -->
+          <div style="background:#1e293b; border:1px solid #334155; border-radius:8px; padding:14px;">
+            <div style="font-size:13px; font-weight:600; color:#10b981; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+              <span>📤 本工位产出资产 (Outputs)</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <div
+                v-for="(out, oIdx) in activeDetailNode.outputArtifacts"
+                :key="oIdx"
+                style="background:#062d22; padding:8px 12px; border-radius:4px; border:1px solid #059669; display:flex; justify-content:space-between; align-items:center; font-size:12px;"
+              >
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="color:#10b981;">📦</span>
+                  <span style="color:#a7f3d0; font-weight:600;">{{ out }}</span>
+                </div>
+                <span class="tag tag-baselined" style="font-size:10px;">物理落盘固化</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="drawer-footer" style="background:#0b1320; border-top:1px solid #1e293b; justify-content:space-between;">
+        <span style="font-size:11px; color:#64748b; font-family:monospace;">
+          Node: {{ activeDetailNode.id }} ｜ SSOT: MySQL t_req_workflow_record
+        </span>
+        <button class="btn btn-primary btn-sm" @click="drawerWorkflowDetailVisible = false">
+          完成并关闭
+        </button>
+      </div>
+    </div>
+
     <!-- ================= 抽屉面板：M02 新建需求 (统一使用 CommonFormModal 公共抽屉) ================= -->
     <CommonFormModal
       v-model="drawerNewReqOpen"
@@ -3411,7 +4999,321 @@ onMounted(async () => {
       </div>
     </div>
 
-    <!-- ================= 模态弹窗：M09 生成签名链接 ================= -->
+    <!-- ================= 模态弹窗：克隆复制工作流模板 ================= -->
+    <div class="modal-overlay" :class="{ active: modalCloneTemplateVisible }">
+      <div class="card" style="width:520px; margin:0;">
+        <div class="modal-header">
+          <div class="modal-title">📋 基于模板复制克隆专属工作流</div>
+          <button class="btn btn-outline btn-sm" @click="modalCloneTemplateVisible = false">✕</button>
+        </div>
+        <div class="modal-body">
+          <div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:12px; border-radius:6px; margin-bottom:14px; font-size:12px; color:#15803d;">
+            💡 <strong>复制机制：</strong>将完整深拷贝源模板的 4-Layer 拓扑架构、SOP规约与 AI 专家绑定，生成一个独立互不干扰的副本供项目定制。
+          </div>
+          <div class="form-group">
+            <label class="form-label">源模板蓝本</label>
+            <input type="text" class="form-control" :value="cloneForm.sourceName" readonly style="background:#f8fafc;">
+          </div>
+          <div class="form-group">
+            <label class="form-label required">新定制模板名称</label>
+            <input type="text" class="form-control" v-model="cloneForm.name" placeholder="如：NET-SIM 电网高可靠仿真研发工作流">
+          </div>
+          <div class="form-group">
+            <label class="form-label">绑定所属项目空间 (选填)</label>
+            <select class="form-control" v-model="cloneForm.targetProjectId">
+              <option :value="undefined">作为公共定制模板 (不特定绑定项目)</option>
+              <option v-for="p in projectList" :key="p.id" :value="p.id">
+                [{{ p.projectKey }}] {{ p.name }}
+              </option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">模板适用场景描述</label>
+            <textarea class="form-control" rows="2" v-model="cloneForm.description" placeholder="简述该模板的门禁策略与特性..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" @click="modalCloneTemplateVisible = false">取消</button>
+          <button class="btn btn-primary" @click="handleSubmitCloneTemplate">立即创建定制副本</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= 模态弹窗：调整模板挂载项目 ================= -->
+    <div class="modal-overlay" :class="{ active: modalMountProjectsVisible }">
+      <div class="card" style="width:540px; margin:0;">
+        <div class="modal-header">
+          <div class="modal-title">🔗 调整工作流模板挂载项目</div>
+          <button class="btn btn-outline btn-sm" @click="modalMountProjectsVisible = false">✕</button>
+        </div>
+        <div class="modal-body">
+          <div style="background:#eff6ff; border:1px solid #bfdbfe; padding:12px; border-radius:6px; margin-bottom:14px; font-size:12px; color:#1e40af;">
+            勾选将当前模板 <strong>[{{ mountTemplateInfo?.name }}]</strong> 挂载给哪些项目空间使用。挂载后，对应项目下的所有需求流水线将自动继承此模板的工位与门禁纪律。
+          </div>
+          <div style="font-weight:600; font-size:13px; margin-bottom:8px;">可挂载的项目清单：</div>
+          <div style="max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">
+            <label
+              v-for="p in projectList"
+              :key="p.id"
+              style="display:flex; align-items:center; gap:10px; padding:8px 12px; background:#f8fafc; border:1px solid var(--border); border-radius:4px; cursor:pointer;"
+            >
+              <input
+                type="checkbox"
+                :value="p.id"
+                v-model="selectedMountProjectIds"
+              >
+              <div>
+                <strong style="color:var(--text-main);">[{{ p.projectKey }}]</strong>
+                <span style="margin-left:6px; color:#475569;">{{ p.name }}</span>
+              </div>
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" @click="modalMountProjectsVisible = false">取消</button>
+          <button class="btn btn-primary" @click="handleSubmitMountProjects">保存挂载关联</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= 抽屉面板：模板 DAG 画板节点属性微调与全息透视 ================= -->
+    <div class="drawer-overlay" :class="{ active: drawerTplNodeConfigVisible }" @click="drawerTplNodeConfigVisible = false"></div>
+    <div class="drawer-panel" :class="{ open: drawerTplNodeConfigVisible }" style="width:580px;">
+      <div class="drawer-header" style="background:#0b1320; border-bottom:1px solid #1e293b; color:#fff;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span 
+            class="tag"
+            :style="{
+              background: activeTplConfigNode.category === 'skill' ? '#6366f1' : (activeTplConfigNode.category === 'control' ? '#d97706' : (activeTplConfigNode.category === 'artifact' ? '#059669' : '#0284c7')),
+              color: '#FFF',
+              fontWeight: 700
+            }"
+          >
+            {{ activeTplConfigNode.categoryName }}
+          </span>
+          <span style="font-size:15px; font-weight:700; color:#f8fafc;">{{ activeTplConfigNode.id }} · {{ activeTplConfigNode.category === 'instruction' ? '工位配置' : '图元透视' }}</span>
+        </div>
+        <button class="btn btn-outline btn-sm" style="color:#94a3b8; border-color:#334155;" @click="drawerTplNodeConfigVisible = false">✕</button>
+      </div>
+      <div class="drawer-body" style="background:#0f172a; color:#cbd5e1; font-size:13px; padding:20px; overflow-y:auto;">
+        
+        <!-- 深度运作原理卡片 (4层节点通用) -->
+        <div style="background:#1e293b; border-left:4px solid #38bdf8; border-radius:6px; padding:12px; margin-bottom:16px;">
+          <div style="font-weight:700; color:#38bdf8; margin-bottom:4px; font-size:13px;">💡 工艺原理与架构规约</div>
+          <div style="line-height:1.6; color:#94a3b8; font-size:12px;">{{ activeTplConfigNode.principle }}</div>
+        </div>
+
+        <!-- 针对 SOP 指令节点的完整编辑表单 -->
+        <template v-if="activeTplConfigNode.category === 'instruction'">
+          <div class="form-group">
+            <label class="form-label" style="color:#f8fafc;">工位显示名称</label>
+            <input type="text" class="form-control" style="background:#1e293b; border-color:#334155; color:#fff;" v-model="activeTplConfigNode.name">
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="color:#f8fafc;">常驻责任角色</label>
+            <input type="text" class="form-control" style="background:#1e293b; border-color:#334155; color:#fff;" v-model="activeTplConfigNode.role">
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="color:#f8fafc;">
+              挂载专属 AI Skill 专家
+              <span style="font-size:11px; color:#38bdf8; font-weight:normal; margin-left:6px;">(实时联动重绘拓扑专家轨)</span>
+            </label>
+            <select
+              class="form-control"
+              style="background:#1e293b; border-color:#334155; color:#38bdf8; font-weight:600;"
+              v-model="activeTplConfigNode.skill"
+            >
+              <option value="-">无需专属专家 (纯人工/脚本)</option>
+              <option v-for="sk in availableSkillRegistry" :key="sk.id" :value="sk.id">
+                {{ sk.icon }} {{ sk.id }} ({{ sk.name }})
+              </option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="color:#f8fafc;">
+              挂载自动化治理/看门狗脚本 (Scripts Registry)
+              <span style="font-size:11px; color:#10b981; font-weight:normal; margin-left:6px;">(.ai/scripts 核心工具链)</span>
+            </label>
+            <select
+              class="form-control"
+              style="background:#1e293b; border-color:#334155; color:#10b981; font-weight:600;"
+              v-model="activeTplConfigNode.scriptId"
+            >
+              <option value="-">无需专属脚本 (纯人机交互)</option>
+              <option v-for="sc in availableScriptRegistry" :key="sc.id" :value="sc.id">
+                {{ sc.icon }} {{ sc.id }} ({{ sc.name }})
+              </option>
+            </select>
+            <!-- 脚本详情实时名片卡 -->
+            <div 
+              v-if="activeTplConfigNode.scriptId && activeTplConfigNode.scriptId !== '-'" 
+              style="margin-top:8px; padding:10px 12px; background:#0b1320; border:1px solid #10b981; border-radius:6px; font-size:12px;"
+            >
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <span style="font-weight:700; color:#10b981;">
+                  {{ availableScriptRegistry.find(s => s.id === activeTplConfigNode.scriptId)?.icon }}
+                  {{ availableScriptRegistry.find(s => s.id === activeTplConfigNode.scriptId)?.name }}
+                </span>
+                <span class="tag" style="background:#064e3b; color:#34d399; font-size:10px;">
+                  {{ availableScriptRegistry.find(s => s.id === activeTplConfigNode.scriptId)?.runtime }}
+                </span>
+              </div>
+              <div style="color:#94a3b8; font-size:11px; margin-bottom:6px;">
+                {{ availableScriptRegistry.find(s => s.id === activeTplConfigNode.scriptId)?.desc }}
+              </div>
+              <div style="background:#020617; padding:4px 8px; border-radius:4px; font-family:monospace; color:#38bdf8; font-size:11px;">
+                $ {{ availableScriptRegistry.find(s => s.id === activeTplConfigNode.scriptId)?.cmd }}
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="color:#f8fafc;">门禁阻断与准入规则 (Gate)</label>
+            <input type="text" class="form-control" style="background:#1e293b; border-color:#334155; color:#fff;" v-model="activeTplConfigNode.gate">
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="color:#f8fafc;">绑定执行 SOP 规范文件</label>
+            <input type="text" class="form-control" style="background:#1e293b; border-color:#334155; color:#fff;" v-model="activeTplConfigNode.sop">
+          </div>
+        </template>
+
+        <!-- 针对 Skill / Control / Artifact 轨节点的属性透视卡 -->
+        <template v-else>
+          <div class="form-group">
+            <label class="form-label" style="color:#f8fafc;">图元全称</label>
+            <div style="padding:8px 12px; background:#1e293b; border-radius:6px; color:#fff; font-weight:600;">{{ activeTplConfigNode.name }}</div>
+          </div>
+          <div class="form-group" v-if="activeTplConfigNode.role && activeTplConfigNode.role !== '-'">
+            <label class="form-label" style="color:#f8fafc;">责任主体 / 对应模块</label>
+            <div style="padding:8px 12px; background:#1e293b; border-radius:6px; color:#cbd5e1;">{{ activeTplConfigNode.role }}</div>
+          </div>
+          <div class="form-group" v-if="activeTplConfigNode.gate && activeTplConfigNode.gate !== '-'">
+            <label class="form-label" style="color:#f8fafc;">硬性门禁约束与防线</label>
+            <div style="padding:8px 12px; background:#1e293b; border-radius:6px; color:#ef4444; font-weight:600;">{{ activeTplConfigNode.gate }}</div>
+          </div>
+          <div class="form-group" v-if="activeTplConfigNode.sop && activeTplConfigNode.sop !== '-'">
+            <label class="form-label" style="color:#f8fafc;">对应底层规约文件 / 脚本</label>
+            <div style="padding:8px 12px; background:#1e293b; border-radius:6px; font-family:monospace; color:#38bdf8;">{{ activeTplConfigNode.sop }}</div>
+          </div>
+        </template>
+
+        <!-- 节点输入与输出数据流 -->
+        <div style="margin-top:16px; border-top:1px solid #1e293b; padding-top:12px;">
+          <div style="display:flex; gap:16px;">
+            <div style="flex:1;">
+              <div style="font-weight:600; color:#94a3b8; margin-bottom:6px; font-size:12px;">📥 输入前提 (Inputs)</div>
+              <ul style="margin:0; padding-left:16px; color:#cbd5e1; font-size:12px; line-height:1.6;">
+                <li v-for="(inp, i) in (activeTplConfigNode.inputs || [])" :key="i">{{ inp }}</li>
+                <li v-if="!activeTplConfigNode.inputs?.length" style="color:#64748b;">上游前置产物触发</li>
+              </ul>
+            </div>
+            <div style="flex:1;">
+              <div style="font-weight:600; color:#94a3b8; margin-bottom:6px; font-size:12px;">📤 交付物/影响 (Outputs)</div>
+              <ul style="margin:0; padding-left:16px; color:#cbd5e1; font-size:12px; line-height:1.6;">
+                <li v-for="(out, i) in (activeTplConfigNode.outputs || [])" :key="i">{{ out }}</li>
+                <li v-if="!activeTplConfigNode.outputs?.length" style="color:#64748b;">下游工位状态变迁</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <div class="drawer-footer" style="background:#0b1320; border-top:1px solid #1e293b;">
+        <button class="btn btn-outline btn-sm" style="color:#94a3b8; border-color:#334155;" @click="drawerTplNodeConfigVisible = false">关闭</button>
+        <button v-if="activeTplConfigNode.category === 'instruction'" class="btn btn-primary btn-sm" @click="handleSaveTplNodeConfig">确认暂存此工位</button>
+      </div>
+    </div>
+
+    <!-- ================= 抽屉面板：AI Skill 专家 SKILL.md 实体规约透视 ================= -->
+    <div class="drawer-overlay" :class="{ active: drawerSkillDetailVisible }" @click="drawerSkillDetailVisible = false"></div>
+    <div class="drawer-panel" :class="{ open: drawerSkillDetailVisible }" style="width:780px; max-width:94vw;">
+      <div class="drawer-header" style="background:#0b1320; border-bottom:1px solid #1e293b; color:#fff;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="tag" style="background:#0284c7; color:#fff;">{{ selectedSkillDetail?.icon || '🤖' }} {{ selectedSkillDetail?.id }}</span>
+          <span style="font-size:15px; font-weight:700; color:#f8fafc;">{{ selectedSkillDetail?.name }} · 规约透视</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <!-- 切换渲染模式 vs 原始代码模式 -->
+          <div class="view-mode-toggle" style="background:#1e293b; padding:2px; border-radius:6px;">
+            <button
+              class="view-mode-btn"
+              :class="{ active: skillViewMode === 'rendered' }"
+              style="padding:2px 8px; font-size:11px;"
+              @click="skillViewMode = 'rendered'"
+            >
+              📖 排版渲染
+            </button>
+            <button
+              class="view-mode-btn"
+              :class="{ active: skillViewMode === 'raw' }"
+              style="padding:2px 8px; font-size:11px;"
+              @click="skillViewMode = 'raw'"
+            >
+              📝 原始 Markdown
+            </button>
+          </div>
+          <button class="btn btn-outline btn-sm" style="color:#94a3b8; border-color:#334155;" @click="drawerSkillDetailVisible = false">✕</button>
+        </div>
+      </div>
+      <div class="drawer-body" style="background:#0f172a; color:#cbd5e1; font-size:13px; padding:20px; overflow-y:auto;">
+        <div style="background:#1e293b; padding:12px; border-radius:6px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-size:11px; color:#94a3b8; margin-bottom:2px;">规范文件物理路径：</div>
+            <div style="font-family:monospace; color:#38bdf8; font-size:12px;">{{ selectedSkillDetail?.path }}</div>
+          </div>
+          <span class="tag" style="background:#064e3b; color:#34d399; font-size:11px;">
+            {{ skillViewMode === 'rendered' ? '✨ 富文本优雅阅读模式' : '💻 原始源码模式' }}
+          </span>
+        </div>
+
+        <!-- 模式一：优雅排版渲染视图 -->
+        <div v-if="skillViewMode === 'rendered'" class="markdown-rendered-container">
+          <div v-html="renderMarkdownToHtml(selectedSkillDetail?.content || '')"></div>
+        </div>
+
+        <!-- 模式二：原始 Markdown 文本视图 -->
+        <div v-else>
+          <pre style="background:#020617; border:1px solid #1e293b; border-radius:8px; padding:16px; font-family:Consolas, Monaco, monospace; font-size:12px; color:#f1f5f9; line-height:1.6; white-space:pre-wrap; word-break:break-word; max-height:650px; overflow-y:auto;">{{ selectedSkillDetail?.content || '暂无内容或正在加载...' }}</pre>
+        </div>
+      </div>
+      <div class="drawer-footer" style="background:#0b1320; border-top:1px solid #1e293b;">
+        <button class="btn btn-outline btn-sm" style="color:#94a3b8; border-color:#334155;" @click="drawerSkillDetailVisible = false">关闭</button>
+      </div>
+    </div>
+
+    <!-- ================= 抽屉面板：自动化脚本源码与看门狗透视 ================= -->
+    <div class="drawer-overlay" :class="{ active: drawerScriptDetailVisible }" @click="drawerScriptDetailVisible = false"></div>
+    <div class="drawer-panel" :class="{ open: drawerScriptDetailVisible }" style="width:780px; max-width:94vw;">
+      <div class="drawer-header" style="background:#0b1320; border-bottom:1px solid #1e293b; color:#fff;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="tag" style="background:#10b981; color:#fff;">{{ selectedScriptDetail?.icon || '🛠️' }} {{ selectedScriptDetail?.id }}</span>
+          <span style="font-size:15px; font-weight:700; color:#f8fafc;">{{ selectedScriptDetail?.name }} · 脚本源码透视</span>
+        </div>
+        <button class="btn btn-outline btn-sm" style="color:#94a3b8; border-color:#334155;" @click="drawerScriptDetailVisible = false">✕</button>
+      </div>
+      <div class="drawer-body" style="background:#0f172a; color:#cbd5e1; font-size:13px; padding:20px; overflow-y:auto;">
+        <div style="background:#1e293b; padding:12px; border-radius:6px; margin-bottom:16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <span style="font-size:11px; color:#94a3b8;">脚本物理路径：</span>
+            <span class="tag" style="background:#064e3b; color:#34d399; font-size:10px;">{{ selectedScriptDetail?.runtime }}</span>
+          </div>
+          <div style="font-family:monospace; color:#38bdf8; font-size:12px; margin-bottom:6px;">{{ selectedScriptDetail?.path }}</div>
+          <div style="background:#020617; padding:4px 8px; border-radius:4px; font-family:monospace; color:#34d399; font-size:11px;">$ {{ selectedScriptDetail?.cmd }}</div>
+        </div>
+        <div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div style="font-size:12px; font-weight:700; color:#94a3b8;">💻 脚本源码全文（语法高亮 & 行号）：</div>
+            <span class="tag" style="background:rgba(56, 189, 248, 0.15); color:#38bdf8; font-size:10px;">IDE 代码视图</span>
+          </div>
+          <!-- 语法高亮代码编辑器视窗 -->
+          <div class="code-editor-viewport">
+            <div v-html="highlightScriptCode(selectedScriptDetail?.content || '')"></div>
+          </div>
+        </div>
+      </div>
+      <div class="drawer-footer" style="background:#0b1320; border-top:1px solid #1e293b;">
+        <button class="btn btn-outline btn-sm" style="color:#94a3b8; border-color:#334155;" @click="drawerScriptDetailVisible = false">关闭</button>
+      </div>
+    </div>
     <div class="modal-overlay" :class="{ active: modalGenSignLinkOpen }">
       <div class="card" style="width:480px; margin:0;">
         <div class="modal-header">
@@ -3489,6 +5391,16 @@ onMounted(async () => {
       <div class="form-group">
         <label class="form-label required">客户单位名称</label>
         <input type="text" class="form-control" v-model="newProjectForm.clientName" placeholder="如：国能某某水电厂">
+      </div>
+      <div class="form-group">
+        <label class="form-label">绑定研发工作流模板</label>
+        <select class="form-control" v-model="(newProjectForm as any).workflowTemplateId">
+          <option :value="undefined">默认：全局默认 · 钧天四层一体化研发工作流 (TPL-DEFAULT)</option>
+          <option v-for="tpl in workflowTemplates" :key="tpl.id" :value="tpl.id">
+            {{ tpl.name }} ({{ tpl.templateCode }})
+          </option>
+        </select>
+        <div class="form-hint">项目创建后将严格继承该模板的工位与门禁纪律，需求执行过程只读展示。</div>
       </div>
       <div class="form-group">
         <label class="form-label">项目描述与背景</label>
@@ -3692,6 +5604,185 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+/* ==========================================================================
+   Markdown 富文本阅读模式专属优雅排版样式
+   ========================================================================== */
+.markdown-rendered-container {
+  background: #020617;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  padding: 24px;
+  color: #e2e8f0;
+  font-size: 13.5px;
+  line-height: 1.7;
+  max-height: 650px;
+  overflow-y: auto;
+}
+:deep(.md-h1) {
+  font-size: 20px;
+  font-weight: 700;
+  color: #38bdf8;
+  margin: 16px 0 12px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #1e293b;
+}
+:deep(.md-h2) {
+  font-size: 16px;
+  font-weight: 700;
+  color: #f8fafc;
+  margin: 18px 0 10px 0;
+  display: flex;
+  align-items: center;
+}
+:deep(.md-h3) {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #38bdf8;
+  margin: 14px 0 8px 0;
+}
+:deep(.md-h4) {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #94a3b8;
+  margin: 10px 0 6px 0;
+}
+:deep(.md-code-block) {
+  background: #090d16;
+  border: 1px solid #1e293b;
+  border-radius: 6px;
+  margin: 12px 0;
+  overflow: hidden;
+}
+:deep(.md-code-header) {
+  background: #0f172a;
+  padding: 4px 12px;
+  font-size: 11px;
+  color: #64748b;
+  text-transform: uppercase;
+  font-family: monospace;
+  border-bottom: 1px solid #1e293b;
+}
+:deep(.md-code-body) {
+  margin: 0;
+  padding: 12px;
+  font-family: Consolas, Monaco, monospace;
+  font-size: 12px;
+  color: #34d399;
+  line-height: 1.5;
+  overflow-x: auto;
+}
+:deep(.md-inline-code) {
+  background: #1e293b;
+  color: #38bdf8;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: monospace;
+}
+:deep(.md-blockquote) {
+  border-left: 4px solid #0284c7;
+  background: rgba(2, 132, 199, 0.08);
+  padding: 8px 14px;
+  margin: 10px 0;
+  color: #94a3b8;
+  font-style: italic;
+  border-radius: 0 4px 4px 0;
+}
+:deep(.md-hr) {
+  border: none;
+  border-top: 1px dashed #334155;
+  margin: 20px 0;
+}
+:deep(.md-strong) {
+  color: #f8fafc;
+  font-weight: 700;
+}
+:deep(.md-list-item) {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 4px 0;
+  line-height: 1.6;
+}
+:deep(.md-bullet) {
+  color: #38bdf8;
+  font-size: 14px;
+}
+:deep(.md-num) {
+  color: #10b981;
+  font-weight: 700;
+  font-family: monospace;
+}
+:deep(.md-paragraph-break) {
+  height: 10px;
+}
+
+/* ==========================================================================
+   Python / Shell 脚本代码编辑器视窗与语法高亮 (IDE Code Highlighting)
+   ========================================================================== */
+.code-editor-viewport {
+  background: #020617;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  padding: 16px 0;
+  max-height: 650px;
+  overflow: auto;
+  font-family: "JetBrains Mono", Consolas, Monaco, "Courier New", monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+:deep(.code-line) {
+  display: flex;
+  padding: 0 16px;
+  white-space: pre;
+}
+:deep(.code-line:hover) {
+  background: rgba(255, 255, 255, 0.04);
+}
+:deep(.code-lineno) {
+  width: 42px;
+  user-select: none;
+  color: #475569;
+  text-align: right;
+  padding-right: 16px;
+  flex-shrink: 0;
+  border-right: 1px solid #1e293b;
+  margin-right: 16px;
+  font-size: 11px;
+}
+:deep(.code-text) {
+  flex: 1;
+  color: #f1f5f9;
+}
+:deep(.hl-keyword) {
+  color: #f43f5e;
+  font-weight: 700;
+}
+:deep(.hl-string) {
+  color: #a7f3d0;
+}
+:deep(.hl-docstring) {
+  color: #64748b;
+  font-style: italic;
+}
+:deep(.hl-comment) {
+  color: #64748b;
+  font-style: italic;
+}
+:deep(.hl-bool) {
+  color: #fb923c;
+  font-weight: 700;
+}
+:deep(.hl-builtin) {
+  color: #38bdf8;
+}
+:deep(.hl-decorator) {
+  color: #c084fc;
+}
+:deep(.hl-number) {
+  color: #fbbf24;
+}
+
 /* 工程流水线拓扑画布可视区 (FR-REQ-WFC-01 / Task-510)
    可视框尺寸只由这里的 360px 决定；X6 挂载点在内层，尺寸回写不会触及外层。 */
 .wf-viewport {
@@ -3743,9 +5834,11 @@ onMounted(async () => {
 
   width: 100%;
   height: 100%;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   background-color: var(--bg);
   color: var(--text);
   font-family: var(--font-family);
@@ -3757,11 +5850,16 @@ onMounted(async () => {
 header.app-header {
   background-color: var(--primary);
   color: #FFFFFF;
-  height: 52px;
-  padding: 0 20px;
+  min-height: 52px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 8px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
   box-shadow: var(--shadow-sm);
   z-index: 50;
   flex-shrink: 0;
@@ -3769,7 +5867,8 @@ header.app-header {
 .header-left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 .logo-badge {
   background: rgba(255, 255, 255, 0.15);
@@ -3780,7 +5879,7 @@ header.app-header {
   letter-spacing: 0.5px;
 }
 .app-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -3803,7 +5902,8 @@ header.app-header {
 .header-right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 .role-badge {
   background: #E6F0F2;
@@ -3841,7 +5941,10 @@ header.app-header {
 .app-body {
   display: flex;
   flex: 1;
-  height: calc(100vh - 52px);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  height: calc(100vh - 112px);
   overflow: hidden;
 }
 
@@ -4190,17 +6293,22 @@ table.data-table tr:hover td {
 }
 .drawer-panel {
   position: fixed;
-  top: 0; right: -680px; bottom: 0;
+  top: 0; right: 0; bottom: 0;
   width: 640px;
   background: var(--surface);
   box-shadow: var(--shadow-lg);
   z-index: 101;
   display: flex;
   flex-direction: column;
-  transition: right 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateX(105%);
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.28s;
+  visibility: hidden;
+  pointer-events: none;
 }
 .drawer-panel.open {
-  right: 0;
+  transform: translateX(0);
+  visibility: visible;
+  pointer-events: auto;
 }
 .drawer-header, .modal-header {
   padding: 16px 20px;

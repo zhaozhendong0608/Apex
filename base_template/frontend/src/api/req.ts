@@ -82,6 +82,92 @@ export function getWorkflowRecordsApi(params: { reqCode: string }): Promise<ApiR
   })
 }
 
+// 0.3 工作流模板管理与克隆衍生 API
+export function getWorkflowTemplateListApi(params?: { projectId?: number }): Promise<ApiResponse<any[]>> {
+  return request({
+    url: '/req/workflow/templates',
+    method: 'GET',
+    params
+  })
+}
+
+export function getWorkflowTemplateDetailApi(id: number): Promise<ApiResponse<any>> {
+  return request({
+    url: `/req/workflow/templates/${id}`,
+    method: 'GET'
+  })
+}
+
+export function getTemplateMountedProjectsApi(id: number): Promise<ApiResponse<any[]>> {
+  return request({
+    url: `/req/workflow/templates/${id}/mounted-projects`,
+    method: 'GET'
+  })
+}
+
+export function mountProjectsToTemplateApi(id: number, projectIds: number[]): Promise<ApiResponse<void>> {
+  return request({
+    url: `/req/workflow/templates/${id}/mount`,
+    method: 'POST',
+    data: { projectIds }
+  })
+}
+
+export function cloneWorkflowTemplateApi(data: {
+  sourceTemplateId: number
+  name: string
+  description?: string
+  targetProjectId?: number
+  targetProjectKey?: string
+  operator?: string
+}): Promise<ApiResponse<any>> {
+  return request({
+    url: '/req/workflow/templates/clone',
+    method: 'POST',
+    data
+  })
+}
+
+export function updateWorkflowTemplateApi(id: number, data: {
+  name?: string
+  description?: string
+  nodesConfig?: string
+  edgesConfig?: string
+}): Promise<ApiResponse<any>> {
+  return request({
+    url: `/req/workflow/templates/${id}`,
+    method: 'PUT',
+    data
+  })
+}
+
+/**
+ * 获取系统级 AI Skills 资产库清单及内容
+ */
+export function getWorkflowSkillsApi(): Promise<ApiResponse<any[]>> {
+  return request({
+    url: '/req/workflow/skills',
+    method: 'GET'
+  })
+}
+
+/**
+ * 获取系统级底层自动化治理/看门狗脚本清单及源码
+ */
+export function getWorkflowScriptsApi(): Promise<ApiResponse<any[]>> {
+  return request({
+    url: '/req/workflow/scripts',
+    method: 'GET'
+  })
+}
+
+export function deleteWorkflowTemplateApi(id: number): Promise<ApiResponse<void>> {
+  return request({
+    url: `/req/workflow/templates/${id}`,
+    method: 'DELETE'
+  })
+}
+
 // 1. 需求与四层清单管理
 export function createRequirementApi(data: any): Promise<ApiResponse<any>> {
   return request({

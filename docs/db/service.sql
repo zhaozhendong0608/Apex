@@ -85,13 +85,15 @@ CREATE TABLE IF NOT EXISTS `t_req_project` (
   `name` VARCHAR(128) NOT NULL COMMENT '项目名称',
   `client_name` VARCHAR(128) NOT NULL COMMENT '客户单位名称',
   `description` VARCHAR(512) DEFAULT NULL COMMENT '项目描述',
+  `workflow_template_id` BIGINT DEFAULT 1 COMMENT '绑定的项目专属工作流模板ID(衍生自全局默认或定制模板)',
   `status` VARCHAR(32) NOT NULL DEFAULT 'ACTIVE' COMMENT '状态: ACTIVE活跃, ARCHIVED归档',
   `created_by` VARCHAR(64) NOT NULL DEFAULT 'system' COMMENT '创建人',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_req_proj_key` (`project_key`),
-  KEY `idx_req_proj_status` (`status`)
+  KEY `idx_req_proj_status` (`status`),
+  KEY `idx_req_proj_wf_tpl` (`workflow_template_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='需求管理-项目空间表';
 
 -- 4.2 需求定义表 (含客户原话留痕与工程流水线工位绑定)
@@ -236,11 +238,48 @@ CREATE TABLE IF NOT EXISTS `t_req_workflow_record` (
   KEY `idx_wf_created` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='工程流水线-工位流转与人机协同审计履历表';
 
+-- 4.8.1 工作流模板管理表 (组织级/项目级四层拓扑蓝本与专家映射)
+CREATE TABLE IF NOT EXISTS `t_req_workflow_template` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `template_code` VARCHAR(64) NOT NULL COMMENT '模板代号 (如 TPL-DEFAULT, TPL-ENERGY)',
+  `name` VARCHAR(128) NOT NULL COMMENT '模板名称 (如 全局默认·钧天四层一体化研发工作流)',
+  `description` VARCHAR(512) DEFAULT NULL COMMENT '模板适用场景与工程规约说明',
+  `is_system_default` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否系统唯一默认蓝本 (1:是, 0:否)',
+  `scope_type` VARCHAR(32) NOT NULL DEFAULT 'GLOBAL' COMMENT '作用域类型 (GLOBAL:全局公共, PROJECT:项目专属)',
+  `project_id` BIGINT DEFAULT NULL COMMENT '关联项目ID (当 scope_type=PROJECT 时有效)',
+  `project_key` VARCHAR(32) DEFAULT NULL COMMENT '关联项目代号快照',
+  `nodes_config` LONGTEXT NOT NULL COMMENT '节点算子与四层元数据定义 (JSON格式)',
+  `edges_config` LONGTEXT DEFAULT NULL COMMENT '拓扑连线与门禁流向定义 (JSON格式)',
+  `created_by` VARCHAR(64) NOT NULL DEFAULT 'admin' COMMENT '创建人',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_wf_tpl_code` (`template_code`),
+  KEY `idx_wf_tpl_scope` (`scope_type`, `project_id`),
+  KEY `idx_wf_tpl_default` (`is_system_default`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='需求管理-工作流模板与工位蓝本表';
+
 -- ------------------------------------------------------------------------------
 -- 4.9 需求管理模块演示种子数据 (NET-SIM 项目空间, REQ-001 需求, 四层清单与 BL-v1.0 基线)
 -- ------------------------------------------------------------------------------
-INSERT IGNORE INTO `t_req_project` (`id`, `project_key`, `name`, `client_name`, `description`, `status`, `created_by`)
-VALUES (1, 'NET-SIM', '全景工业网络仿真与拓扑排版系统', '国家电网调度中心', '大型工业互联网与变电站网络拓扑仿真及等保隔离可视化平台', 'ACTIVE', 'admin');
+INSERT IGNORE INTO `t_req_project` (`id`, `project_key`, `name`, `client_name`, `description`, `workflow_template_id`, `status`, `created_by`)
+VALUES (1, 'NET-SIM', '全景工业网络仿真与拓扑排版系统', '国家电网调度中心', '大型工业互联网与变电站网络拓扑仿真及等保隔离可视化平台', 1, 'ACTIVE', 'admin');
+
+-- 插入系统唯一初始默认工作流模板种子数据 (TPL-DEFAULT)
+INSERT INTO `t_req_workflow_template` (`id`, `template_code`, `name`, `description`, `is_system_default`, `scope_type`, `project_id`, `project_key`, `nodes_config`, `edges_config`, `created_by`)
+VALUES (
+  1,
+  'TPL-DEFAULT',
+  '全局默认 · 钧天四层一体化研发工作流',
+  '钧天标准生产工艺：4-Layer 全景拓扑（SOP指令轨 + AI Skill专家轨 + 控制中枢轨 + 确定性物理产物轨），支持双轨延迟汇合与 B2 旁路微创快轨。',
+  1,
+  'GLOBAL',
+  NULL,
+  NULL,
+  '[{"id":"SOP-00","name":"体系总览","role":"全员","skill":"-","sop":".ai/sop/00-sop-overview.md","gate":"自适应分流"},{"id":"SOP-01","name":"需求规划","role":"产品/张工","skill":"requirement-discovery","sop":".ai/sop/01-sop-planning.md","gate":"四层清单齐备"},{"id":"SOP-02","name":"方案设计","role":"研发/李工","skill":"design-spec-architect","sop":".ai/sop/02-sop-tech-design.md","gate":"python3 gate.py --sql"},{"id":"TC-GEN","name":"测试用例矩阵","role":"测试/王工","skill":"quality-verifier","sop":".ai/sop/01-sop-planning.md","gate":"用例覆盖100%"},{"id":"SOP-03","name":"TDD编码","role":"研发/李工","skill":"coding-standards","sop":".ai/sop/03-sop-coding.md","gate":"单元测试全绿"},{"id":"SOP-04","name":"机器门禁","role":"看门狗探针","skill":"code-quality-reviewer","sop":".ai/sop/04-sop-code-review.md","gate":"python3 gate.py --staged [LGTM]"},{"id":"SOP-05","name":"人工评审","role":"架构师/程工","skill":"code-quality-reviewer","sop":".ai/sop/05-sop-review.md","gate":"架构师签字核准"},{"id":"SOP-06","name":"集成测试","role":"测试/王工","skill":"quality-verifier","sop":".ai/sop/06-sop-integration.md","gate":"TC用例100%碰撞通过"},{"id":"SOP-07","name":"双向验收","role":"看门狗探针","skill":"quality-verifier","sop":".ai/sop/07-sop-acceptance.md","gate":"board.py verify放行"},{"id":"SOP-08","name":"容器部署","role":"运维/李工","skill":"-","sop":".ai/sop/08-sop-deploy.md","gate":"健康检查通过"},{"id":"SOP-09","name":"Git发布","role":"交付/张工","skill":"-","sop":".ai/sop/09-sop-git-release.md","gate":"Release资产落盘"},{"id":"SOP-B2","name":"极速修补","role":"研发/李工","skill":"quality-verifier","sop":".ai/sop/B2-sop-fasttrack.md","gate":"单文件≤20行"}]',
+  '[]',
+  'admin'
+) ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `description` = VALUES(`description`);
 
 INSERT IGNORE INTO `t_req_requirement` (`id`, `project_id`, `req_code`, `title`, `raw_quote`, `trigger_event`, `status`, `priority`, `owner_name`)
 VALUES (1, 1, 'REQ-001', '需求与版本全生命周期治理核心模块', '必须管住需求、版本、原型三件事，做到留痕、可确认、可追溯。每次变更都要客户免登签字，复述理解，绝不允许口头扯皮。', '项目中期范围频繁蔓延与客户验收扯皮', 'BASELINED', 'P1', '张工');
@@ -282,11 +321,12 @@ INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_name`, `menu_type`, `path`, `co
 VALUES
   (300, 30, '项目列表', 'C', '/req/projects', 'modules/req-management/views/ReqManagementView', 'req:projects:view', 1),
   (310, 30, '工程流水线', 'C', '/req/workflow', 'modules/req-management/views/ReqManagementView', 'req:workflow:view', 2),
-  (303, 30, '原型版本与托管', 'C', '/req/prototypes', 'modules/req-management/views/ReqManagementView', 'req:prototypes:view', 3),
-  (306, 30, '发布版本追踪', 'C', '/req/releases', 'modules/req-management/views/ReqManagementView', 'req:releases:view', 4),
-  (307, 30, '需求演进时间线', 'C', '/req/timeline', 'modules/req-management/views/ReqManagementView', 'req:timeline:view', 5),
-  (308, 30, '码表配置中心', 'C', '/req/enums', 'modules/req-management/views/ReqManagementView', 'req:enums:view', 6),
-  (309, 30, '外观与工业主题', 'C', '/req/theme', 'modules/req-management/views/ReqManagementView', 'req:theme:view', 7),
+  (311, 30, '工作流模板管理', 'C', '/req/templates', 'modules/req-management/views/ReqManagementView', 'req:templates:view', 3),
+  (303, 30, '原型版本与托管', 'C', '/req/prototypes', 'modules/req-management/views/ReqManagementView', 'req:prototypes:view', 4),
+  (306, 30, '发布版本追踪', 'C', '/req/releases', 'modules/req-management/views/ReqManagementView', 'req:releases:view', 5),
+  (307, 30, '需求演进时间线', 'C', '/req/timeline', 'modules/req-management/views/ReqManagementView', 'req:timeline:view', 6),
+  (308, 30, '码表配置中心', 'C', '/req/enums', 'modules/req-management/views/ReqManagementView', 'req:enums:view', 7),
+  (309, 30, '外观与工业主题', 'C', '/req/theme', 'modules/req-management/views/ReqManagementView', 'req:theme:view', 8),
   -- 301/302/304/305: 下钻子页面 (由项目卡片或需求详情点击进入，前端不作为左侧侧边栏展示，但保留系统权限控制)
   (301, 30, '项目工作台', 'C', '/req/dashboard', 'modules/req-management/views/ReqManagementView', 'req:dashboard:view', 11),
   (302, 30, '需求详情 & 清单', 'C', '/req/detail', 'modules/req-management/views/ReqManagementView', 'req:detail:view', 12),
@@ -300,6 +340,7 @@ VALUES
   (1, 30),
   (1, 300),
   (1, 310),
+  (1, 311),
   (1, 301),
   (1, 302),
   (1, 303),

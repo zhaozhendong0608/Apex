@@ -49,6 +49,24 @@ const routes = [
         meta: { title: '工程流水线' }
       },
       {
+        path: '/req/templates',
+        name: 'ReqTemplates',
+        component: () => import('@/modules/req-management/views/ReqManagementView.vue'),
+        meta: { title: '工作流模板管理' }
+      },
+      {
+        path: '/req/skills',
+        name: 'ReqSkills',
+        component: () => import('@/modules/req-management/views/ReqManagementView.vue'),
+        meta: { title: 'AI Skills 专家中心' }
+      },
+      {
+        path: '/req/scripts',
+        name: 'ReqScripts',
+        component: () => import('@/modules/req-management/views/ReqManagementView.vue'),
+        meta: { title: '自动化脚本资产中心' }
+      },
+      {
         path: '/req/dashboard',
         name: 'ReqDashboard',
         component: () => import('@/modules/req-management/views/ReqManagementView.vue'),

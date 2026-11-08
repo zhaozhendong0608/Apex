@@ -4,7 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore, type ThemeType } from '@/stores/theme'
-import { Fold, Expand } from '@element-plus/icons-vue'
+import { Fold, Expand, DocumentCopy, Cpu, Tickets } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -131,6 +131,18 @@ const themeOptions: { label: string; value: ThemeType }[] = [
               <el-icon><Share /></el-icon>
               <span>工程流水线</span>
             </el-menu-item>
+            <el-menu-item index="/req/templates">
+              <el-icon><DocumentCopy /></el-icon>
+              <span>工作流模板管理</span>
+            </el-menu-item>
+            <el-menu-item index="/req/skills">
+              <el-icon><Cpu /></el-icon>
+              <span>AI Skills 专家中心</span>
+            </el-menu-item>
+            <el-menu-item index="/req/scripts">
+              <el-icon><Tickets /></el-icon>
+              <span>自动化脚本中心</span>
+            </el-menu-item>
             <el-menu-item index="/req/prototypes">
               <el-icon><Picture /></el-icon>
               <span>原型版本与托管</span>
@@ -165,10 +177,11 @@ const themeOptions: { label: string; value: ThemeType }[] = [
 
 <style scoped>
 .layout-container {
-  width: 100vw;
+  width: 100%;
   height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .app-header {
@@ -266,7 +279,7 @@ const themeOptions: { label: string; value: ThemeType }[] = [
 
 .app-content {
   flex: 1;
-  padding: 24px;
+  padding: 0;
   background: var(--bg-body);
   overflow-y: auto;
   position: relative;

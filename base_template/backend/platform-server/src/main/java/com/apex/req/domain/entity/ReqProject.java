@@ -28,6 +28,7 @@ public class ReqProject implements Serializable {
     private String name;
     private String clientName;
     private String description;
+    private Long workflowTemplateId;
     private String status;
     private String createdBy;
     private LocalDateTime createdAt;
