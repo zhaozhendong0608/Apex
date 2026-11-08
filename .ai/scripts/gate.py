@@ -807,6 +807,31 @@ def main():
         sys.exit(2)
 
     project_root = resolve_project_root()
+    
+    # 动态嗅探当前需求的路线模式 (FASTTRACK / MEDIUM / STANDARD)
+    track_mode = "STANDARD"
+    try:
+        dag_file = AI_DIR / "dag_state.json"
+        if dag_file.exists():
+            import json
+            with open(dag_file, "r", encoding="utf-8") as _df:
+                _ddata = json.load(_df)
+                track_mode = str(_ddata.get("track_mode") or _ddata.get("trackMode") or "STANDARD").upper()
+    except Exception:
+        pass
+    
+    # 允许命令行显式传参指定或覆盖模式，如 --track FASTTRACK
+    if "--track" in args:
+        _t_idx = args.index("--track")
+        if _t_idx + 1 < len(args):
+            track_mode = args[_t_idx + 1].upper()
+
+    print(f"[*] 🚀 当前执行路线模式: [{track_mode}]")
+    if track_mode == "FASTTRACK":
+        print("    💡 [极速微创模式]：自动开启最小改动豁免，放宽 SQL 配对与公共资产告警。")
+    elif track_mode == "MEDIUM":
+        print("    💡 [单模块敏捷模式]：自动放宽架构级文件限制，专注业务代码洁净度。")
+
     sql_only = "--sql" in args
     staged = "--staged" in args
     do_build = "--build" in args
@@ -860,7 +885,8 @@ def main():
 
     # 1. 看门狗护栏核验
     wd_msgs = []
-    r1, m1 = check_min_surgery(code_files, allow_large); wd_msgs += m1
+    effective_allow_large = allow_large or (track_mode in ("FASTTRACK", "MEDIUM"))
+    r1, m1 = check_min_surgery(code_files, effective_allow_large); wd_msgs += m1
     r2, m2 = check_zero_new_deps(code_files, project_root); wd_msgs += m2
     r3, m3 = check_no_mock(code_files); wd_msgs += m3
     r4, m4 = check_no_public_net(code_files); wd_msgs += m4
@@ -877,9 +903,12 @@ def main():
         results["LINT"] = (True, ["⏭️  本次变更不含可 lint 的代码文件，跳过"])
 
     # 3. SQL 回滚配对
-    target_sql = None if (sql_only or not inputs) else [f for f in expanded if f.suffix.lower() == ".sql"]
-    sp, sm = check_sql_rollback(project_root, target_sql)
-    results["SQL"] = (sp, sm)
+    if track_mode == "FASTTRACK" and not sql_only:
+        results["SQL"] = (True, ["⏭️  [FASTTRACK 快轨] 自动免除严格 DDL 回滚配对检查"])
+    else:
+        target_sql = None if (sql_only or not inputs) else [f for f in expanded if f.suffix.lower() == ".sql"]
+        sp, sm = check_sql_rollback(project_root, target_sql)
+        results["SQL"] = (sp, sm)
 
     # 4. 预编译
     if do_build:

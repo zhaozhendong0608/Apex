@@ -58,21 +58,26 @@ description: AI 主导的软件与工业系统需求发现和澄清流程。用�
 
 ---
 
-## 🚪 阶段 6: 自动看板转化与上下文清理 (Board Sync & Protocol)
+## 🚪 阶段 6: 自动看板转化、直接写库与上下文清理 (Board & DB Direct Sync)
 
-需求基线得到用户确认 (Sign-off) 后，**必须自动执行**：
+需求基线得到用户确认或用户明确要求“拆解并录入需求”后，**必须自动执行**：
 
-1. **自动注册 Task 看板**：
+1. **自动执行 SQL 插入数据库 (免人工手动录入)**：
+   利用 `python3 .ai/scripts/apply_sql.py` 将需求主数据与四层清单项直接打入本地 MySQL 数据库：
+   - 插入 `t_req_requirement`（自动评估规模给定 `current_track_mode` 为 `FASTTRACK`/`MEDIUM`/`STANDARD`，初始工位为 `SOP-01`）
+   - 插入 `t_req_confirm_item`（将拆解的 `SCOPE` / `RULE` / `EXCEPTION` / `ACCEPTANCE` / `SKIP` 条目批量写入）
+   同时将 SQL 增量追加至 `docs/db/next_execute_sql/next_execute_sql.sql` 存档。
+
+2. **自动注册 Task 看板**：
    ```bash
    python3 .ai/scripts/board.py add Task-XXX "<模块/需求名称>" "<白话验收目标>" "<核心文件/未指定>"
    ```
-2. **输出流转提示卡片**：
+3. **输出流转提示卡片**：
    ```markdown
-   ✨ **需求基线已锁定，并已自动同步至看板 [Task-XXX]！**
-   💡 **上下文治理提示**：推荐进行会话治理与流转：
-   👉 **路径 A**：新开/清空会话，输入 `6` 恢复上下文并开始 `Task-XXX`。
-   👉 **路径 B**：输入 `2` 或 `继续` 加载 `03-sop-coding.md` 进入编码。
-   👉 **路径 C**：输入 `生成原型` 加载 `archetype-architect` 绘制前端原型。
+   ✨ **需求已拆解并成功写入数据库 [REQ-XXX] 与看板 [Task-XXX]！**
+   📍 **执行路线**：[FASTTRACK / MEDIUM / STANDARD] (依据改动规模自动匹配)
+   🌐 **网页可见**：可在 http://localhost:3000/req/projects 实时刷新查验。
+   👉 **下一步建议**：输入 `2` 或 `继续` 加载 `03-sop-coding.md` 进入编码。
    ```
 
 ---

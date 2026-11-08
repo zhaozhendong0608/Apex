@@ -30,10 +30,14 @@
 - `S3-Stub`：核心算法单测或联调探针
 - 按 S/M/L 定级，写进标题前缀（如 `[S2-Muscle] xxx`）
 
-**⑤ 登记看板**
-```bash
-python3 .ai/scripts/board.py add "Task-001" "[S1-Bone] 标题" "白话目标" "涉及文件"
-```
+**⑤ 登记看板与一键直接落库 (DB Injection)**
+- 本地任务看板：`python3 .ai/scripts/board.py add "Task-001" "[S1-Bone] 标题" "白话目标" "涉及文件"`
+- **需求与四层清单直接落库 (AI直通)**：
+  AI 自动生成 SQL 并执行脚本一键打入 MySQL：
+  ```bash
+  python3 .ai/scripts/apply_sql.py "SQL语句..."
+  ```
+  自动向 `t_req_requirement` 插入需求主记录（带 `current_track_mode` 分流结果），并向 `t_req_confirm_item` 批量插入 `SCOPE` / `RULE` / `EXCEPTION` / `SKIP` 四层确认项。
 
 ## 🛡️ 硬约束
 - 需求未稳定前**不进入技术选型**。

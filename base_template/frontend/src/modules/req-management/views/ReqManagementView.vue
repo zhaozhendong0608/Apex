@@ -3237,6 +3237,7 @@ onMounted(async () => {
                 </span>
               </div>
 
+              <!-- 【按要求注释】：工作流基础模板所有节点受保护不可修改，注释保存拓扑蓝本配置按钮
               <div style="display:flex; gap:10px; align-items:center;">
                 <button
                   class="btn btn-primary btn-sm"
@@ -3247,6 +3248,7 @@ onMounted(async () => {
                   <span>保存拓扑蓝本配置</span>
                 </button>
               </div>
+              -->
             </div>
 
             <!-- DAG 拓扑编辑画布 -->
