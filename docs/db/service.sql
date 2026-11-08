@@ -308,47 +308,65 @@ VALUES
 
 
 -- ------------------------------------------------------------------------------
--- 4.9 需求治理平台动态菜单与权限配置 (sys_menu & sys_role_menu)
+-- 4.9 钧天科技 Apex 动态菜单与权限配置 (sys_menu & sys_role_menu)
+-- 菜单排序规则 (Sort Order):
+--   1. 工作流工艺资产 (/workflow-center, ID: 40) - 顶层全局规范与工艺资产
+--   2. 需求治理平台 (/req, ID: 30) - 业务需求流转与项目研发
+--   3. 仿真实验平台 (/modules, ID: 20) - 业务仿真网络拓扑实验
+--   4. 系统管理 (/system, ID: 10) - 底座开户与权限管理 (垫底)
 -- ------------------------------------------------------------------------------
--- 一级目录: 需求治理平台 (ID: 30)
+
+-- 1. 工作流工艺资产中心 (一级目录 ID: 40, 排序: 1)
 INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_name`, `menu_type`, `path`, `component`, `permission`, `sort`)
-VALUES (30, 0, '需求治理平台', 'M', '/req', '', 'req:platform:view', 3)
+VALUES (40, 0, '工作流工艺资产', 'M', '/workflow-center', '', 'workflow:platform:view', 1)
 ON DUPLICATE KEY UPDATE `menu_name` = VALUES(`menu_name`), `path` = VALUES(`path`), `sort` = VALUES(`sort`);
 
--- 二级菜单: 项目空间与全局配置菜单 (挂载于需求治理平台 ID: 30 之下)
--- 架构调整: 贯彻蓝皮书信息架构，将全局菜单入口设为【项目列表 (P02)】，【工程流水线 (Pipeline)】负责展示多需求与微观算子状态
+-- 工作流二级菜单 (挂载于 ID: 40)
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_name`, `menu_type`, `path`, `component`, `permission`, `sort`)
+VALUES
+  (401, 40, '工作流模板治理', 'C', '/req/templates', 'modules/req-management/views/ReqManagementView', 'workflow:templates:view', 1),
+  (402, 40, 'AI Skills 专家中心', 'C', '/req/skills', 'modules/req-management/views/ReqManagementView', 'workflow:skills:view', 2),
+  (403, 40, '自动化脚本中心', 'C', '/req/scripts', 'modules/req-management/views/ReqManagementView', 'workflow:scripts:view', 3)
+ON DUPLICATE KEY UPDATE `menu_name` = VALUES(`menu_name`), `parent_id` = VALUES(`parent_id`), `path` = VALUES(`path`), `component` = VALUES(`component`), `permission` = VALUES(`permission`), `sort` = VALUES(`sort`);
+
+-- 2. 需求治理平台 (一级目录 ID: 30, 排序: 2)
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_name`, `menu_type`, `path`, `component`, `permission`, `sort`)
+VALUES (30, 0, '需求治理平台', 'M', '/req', '', 'req:platform:view', 2)
+ON DUPLICATE KEY UPDATE `menu_name` = VALUES(`menu_name`), `path` = VALUES(`path`), `sort` = VALUES(`sort`);
+
+-- 需求治理二级菜单 (挂载于 ID: 30)
 INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_name`, `menu_type`, `path`, `component`, `permission`, `sort`)
 VALUES
   (300, 30, '项目列表', 'C', '/req/projects', 'modules/req-management/views/ReqManagementView', 'req:projects:view', 1),
   (310, 30, '工程流水线', 'C', '/req/workflow', 'modules/req-management/views/ReqManagementView', 'req:workflow:view', 2),
-  (311, 30, '工作流模板管理', 'C', '/req/templates', 'modules/req-management/views/ReqManagementView', 'req:templates:view', 3),
-  (303, 30, '原型版本与托管', 'C', '/req/prototypes', 'modules/req-management/views/ReqManagementView', 'req:prototypes:view', 4),
-  (306, 30, '发布版本追踪', 'C', '/req/releases', 'modules/req-management/views/ReqManagementView', 'req:releases:view', 5),
-  (307, 30, '需求演进时间线', 'C', '/req/timeline', 'modules/req-management/views/ReqManagementView', 'req:timeline:view', 6),
-  (308, 30, '码表配置中心', 'C', '/req/enums', 'modules/req-management/views/ReqManagementView', 'req:enums:view', 7),
-  (309, 30, '外观与工业主题', 'C', '/req/theme', 'modules/req-management/views/ReqManagementView', 'req:theme:view', 8),
-  -- 301/302/304/305: 下钻子页面 (由项目卡片或需求详情点击进入，前端不作为左侧侧边栏展示，但保留系统权限控制)
+  (303, 30, '原型版本与托管', 'C', '/req/prototypes', 'modules/req-management/views/ReqManagementView', 'req:prototypes:view', 3),
+  (306, 30, '发布版本追踪', 'C', '/req/releases', 'modules/req-management/views/ReqManagementView', 'req:releases:view', 4),
+  (307, 30, '需求演进时间线', 'C', '/req/timeline', 'modules/req-management/views/ReqManagementView', 'req:timeline:view', 5),
+  (308, 30, '码表配置中心', 'C', '/req/enums', 'modules/req-management/views/ReqManagementView', 'req:enums:view', 6),
+  (309, 30, '外观与工业主题', 'C', '/req/theme', 'modules/req-management/views/ReqManagementView', 'req:theme:view', 7),
+  -- 301/302/304/305: 下钻子页面
   (301, 30, '项目工作台', 'C', '/req/dashboard', 'modules/req-management/views/ReqManagementView', 'req:dashboard:view', 11),
   (302, 30, '需求详情 & 清单', 'C', '/req/detail', 'modules/req-management/views/ReqManagementView', 'req:detail:view', 12),
   (304, 30, '需求基线与签字', 'C', '/req/baselines', 'modules/req-management/views/ReqManagementView', 'req:baselines:view', 13),
   (305, 30, '基线差异对比', 'C', '/req/baseline-diff', 'modules/req-management/views/ReqManagementView', 'req:diff:view', 14)
 ON DUPLICATE KEY UPDATE `menu_name` = VALUES(`menu_name`), `parent_id` = VALUES(`parent_id`), `path` = VALUES(`path`), `component` = VALUES(`component`), `permission` = VALUES(`permission`), `sort` = VALUES(`sort`);
 
--- 授予超级管理员(role_id=1)全量需求治理菜单权限
+-- 3. 仿真实验平台 (一级目录 ID: 20, 排序: 3)
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_name`, `menu_type`, `path`, `component`, `permission`, `sort`)
+VALUES (20, 0, '仿真实验平台', 'M', '/modules', '', 'sim:platform', 3)
+ON DUPLICATE KEY UPDATE `menu_name` = VALUES(`menu_name`), `path` = VALUES(`path`), `sort` = VALUES(`sort`);
+
+-- 4. 系统管理 (一级目录 ID: 10, 排序: 4 - 垫底)
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_name`, `menu_type`, `path`, `component`, `permission`, `sort`)
+VALUES (10, 0, '系统管理', 'M', '/system', '', 'sys:manage', 4)
+ON DUPLICATE KEY UPDATE `menu_name` = VALUES(`menu_name`), `path` = VALUES(`path`), `sort` = VALUES(`sort`);
+
+-- 授予超级管理员(role_id=1)全量菜单权限
 INSERT IGNORE INTO `sys_role_menu` (`role_id`, `menu_id`)
 VALUES
-  (1, 30),
-  (1, 300),
-  (1, 310),
-  (1, 311),
-  (1, 301),
-  (1, 302),
-  (1, 303),
-  (1, 304),
-  (1, 305),
-  (1, 306),
-  (1, 307),
-  (1, 308),
-  (1, 309);
+  (1, 40), (1, 401), (1, 402), (1, 403),
+  (1, 30), (1, 300), (1, 310), (1, 301), (1, 302), (1, 303), (1, 304), (1, 305), (1, 306), (1, 307), (1, 308), (1, 309),
+  (1, 20), (1, 201), (1, 202),
+  (1, 10), (1, 101), (1, 102);
 
 SET FOREIGN_KEY_CHECKS = 1;

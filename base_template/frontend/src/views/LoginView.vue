@@ -25,7 +25,7 @@ const handleLogin = async () => {
     const res = await authStore.login({ username: form.username, password: form.password })
     if (res.code === 200) {
       ElMessage.success('登录成功')
-      router.push('/')
+      router.push('/req/templates')
     }
   } catch (error) {
     // 错误在 request 拦截器统一提示

@@ -10,7 +10,7 @@ const routes = [
   {
     path: '/',
     component: () => import('@/views/layout/Layout.vue'),
-    redirect: '/system/user',
+    redirect: '/req/templates',
     children: [
       {
         path: '/system/user',

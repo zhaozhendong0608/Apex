@@ -94,30 +94,27 @@ const themeOptions: { label: string; value: ThemeType }[] = [
           router
           class="sidebar-menu"
         >
-          <el-sub-menu index="/system">
-            <template #title>
-              <el-icon><Setting /></el-icon>
-              <span>系统管理</span>
-            </template>
-            <el-menu-item index="/system/user">
-              <el-icon><User /></el-icon>
-              <span>用户开户管理</span>
-            </el-menu-item>
-            <el-menu-item index="/system/role">
-              <el-icon><Lock /></el-icon>
-              <span>角色权限管理</span>
-            </el-menu-item>
-          </el-sub-menu>
-          <el-sub-menu index="/modules">
+          <!-- 1. 独立一级模块目录: 工作流工艺资产中心 (排序 1) -->
+          <el-sub-menu index="/workflow-center">
             <template #title>
               <el-icon><Connection /></el-icon>
-              <span>仿真实验平台</span>
+              <span>工作流工艺资产</span>
             </template>
-            <el-menu-item index="/network-sim">
-              <el-icon><Share /></el-icon>
-              <span>网络拓扑仿真</span>
+            <el-menu-item index="/req/templates">
+              <el-icon><DocumentCopy /></el-icon>
+              <span>工作流模板治理</span>
+            </el-menu-item>
+            <el-menu-item index="/req/skills">
+              <el-icon><Cpu /></el-icon>
+              <span>AI Skills 专家中心</span>
+            </el-menu-item>
+            <el-menu-item index="/req/scripts">
+              <el-icon><Tickets /></el-icon>
+              <span>自动化脚本中心</span>
             </el-menu-item>
           </el-sub-menu>
+
+          <!-- 2. 一级模块目录: 需求治理平台 (排序 2) -->
           <el-sub-menu index="/req">
             <template #title>
               <el-icon><Document /></el-icon>
@@ -130,18 +127,6 @@ const themeOptions: { label: string; value: ThemeType }[] = [
             <el-menu-item index="/req/workflow">
               <el-icon><Share /></el-icon>
               <span>工程流水线</span>
-            </el-menu-item>
-            <el-menu-item index="/req/templates">
-              <el-icon><DocumentCopy /></el-icon>
-              <span>工作流模板管理</span>
-            </el-menu-item>
-            <el-menu-item index="/req/skills">
-              <el-icon><Cpu /></el-icon>
-              <span>AI Skills 专家中心</span>
-            </el-menu-item>
-            <el-menu-item index="/req/scripts">
-              <el-icon><Tickets /></el-icon>
-              <span>自动化脚本中心</span>
             </el-menu-item>
             <el-menu-item index="/req/prototypes">
               <el-icon><Picture /></el-icon>
@@ -163,6 +148,34 @@ const themeOptions: { label: string; value: ThemeType }[] = [
             <el-menu-item index="/req/theme">
               <el-icon><Brush /></el-icon>
               <span>外观与工业主题</span>
+            </el-menu-item>
+          </el-sub-menu>
+
+          <!-- 3. 一级模块目录: 仿真实验平台 (排序 3) -->
+          <el-sub-menu index="/modules">
+            <template #title>
+              <el-icon><Share /></el-icon>
+              <span>仿真实验平台</span>
+            </template>
+            <el-menu-item index="/network-sim">
+              <el-icon><Share /></el-icon>
+              <span>网络拓扑仿真</span>
+            </el-menu-item>
+          </el-sub-menu>
+
+          <!-- 4. 一级模块目录: 系统管理 (排序 4 - 垫底) -->
+          <el-sub-menu index="/system">
+            <template #title>
+              <el-icon><Setting /></el-icon>
+              <span>系统管理</span>
+            </template>
+            <el-menu-item index="/system/user">
+              <el-icon><User /></el-icon>
+              <span>用户开户管理</span>
+            </el-menu-item>
+            <el-menu-item index="/system/role">
+              <el-icon><Lock /></el-icon>
+              <span>角色权限管理</span>
             </el-menu-item>
           </el-sub-menu>
         </el-menu>
