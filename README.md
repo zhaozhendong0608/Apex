@@ -25,71 +25,78 @@
 Apex/                                                # 🚀 顶层工作区 (IDE 打开的根目录)
 ├── 🧩 .agents/                                       # 🧩 AI 专属技能包库
 │   └── 📁 skills/
-├── 🧠 .ai/                                           # ⚙️ 统一工作流控制中心 (三层记忆金字塔)
+├── 🧠 .ai/                                           # ⚙️ 统一工作流控制中心（三层记忆金字塔）
 │   ├── 📄 dag_state.json
 │   ├── 🛠️ scripts/                                  # 🛠️ 自动化控制与分析脚本库
-│   ├── 📜 sop/                                       # 📜 全套 00~06 数字 SOP 规则矩阵
-│   ├── 📄 tier1_snapshot.md                          # ：极简快照名片 (tier1_snapshot.md)
-│   ├── 📄 tier2_legacy_arch.md                       # (tier2_legacy_arch.md)
-│   ├── 📄 tier2_modules.md                           # ：大模块矩阵索引表 (tier2_modules.md)
-│   ├── 📄 tier3_handover.md                          # [第三层：微观原子任务层] 历史交接黑匣子 (tier3_handover.md) [DEMO 示例 / 样例模板]
-│   └── 📄 tier3_status.md                            # 📋 任务看板 (Task Board)
+│   ├── 📜 sop/                                       # 📜 全套 16 篇 SOP（主链 0~9 · 旁路 B1~B6）
+│   ├── 📄 tier1_snapshot.md                          # ① 极简快照名片（<30 行，[B6] 复活只读它）
+│   ├── 📄 tier2_legacy_arch.md                       # ② 老项目切片与拓扑图谱元数据池
+│   ├── 📄 tier2_modules.md                           # ② 大模块矩阵索引
+│   ├── 📄 tier3_handover.md                          # ③ 交接黑匣子（append-only 事件日志）
+│   └── 📄 tier3_status.md                            # ③ 任务看板状态机（仅 board.py 可写）
 ├── 🧠 .cursorrules                                   # 🧠 AI 行为约束与数字路由表
 ├── 🧠 .windsurfrules                                 # 🧠 IDE 规则适配文件
 ├── 📄 AI 时代的全流程工程实践：一个需求的生命周期.pptx
-├── 📄 AI_WORKFLOW_TRAINING_PPT_OUTLINE.md            # 《AI 时代的全流程工程实践：一个需求的生命周期》培训 PPT 方案与逐页演讲稿
-├── 📄 BEGINNER_HANDBOOK.md                           # (BEGINNER HANDBOOK)
-├── 📄 CODESENTINEL_BUSINESS_PLAN.md                  # 【商业计划书】CodeSentinel（哨兵工程）：面向 AI 时代的受控研发与需求基线协同平台
+├── 📄 AI_WORKFLOW_TRAINING_PPT_OUTLINE.md            # AI 时代的全流程工程实践：一个需求的生命周期》培训 PPT 方案与逐页演讲稿
+├── 📄 BEGINNER_HANDBOOK.md                           # 🚀 新手辅助开发手册（保姆级上手）
+├── 📄 CODESENTINEL_BUSINESS_PLAN.md                  # 商业计划书】CodeSentinel（哨兵工程）：面向 AI 时代的受控研发与需求基…
 ├── 📖 README.md                                      # 📖 项目门面与使用指南
 ├── 📖 WORKFLOW_GUIDE.md                              # 📖 完整工作流与设计指南
 ├── 📄 ai_memory_dashboard_mockup.html
 ├── 📁 assets/
 │   ├── 📄 mermaid.min.js
 │   └── 📄 x6.min.js
-├── 💻 base_template/                                 # [业务项目名称 / Project Name]
+├── 💻 base_template/                                 # 💻 业务工程脚手架（真实开发在这里）
 │   ├── 🧩 .agents/                                   # 🧩 AI 专属技能包库
 │   ├── 🧠 .cursorrules                               # 🧠 AI 行为约束与数字路由表
 │   ├── 🧠 .windsurfrules                             # 🧠 IDE 规则适配文件
 │   ├── 📖 README.md                                  # 📖 项目门面与使用指南
-│   ├── 📁 backend/                                   # (Backend)
-│   ├── 📁 docs/                                      # 📁 本工程 PRD / 架构 / 设计文档
-│   ├── 📁 frontend/                                  # (Frontend)
+│   ├── 📁 backend/                                   # 后端工程
+│   ├── 📁 frontend/                                  # 前端工程
 │   └── 🛠️ scripts/                                  # 🛠️ 自动化控制与分析脚本库
-├── 📁 docs/                                          # 📁 本工程 PRD / 架构 / 设计文档
-│   ├── 📄 01-requirements.md                         # 🗺️ 01 - 业务需求全景地图与 PRD 导航中心 (Requirements Master MAP)
-│   ├── 📄 02-architecture.md                         # 🏛️ 02 - 概要设计与系统架构图
-│   ├── 📄 03-database-design.md                      # 🗄️ 03 - 数据库设计与 ER 关系规约
-│   ├── 📄 04-api-design.md                           # 🌐 04 - API 接口详细设计规范
-│   ├── 📄 05-known-limitations.md                    # (Workflow Defect & Improvement Board)
-│   ├── 📄 06-legacy-graph-analysis.md                # 🕸️ 老项目路由元数据拆解与关系图谱分析指南 (Legacy Metadata Graph Analysis Guide)
+├── 📁 docs/                                          # 📁 需求 / 设计 / 计划 / 交接文档
+│   ├── 📄 01-requirements.md                         # 01 - 业务需求全景地图与 PRD 导航中心
+│   ├── 📄 02-architecture.md                         # 02 - 概要设计与系统架构图
+│   ├── 📄 03-database-design.md                      # 03 - 数据库设计与 ER 关系规约
+│   ├── 📄 04-api-design.md                           # 04 - API 接口详细设计规范
+│   ├── 📄 05-known-limitations.md                    # 工作流缺陷与改进追溯看板
+│   ├── 📄 06-legacy-graph-analysis.md                # 老项目路由元数据拆解与关系图谱分析指南
 │   ├── 📁 db/
-│   ├── 🎨 design/                                    # /UX 设计规范与主题资产库 (Design Assets Directory)
+│   ├── 🎨 design/                                    # UI/UX 设计规范与主题资产库
 │   ├── 📁 handovers/
-│   ├── 📦 modules/                                   # (Modules Directory)
+│   ├── 📦 modules/                                   # 业务大模块 PRD 与交互原型库
 │   ├── 📁 plans/
 │   ├── 📁 playbooks/
-│   ├── 📁 templates/                                 # 📁 文档与原型外壳模板库 (Templates Directory)
+│   ├── 📁 templates/                                 # 文档与原型外壳模板库
 │   ├── 📁 test-cases/
-│   ├── 📄 user-manual.md                             # (软著申报参考)
+│   ├── 📄 user-manual.md                             # 项目产品使用手册
 │   └── 📁 相关文件/
 ├── 🛠️ scripts/                                      # 🛠️ 自动化控制与分析脚本库
-│   └── 📁 tests/
+│   └── 📄 req_agent_flow.py
+├── 📁 station-device-simulator/
+│   ├── 📁 simulator-core/
+│   ├── 📁 simulator-metadata-mysql/
+│   ├── 📁 simulator-metadata-spi/
+│   ├── 📁 simulator-sink-jsdb/
+│   ├── 📁 simulator-sink-spi/
+│   ├── 📁 simulator-starter/
+│   └── 📁 simulator-ui/
 ├── 📁 storage/
 │   └── 📁 prototypes/
 ├── 📁 training/
 │   ├── 📄 Apex工作流-内部培训.pptx
 │   ├── 📄 build_deck.py
 │   ├── 📄 build_deck_v1_90min.py.bak
-│   ├── 📄 customer-requirement-confirmation-flow.md  # （一句话需求 → 基线 v0.1）
+│   ├── 📄 customer-requirement-confirmation-flow.md  # 客户需求确认流程（一句话需求 → 基线 v0.1）
 │   ├── 📄 deck_lib.py
 │   ├── 📄 export_slides.applescript
 │   ├── 📄 fontpath.py
 │   ├── 📄 preview.py
-│   └── 📄 需求确认清单模板.md                                # .1
+│   └── 📄 需求确认清单模板.md                                # 需求确认清单 v0.1
 ├── 📄 workflow_guide.html
-├── 📄 工作流问题待办.md                                     # 📋 Apex 工作流问题诊断与优化待办清单 (Workflow Issue & Action Plan)
-├── 📄 需求全生命周期管理-蓝皮书.md                               # · 蓝皮书 v0.2
-└── 📄 需求管理平台-页面清单与线框.md                              # · 页面清单与线框
+├── 📄 工作流问题待办.md                                     # Apex 工作流问题诊断与优化待办清单
+├── 📄 需求全生命周期管理-蓝皮书.md                               # 需求与版本管理平台 · 蓝皮书 v0.2
+└── 📄 需求管理平台-页面清单与线框.md                              # 需求与版本管理平台 · 页面清单与线框
 ```
 <!-- AUTO-TREE-MACRO:END -->
 

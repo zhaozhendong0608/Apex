@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>原型 · 工程流水线拓扑数据驱动改造 (FR-REQ-WFC-02)</title>
+<style>
+  :root{--bg:#f4f6fa;--panel:#fff;--border:#dfe5ee;--text:#1f2937;--muted:#6b7280;
+    --primary:#2563eb;--soft:#e8efff;--dark:#0e1726;--line:#1e293b;--ok:#059669;--err:#dc2626}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:13px/1.6 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+  .wrap{max-width:1240px;margin:0 auto;padding:24px 20px 44px}
+  header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:16px}
+  h1{font-size:20px;margin:0 0 5px}
+  .sub{color:var(--muted);font-size:12.5px;margin:0}
+  .badge{background:var(--soft);color:var(--primary);border:1px solid #c7d9ff;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;white-space:nowrap}
+  .note{background:#fffbeb;border:1px solid #fcd34d;border-radius:9px;padding:9px 13px;margin-bottom:16px;color:#92400e;font-size:12px}
+  .note b{color:#b45309}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:0 1px 3px rgba(16,24,40,.04)}
+  .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px 14px;border-bottom:1px solid var(--border)}
+  .bar label{font-size:11.5px;color:var(--muted)}
+  select,.btn{font:inherit;font-size:12px;padding:5px 10px;border:1px solid #cbd5e1;border-radius:7px;background:#fff;color:#334155;cursor:pointer}
+  .btn:hover{border-color:var(--primary);color:var(--primary)}
+  .btn.active{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:700}
+  .btn.danger{border-color:#fca5a5;color:#b91c1c}
+  .btn.danger.active{background:var(--err);border-color:var(--err);color:#fff}
+  .spacer{flex:1}
+  .meter{display:flex;gap:9px;flex-wrap:wrap;padding:10px 14px;background:#0e1726;border-radius:9px 9px 0 0}
+  .meter div{background:#111f33;border:1px solid #24354c;border-radius:7px;padding:4px 9px;font-size:11.5px;color:#94a3b8}
+  .meter b{color:#4ade80;font-variant-numeric:tabular-nums}
+  .viewport{height:360px;width:100%;overflow:auto;border:1px solid #334155;border-radius:0 0 9px 9px;background:#0b1320;position:relative;
+    scrollbar-color:#3b4d68 #0b1320;scrollbar-width:thin}
+  .viewport::-webkit-scrollbar{width:12px;height:12px}
+  .viewport::-webkit-scrollbar-track{background:#0b1320}
+  .viewport::-webkit-scrollbar-thumb{background:#3b4d68;border:2px solid #0b1320;border-radius:8px}
+  .canvas{position:relative;width:1450px;height:520px;background-color:#0e1726;
+    background-image:linear-gradient(#1e293b 1px,transparent 1px),linear-gradient(90deg,#1e293b 1px,transparent 1px);background-size:28px 28px}
+  .zone{position:absolute;border:1px dashed #334f75;border-radius:10px;background:rgba(30,58,95,.12)}
+  .zone span{position:absolute;top:-9px;left:14px;background:#0e1726;padding:0 7px;color:#7dd3fc;font-size:11px}
+  .node{position:absolute;width:150px;min-height:54px;padding:8px 9px;border-radius:7px;background:#172338;
+    border:1px solid #3b557a;color:#e2e8f0;font-size:11px;cursor:pointer;user-select:none;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+  .node:hover{border-color:#60a5fa}
+  .node.sel{outline:2px solid #60a5fa;outline-offset:1px}
+  .node .c{font-weight:700;font-size:11.5px;display:block}
+  .node .n{color:#cbd5e1;font-size:10.5px;display:block;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .node .s{font-size:10px;margin-top:4px;display:inline-block;padding:1px 6px;border-radius:10px}
+  .s.DONE{background:#064e3b;color:#6ee7b7}.s.ACTIVE{background:#1e40af;color:#bfdbfe}.s.PENDING{background:#334155;color:#cbd5e1}
+  .links{position:absolute;inset:0;pointer-events:none}
+  .errbox{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#fca5a5;text-align:center}
+  .errbox h3{margin:0;font-size:15px;color:#fecaca}
+  .errbox p{margin:0;font-size:12px;color:#94a3b8;max-width:460px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+  .pane{padding:13px 15px}
+  .pane h3{font-size:13px;margin:0 0 9px}
+  .pane .row{display:flex;gap:8px;padding:5px 0;border-bottom:1px dashed var(--border);font-size:12px}
+  .pane .row span:first-child{color:var(--muted);min-width:78px;flex-shrink:0}
+  pre{margin:0;max-height:170px;overflow:auto;background:#0f172a;color:#a5f3fc;border-radius:8px;padding:11px;font:11px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace}
+  .checklist{margin:9px 0 0;padding-left:20px;font-size:12.5px;color:#374151}
+  .checklist li{margin:3px 0}
+  footer{margin-top:18px;color:var(--muted);font-size:11.5px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>🗺️ 工程流水线拓扑 · 数据驱动改造 交互原型</h1>
+      <p class="sub">需求 FR-REQ-WFC-02 ｜ 参考 WORKFLOW_GUIDE.md §2 / §8 / §9 ｜ 口径：现行 16 篇 SOP ｜ 零依赖</p>
+    </div>
+    <span class="badge">[1] 需求规划 · 待 Sign-off</span>
+  </header>
+
+  <div class="note">
+    <b>原型说明：</b>下方节点、连线、文案、状态全部由「接口响应样例 JSON」渲染 —— <b>改 JSON 页面就变</b>，前端不再写死任何节点。
+    样例数据仅用于演示；<b>生产实现严禁内置兜底数据</b>，接口失败必须显示错误态与重试，不得静默降级、不得假报成功。
+  </div>
+
+  <div class="card">
+    <div class="bar">
+      <label>需求</label>
+      <select id="reqSel">
+        <option value="REQ-001">REQ-001 · 需求工作台全景动态对接</option>
+        <option value="REQ-002">REQ-002 · 设备在线状态看板</option>
+        <option value="REQ-003">REQ-003 · 新需求（首次访问）</option>
+      </select>
+      <label>轨道</label>
+      <button class="btn active" id="btnL">标准主链 L（0~9）</button>
+      <button class="btn" id="btnS">极速快轨 S（B1~B6）</button>
+      <div class="spacer"></div>
+      <button class="btn danger" id="btnFail">模拟接口失败</button>
+      <button class="btn" id="btnRetry">重试取数</button>
+    </div>
+
+    <div class="meter">
+      <div>接口 <b id="mApi">GET /req/workflow/topology + state</b></div>
+      <div>节点数 <b id="mNodes">—</b></div>
+      <div>连线数 <b id="mEdges">—</b></div>
+      <div>前端硬编码节点 <b>0</b></div>
+      <div>可视框高度 <b>360 px</b></div>
+    </div>
+
+    <div class="viewport" id="viewport">
+      <div class="canvas" id="canvas">
+        <svg class="links" id="links" width="1450" height="520"></svg>
+        <div id="zones"></div><div id="nodes"></div>
+      </div>
+      <div id="errSlot"></div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card pane">
+      <h3>📦 节点详情（点击画布节点）</h3>
+      <div id="detail"><div class="row"><span>提示</span><span>点击任意节点查看 Skill 绑定与输出产物</span></div></div>
+    </div>
+    <div class="card pane">
+      <h3>🔌 当前接口响应样例（片段）</h3>
+      <pre id="jsonView">—</pre>
+    </div>
+  </div>
+
+  <div class="card pane" style="margin-top:14px">
+    <h3>✅ 原型验收 Sign-off 清单</h3>
+    <ol class="checklist">
+      <li>节点 / 连线 / 大区 / 文案完全由样例 JSON 渲染，前端零节点字面量</li>
+      <li>L 级 0~9 与 S 级 B1~B6 双轨切换，两套数据独立、无残留</li>
+      <li>切换 REQ-001 / 002 / 003 时节点状态随之变化，体现需求间隔离</li>
+      <li>「模拟接口失败」后只出现错误态与重试，<b>不出现任何兜底节点、不弹成功提示</b></li>
+      <li>节点详情可读到 Skill 绑定与输出产物（取自指南 §8 全景表）</li>
+      <li>画布仍是 360px 可视框 + 滚动条，兼容 Task-510 已冻结契约</li>
+    </ol>
+  </div>
+
+  <footer>PRD · SRS · TC 三轨资产同步落盘 ｜ 表结构与接口字段由 [2] 技术方案冻结，本阶段不写 DDL</footer>
+</div>
+
+<script>
+(function(){
+  const DICT = {
+    "0":{t:"体系总览",role:"全员/架构师",skill:"—",art:"阶段对照与决策指引",gate:"轨道总表与指令映射"},
+    "1":{t:"需求规划",role:"产品/张工",skill:"requirement-discovery",art:"需求基线草案 · 业务规则与边界",gate:"四层清单齐备"},
+    "2":{t:"技术方案",role:"架构师/李工",skill:"design-spec-architect",art:"docs/02-architecture.md · detail.md",gate:"契约冻结在编码之前"},
+    "3":{t:"TDD 编码",role:"研发/李工",skill:"coding-standards",art:"业务源码 · 第三方联调日志",gate:"单测真红→真绿"},
+    "4":{t:"CR 机器门禁",role:"看门狗探针",skill:"code-quality-reviewer",art:"gate.py 门禁报告 LGTM/BLOCKING",gate:"gate.py --staged [LGTM]"},
+    "5":{t:"人工评审",role:"架构师/程工",skill:"code-quality-reviewer",art:"人工评审报告 APPROVED/CHANGES",gate:"人工签字核准（不改状态）"},
+    "6":{t:"集成穿透",role:"测试/王工",skill:"quality-verifier",art:"IT/E2E 验证报告 · 0 Error 构建",gate:"TC 用例 100% 碰撞通过"},
+    "7":{t:"双向验收",role:"交付/张工",skill:"quality-verifier",art:"4 维终验清单 · 黑匣子 · 名片刷新",gate:"verify + 人工放行 + --accept"},
+    "8":{t:"容器部署",role:"运维/李工",skill:"—",art:"docker-compose.yml · install.sh",gate:"健康检查通过"},
+    "9":{t:"Git 发布",role:"交付/张工",skill:"—",art:"提交/Tag · migrations 升级+回滚配对",gate:"三级回滚预案就绪"},
+    "B1":{t:"老项目破局",role:"架构师/程工",skill:"legacy-archaeologist",art:"tier2_legacy_arch.md · 拓扑图谱",gate:"4D 元数据提取完成"},
+    "B2":{t:"极速微创",role:"研发/李工",skill:"quality-verifier",art:"直修源码 · tier1_snapshot 刷新",gate:"单文件 ≤20 行"},
+    "B3":{t:"开发期排错",role:"研发/李工",skill:"quality-verifier",art:"小黄鸭根因报告 · 1~2 行微创",gate:"根因验证通过"},
+    "B4":{t:"生产排障",role:"运维/李工",skill:"quality-verifier",art:"排障诊断 · 防御性单测",gate:"先保现场再取证"},
+    "B5":{t:"上下文归档",role:"交付/张工",skill:"—",art:"tier3_handover.md · handover-*.md",gate:"无任务收工时追加"},
+    "B6":{t:"续航复活",role:"全员",skill:"—",art:"断点复活提示（当前 ACTIVE Task）",gate:"0.5s 读极简名片"}
+  };
+  function N(code,x,y){const d=DICT[code];return {stageCode:code,title:d.t,role:d.role,skill:d.skill,artifacts:d.art,gate:d.gate,x:x,y:y};}
+
+  const RESPONSE = {
+    STANDARD:{
+      track:"STANDARD",
+      zones:[
+        {code:"Z-PLAN",label:"① 规划与设计",x:20,y:20,w:420,h:200},
+        {code:"Z-BUILD",label:"② 编码与门禁",x:460,y:20,w:600,h:200},
+        {code:"Z-SHIP",label:"③ 评审 · 验收 · 交付",x:20,y:250,w:1040,h:230}
+      ],
+      nodes:[N("0",40,80),N("1",200,80),N("2",360,80),N("3",480,80),N("4",640,80),N("5",800,80),N("6",960,80),N("7",40,310),N("8",200,310),N("9",360,310)],
+      edges:[["0","1"],["1","2"],["2","3"],["3","4"],["4","5"],["5","6"],["6","7"],["7","8"],["8","9"]]
+    },
+    FASTTRACK:{
+      track:"FASTTRACK",
+      zones:[{code:"Z-BYPASS",label:"⚡ 旁路矩阵（免看板状态机 · 随时插入不改 ACTIVE）",x:20,y:20,w:1060,h:430}],
+      nodes:[N("B1",40,90),N("B2",220,90),N("B3",400,90),N("B4",580,90),N("B5",760,90),N("B6",940,90)],
+      edges:[["B1","B2"],["B2","B3"],["B3","B4"],["B4","B5"],["B5","B6"]]
+    }
+  };
+
+  const STATE = {
+    "REQ-001":{STANDARD:{"0":"DONE","1":"ACTIVE","2":"PENDING","3":"PENDING","4":"PENDING","5":"PENDING","6":"PENDING","7":"PENDING","8":"PENDING","9":"PENDING"},
+               FASTTRACK:{"B1":"DONE","B2":"ACTIVE","B3":"PENDING","B4":"PENDING","B5":"PENDING","B6":"PENDING"}},
+    "REQ-002":{STANDARD:{"0":"DONE","1":"DONE","2":"DONE","3":"ACTIVE","4":"PENDING","5":"PENDING","6":"PENDING","7":"PENDING","8":"PENDING","9":"PENDING"},
+               FASTTRACK:{"B1":"DONE","B2":"DONE","B3":"ACTIVE","B4":"PENDING","B5":"PENDING","B6":"PENDING"}},
+    "REQ-003":{STANDARD:{"0":"ACTIVE","1":"PENDING","2":"PENDING","3":"PENDING","4":"PENDING","5":"PENDING","6":"PENDING","7":"PENDING","8":"PENDING","9":"PENDING"},
+               FASTTRACK:{"B1":"ACTIVE","B2":"PENDING","B3":"PENDING","B4":"PENDING","B5":"PENDING","B6":"PENDING"}}
+  };
+
+  let track="STANDARD", reqCode="REQ-001", failed=false, selected=null;
+  const $=id=>document.getElementById(id);
+
+  function render(){
+    const vp=$("viewport"), cv=$("canvas"), er=$("errSlot");
+    $("btnL").classList.toggle("active",track==="STANDARD");
+    $("btnS").classList.toggle("active",track==="FASTTRACK");
+    $("btnFail").classList.toggle("active",failed);
+    $("btnFail").textContent=failed?"停止模拟失败":"模拟接口失败";
+
+    if(failed){
+      cv.style.display="none";
+      $("nodes").innerHTML="";$("zones").innerHTML="";$("links").innerHTML="";
+      er.innerHTML='<div class="errbox"><h3>⚠ 取数失败：GET /req/workflow/topology 返回 500</h3>'+
+        '<p>已停止渲染，未使用任何本地兜底节点；也不会提示「操作成功」。请检查服务后点击「重试取数」。</p>'+
+        '<button class="btn" onclick="document.getElementById(\'btnRetry\').click()">重试取数</button></div>';
+      $("mApi").textContent="HTTP 500 · 已阻断";
+      $("mNodes").textContent="0";$("mEdges").textContent="0";
+      $("jsonView").textContent='{ "code": 500, "message": "流程定义查询失败", "data": null }';
+      $("detail").innerHTML='<div class="row"><span>状态</span><span>错误态，无详情可展示</span></div>';
+      return;
+    }
+
+    cv.style.display="block"; er.innerHTML="";
+    const data=RESPONSE[track], st=STATE[reqCode][track];
+    $("mApi").textContent="GET /req/workflow/topology + state · 200";
+    $("mNodes").textContent=data.nodes.length;$("mEdges").textContent=data.edges.length;
+    $("zones").innerHTML=data.zones.map(z=>
+      `<div class="zone" style="left:${z.x}px;top:${z.y}px;width:${z.w}px;height:${z.h}px"><span>${z.label}</span></div>`).join("");
+    $("nodes").innerHTML=data.nodes.map(n=>{
+      const s=st[n.stageCode]||"PENDING", label=s==="DONE"?"已完成":(s==="ACTIVE"?"进行中":"待开始");
+      return `<div class="node${selected===n.stageCode?" sel":""}" data-c="${n.stageCode}" style="left:${n.x}px;top:${n.y}px">`+
+        `<span class="c">[${n.stageCode}] ${n.title}</span><span class="n">${n.role}</span>`+
+        `<span class="s ${s}">${label}</span></div>`;
+    }).join("");
+    let s='<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#3b6fa8"/></marker></defs>';
+    data.edges.forEach(([a,b])=>{
+      const na=data.nodes.find(n=>n.stageCode===a), nb=data.nodes.find(n=>n.stageCode===b);
+      if(!na||!nb)return;
+      s+=`<line x1="${na.x+150}" y1="${na.y+27}" x2="${nb.x}" y2="${nb.y+27}" stroke="#3b6fa8" stroke-width="1.5" marker-end="url(#ar)"/>`;
+    });
+    $("links").innerHTML=s;
+    $("jsonView").textContent=JSON.stringify({code:200,data:{track:data.track,reqCode:reqCode,
+      nodeCount:data.nodes.length,edgeCount:data.edges.length,
+      firstNode:data.nodes[0],nodeStates:st}},null,2);
+    $("nodes").querySelectorAll(".node").forEach(el=>el.onclick=()=>{selected=el.dataset.c;render();showDetail();});
+    showDetail();
+  }
+
+  function showDetail(){
+    const data=RESPONSE[track], n=data.nodes.find(x=>x.stageCode===selected);
+    if(!n){$("detail").innerHTML='<div class="row"><span>提示</span><span>点击任意节点查看 Skill 绑定与输出产物</span></div>';return;}
+    const s=STATE[reqCode][track][n.stageCode]||"PENDING";
+    $("detail").innerHTML=
+      `<div class="row"><span>阶段编号</span><strong>[${n.stageCode}] ${n.title}</strong></div>`+
+      `<div class="row"><span>当前状态</span><span>${s}</span></div>`+
+      `<div class="row"><span>职责角色</span><span>${n.role}</span></div>`+
+      `<div class="row"><span>绑定 Skill</span><span>${n.skill}</span></div>`+
+      `<div class="row"><span>输出产物</span><span>${n.artifacts}</span></div>`+
+      `<div class="row"><span>通过门禁</span><span>${n.gate}</span></div>`;
+  }
+
+  $("btnL").onclick=()=>{track="STANDARD";selected=null;render();};
+  $("btnS").onclick=()=>{track="FASTTRACK";selected=null;render();};
+  $("reqSel").onchange=e=>{reqCode=e.target.value;selected=null;render();};
+  $("btnFail").onclick=()=>{failed=!failed;render();};
+  $("btnRetry").onclick=()=>{failed=false;render();};
+  render();
+})();
+</script>
+</body>
+</html>

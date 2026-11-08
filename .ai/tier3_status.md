@@ -7,6 +7,11 @@
 
 <!-- SECTION:ACTIVE:START -->
 
+[Task-510] [S1-Bone] 画布尺寸契约与 X6 尺寸回写隔离
+- **Status**: IN_PROGRESS
+- **功能目标**: 确立外层可视框与内层内容画布的尺寸契约，切断 autoResize 回写引发的 ResizeObserver 正反馈，可视框高度恒为 360px
+- **涉及文件**: base_template/frontend/src/modules/req-management/views/ReqManagementView.vue
+
 <!-- SECTION:ACTIVE:END -->
 
 ---
@@ -20,6 +25,35 @@
 
 <!-- SECTION:TODO:START -->
 
+[Task-511] [S2-Muscle] 360px 可视区滚动条与平移/拖拽共存
+- **Status**: TODO
+- **功能目标**: 接真实交互与样式：内容超出用滚动条查看，保留画布平移、节点拖拽与 Ctrl+滚轮缩放，L/S 切换重绘后尺寸仍稳定
+- **涉及文件**: base_template/frontend/src/modules/req-management/views/ReqManagementView.vue
+
+[Task-512] [S3-Stub] 尺寸稳定性回归探针与 TC 挂接
+- **Status**: TODO
+- **功能目标**: 落自动化探针验证 3 秒尺寸方差为 0、滚动可达末节点、平移不改滚动偏移，挂接 TC-WFC 三类矩阵
+- **涉及文件**: docs/test-cases/workflow-canvas-viewport-testcase.md,base_template/frontend/src/modules/req-management/views/ReqManagementView.vue
+
+[Task-513] [S1-Bone] SOP 流程定义与工位状态数据模型 + Migration 配对
+- **Status**: TODO
+- **功能目标**: 新建流程节点/连线/工位状态表并初始化 16 篇 SOP 定义，落 V*.sql 与 rollback_V*.sql 配对，冻结接口字段与错误码
+- **涉及文件**: docs/db/migrations/,docs/db/service.sql,base_template/backend/platform-server/src/main/java/com/apex/req
+
+[Task-514] [S2-Muscle] 后端拓扑/状态/推进接口与 SOP 定义同步
+- **Status**: TODO
+- **功能目标**: 提供 topology/state/advance/sync-from-sop 接口，停用 .ai/dag_state.json 文件读写，统一 current_node 字段并对失败返回真实错误
+- **涉及文件**: base_template/backend/platform-server/src/main/java/com/apex/req/controller/WorkflowController.java,base_template/frontend/src/api/req.ts
+
+[Task-515] [S2-Muscle] 前端数据驱动渲染与错误态改造
+- **Status**: TODO
+- **功能目标**: 删除 pipelineNodes/fasttrackNodes 硬编码，L/S 双轨全量由接口渲染，补错误态与重试，修掉假成功提示与兜底假值
+- **涉及文件**: base_template/frontend/src/modules/req-management/views/ReqManagementView.vue
+
+[Task-516] [S3-Stub] 数据驱动回归探针与 TC 挂接
+- **Status**: TODO
+- **功能目标**: 落 TC-WFC2 三类矩阵自动化探针，含接口失败不降级、状态落库、字段错位回归，并复跑 Task-510 画布 8 条探针
+- **涉及文件**: scripts/tests/,docs/test-cases/workflow-sop-data-driven-testcase.md
 <!-- SECTION:TODO:END -->
 
 ---

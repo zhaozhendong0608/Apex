@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>原型 · 工程流水线拓扑画布可视区治理 (FR-REQ-WFC-01)</title>
+<style>
+  :root{
+    --bg:#f4f6fa; --panel:#fff; --border:#dfe5ee; --text:#1f2937; --muted:#6b7280;
+    --primary:#2563eb; --primary-soft:#e8efff; --dark:#0e1726; --dark-line:#1e293b;
+    --good:#059669; --bad:#dc2626; --radius:10px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;font-size:13px;line-height:1.6}
+  .wrap{max-width:1280px;margin:0 auto;padding:26px 22px 48px}
+  header{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:20px}
+  h1{font-size:21px;margin:0 0 6px}
+  .sub{color:var(--muted);font-size:12.5px;margin:0}
+  .badge{display:inline-block;background:var(--primary-soft);color:var(--primary);
+    border:1px solid #c7d9ff;padding:3px 10px;border-radius:20px;font-size:11.5px;font-weight:700;white-space:nowrap}
+  .notice{background:#fffbeb;border:1px solid #fcd34d;border-radius:var(--radius);
+    padding:10px 14px;margin-bottom:18px;color:#92400e;font-size:12.5px}
+  .notice b{color:#b45309}
+  .layout{display:grid;grid-template-columns:280px 1fr;gap:18px;align-items:start}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 1px 3px rgba(16,24,40,.04)}
+  .side{padding:16px}
+  .side h3{font-size:13px;margin:0 0 12px}
+  .req{padding:10px 12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:default}
+  .req.on{border-color:var(--primary);background:var(--primary-soft)}
+  .req .code{font-weight:700;font-size:12px}
+  .req .t{color:var(--muted);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .main{padding:16px}
+  .bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+  .bar h2{font-size:14px;margin:0;color:#f8fafc}
+  .canvas-card{background:var(--dark);border:1px solid #263349;border-radius:var(--radius);padding:14px}
+  .btn{border:1px solid #334155;background:#1e293b;color:#cbd5e1;border-radius:7px;
+    padding:5px 11px;font-size:11.5px;cursor:pointer;font-family:inherit;transition:.15s}
+  .btn:hover{border-color:#60a5fa;color:#fff}
+  .btn.active{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:700}
+  .btn.ghost{background:transparent}
+  .tag{font-size:10.5px;padding:2px 8px;border-radius:20px;background:#1e3a5f;color:#93c5fd;border:1px solid #2b4a70}
+  .meter{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 10px}
+  .meter div{background:#111f33;border:1px solid #24354c;border-radius:7px;padding:5px 10px;font-size:11.5px;color:#94a3b8}
+  .meter b{color:#e2e8f0;font-variant-numeric:tabular-nums}
+  .meter .ok b{color:#4ade80}
+  .viewport{height:360px;width:100%;overflow:auto;border:1px solid #334155;border-radius:8px;background:#0b1320;position:relative}
+  .viewport::-webkit-scrollbar{width:12px;height:12px}
+  .viewport::-webkit-scrollbar-track{background:#0b1320;border-radius:8px}
+  .viewport::-webkit-scrollbar-thumb{background:#3b4d68;border:2px solid #0b1320;border-radius:8px}
+  .viewport::-webkit-scrollbar-thumb:hover{background:#5b7396}
+  .viewport.panning-on{cursor:grab}
+  .viewport.panning-on:active{cursor:grabbing}
+  .canvas{position:relative;width:1450px;height:820px;transform-origin:0 0;
+    background-color:#0e1726;
+    background-image:linear-gradient(#1e293b 1px,transparent 1px),linear-gradient(90deg,#1e293b 1px,transparent 1px);
+    background-size:28px 28px}
+  .zone{position:absolute;border:1px dashed #334f75;border-radius:10px;background:rgba(30,58,95,.12)}
+  .zone span{position:absolute;top:-9px;left:14px;background:#0e1726;padding:0 7px;color:#7dd3fc;font-size:11px}
+  .node{position:absolute;width:132px;min-height:48px;padding:8px 9px;border-radius:7px;
+    background:#172338;border:1px solid #3b557a;color:#e2e8f0;font-size:11px;cursor:grab;user-select:none;
+    box-shadow:0 2px 8px rgba(0,0,0,.35)}
+  .node:active{cursor:grabbing}
+  .node.hot{background:#1d4ed8;border-color:#60a5fa}
+  .node .n{font-weight:700;font-size:11.5px;display:block}
+  .node .d{color:#94a3b8;font-size:10px;display:block;margin-top:2px}
+  .links{position:absolute;inset:0;pointer-events:none}
+  .hint{color:#94a3b8;font-size:11.5px;margin-top:10px}
+  .below{margin-top:14px;background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:12px 14px;color:#92400e;font-size:12px}
+  .below b{display:block;font-size:12.5px;margin-bottom:3px}
+  .compare{margin-top:18px;padding:16px}
+  .compare h3{font-size:14px;margin:0 0 12px}
+  .cmp{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .cmp>div{border:1px solid var(--border);border-radius:9px;padding:13px}
+  .cmp .bad{background:#fef2f2;border-color:#fecaca}
+  .cmp .good{background:#f0fdf4;border-color:#bbf7d0}
+  .cmp h4{font-size:12.5px;margin:0 0 8px}
+  .cmp .bad h4{color:var(--bad)} .cmp .good h4{color:var(--good)}
+  .num{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;font-weight:700}
+  .cmp .bad .num{color:var(--bad)} .cmp .good .num{color:var(--good)}
+  .cmp p{font-size:11.5px;color:var(--muted);margin:6px 0 0}
+  .checklist{margin:14px 0 0;padding-left:20px;font-size:12.5px;color:#374151}
+  .checklist li{margin:3px 0}
+  footer{margin-top:20px;color:var(--muted);font-size:11.5px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>🗺️ 工程流水线拓扑画布可视区治理 · 交互原型</h1>
+      <p class="sub">需求 FR-REQ-WFC-01 ｜ 页面 <code>/req/workflow</code> ｜ 配套 PRD / SRS / TC 见 docs 目录 ｜ 本页零依赖，可直接打开</p>
+    </div>
+    <span class="badge">[1] 需求规划 · 待 Sign-off</span>
+  </header>
+
+  <div class="notice">
+    <b>要解决的问题：</b>X6 把自身宽高写回挂载容器，与 <code>autoResize</code> 形成正反馈 —— 实测 2 秒内画布从 49889×110470 涨到 51045×113054，把整张卡片撑到 11 万像素高。
+    本原型演示修复后的行为：<b>可视框恒 360px + 超出用滚动条 + 平移与拖拽仍可用</b>。
+  </div>
+
+  <div class="layout">
+    <div class="card side">
+      <h3>📋 待办与在研需求</h3>
+      <div class="req on"><div class="code">REQ-001</div><div class="t">画布可视区高度治理与滚动可达性</div></div>
+      <div class="req"><div class="code">REQ-002</div><div class="t">项目级联删除与基线解冻</div></div>
+      <div class="req"><div class="code">REQ-003</div><div class="t">客户免登录签名回执</div></div>
+      <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--border);color:var(--muted);font-size:11.5px">
+        左列仅为版式参照，<b style="color:var(--text)">本次不改</b>。
+      </div>
+    </div>
+
+    <div class="main card" style="padding:0;background:transparent;border:none;box-shadow:none">
+      <div class="canvas-card">
+        <div class="bar">
+          <div>
+            <h2>🗺️ AntV X6 真实有向无环拓扑图 (支持画布平移与节点拖拽)</h2>
+            <span class="tag" id="trackTag">🛡️ L级标准工程闭环拓扑 (3大区隔离)</span>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="btn active" id="btnL">大需求全链路 (L级)</button>
+            <button class="btn" id="btnS">⚡ 小Bug极速修补 (S级)</button>
+            <button class="btn ghost" id="btnPan">平移：开</button>
+            <button class="btn ghost" id="btnReset">重置视图</button>
+          </div>
+        </div>
+
+        <div class="meter">
+          <div class="ok">可视框高度 <b id="mH">360</b> px</div>
+          <div>可视框宽度 <b id="mW">—</b> px</div>
+          <div>内容画布 <b>1450 × 820</b> px</div>
+          <div>滚动位置 <b id="mScroll">0 / 0</b></div>
+          <div class="ok">尺寸采样 <b id="mSamples">稳定</b></div>
+        </div>
+
+        <div class="viewport panning-on" id="viewport">
+          <div class="canvas" id="canvas">
+            <svg class="links" id="links" width="1450" height="820"></svg>
+            <div id="zones"></div>
+            <div id="nodes"></div>
+          </div>
+        </div>
+
+        <div class="hint">💡 滚轮 / 拖动滚动条可浏览超出部分；开启「平移」后在空白处按住左键拖动可移动视角（滚动条位置不会被牵动）；节点可单独拖拽。</div>
+      </div>
+
+      <div class="below">
+        <b>⚡ 研发旁路与自愈矩阵 (B1~B6 · 下方面板)</b>
+        本面板仅作位置参照。修复后画布高度恒定，它不会被撑到看不见的位置；本次<b>不修改</b>它的内容，也不放开整页滚动。
+      </div>
+    </div>
+  </div>
+
+  <div class="card compare">
+    <h3>📊 修复前 / 修复后 对照</h3>
+    <div class="cmp">
+      <div class="bad">
+        <h4>❌ 修复前（实测）</h4>
+        <div>画布尺寸 <span class="num" id="badNum">49,889 × 110,470</span></div>
+        <div style="margin-top:6px">2 秒后 <span class="num" id="badNum2">51,045 × 113,054</span> <span style="color:var(--bad)">↑ 持续增长</span></div>
+        <p>容器被 X6 回写尺寸 → ResizeObserver 正反馈 → 页面被撑爆，全屏模式下还滚不动。</p>
+        <button class="btn ghost" id="btnSim" style="margin-top:9px;border-color:#fca5a5;color:#b91c1c">▶ 模拟持续膨胀</button>
+      </div>
+      <div class="good">
+        <h4>✅ 修复后（本原型）</h4>
+        <div>可视框高度 <span class="num">360 px（恒定）</span></div>
+        <div style="margin-top:6px">超出内容 <span class="num">滚动条可达</span> <span style="color:var(--good)">✓ 尺寸零增长</span></div>
+        <p>尺寸只由外层布局决定；滚动、平移、拖拽、缩放互不干扰；L/S 切换与重绘后仍稳定。</p>
+      </div>
+    </div>
+    <h3 style="margin-top:18px">✅ 原型验收 Sign-off 清单</h3>
+    <ol class="checklist">
+      <li>可视框高度读数恒为 360px，切换 L/S 轨道后不变</li>
+      <li>内部大画布超出时可用纵向 / 横向滚动条看全节点</li>
+      <li>开启平移后拖空白可移动视角，滚动条位置不被牵动（对照「滚动位置」读数）</li>
+      <li>对照面板能看到「修复前持续膨胀」与「修复后恒定」的差异</li>
+      <li>下方面板位置不被画布撑走</li>
+    </ol>
+  </div>
+
+  <footer>PRD · SRS · TC 三轨资产均已落盘 ｜ 原型 Sign-off 由用户本人完成，[7] 终验需显式放行</footer>
+</div>
+
+<script>
+(function(){
+  const vp = document.getElementById('viewport');
+  const canvas = document.getElementById('canvas');
+  const nodesEl = document.getElementById('nodes');
+  const zonesEl = document.getElementById('zones');
+  const links = document.getElementById('links');
+
+  const DATA = {
+    L: {
+      tag:'🛡️ L级标准工程闭环拓扑 (3大区隔离)',
+      zones:[
+        {x:30,y:70,w:1390,h:210,label:'① 需求澄清与基线'},
+        {x:30,y:310,w:1390,h:210,label:'② 方案设计与 TDD 编码'},
+        {x:30,y:550,w:1390,h:230,label:'③ 门禁 · 联调 · 交付'}
+      ],
+      nodes:[
+        {x:70,y:130,t:'SOP-00',d:'体系总览',hot:true},
+        {x:250,y:130,t:'SOP-01',d:'规划切片'},
+        {x:430,y:130,t:'SOP-02',d:'方案设计'},
+        {x:610,y:130,t:'TC-GEN',d:'测试用例'},
+        {x:790,y:130,t:'SIGN-OFF',d:'人工放行'},
+        {x:70,y:370,t:'SOP-03',d:'TDD 编码'},
+        {x:250,y:370,t:'SOP-04',d:'机器门禁'},
+        {x:430,y:370,t:'SOP-05',d:'人工评审'},
+        {x:610,y:370,t:'SOP-06',d:'集成测试'},
+        {x:70,y:610,t:'SOP-07',d:'终验门禁'},
+        {x:250,y:610,t:'SOP-08',d:'容器部署'},
+        {x:430,y:610,t:'SOP-09',d:'Git 发布'},
+        {x:610,y:610,t:'B5',d:'归档交接'},
+        {x:790,y:610,t:'B6',d:'断点重连'},
+        {x:1000,y:370,t:'DAG',d:'算子状态机'},
+        {x:1180,y:370,t:'COST',d:'代价折算'}
+      ]
+    },
+    S: {
+      tag:'⚡ S级极速快轨 (B1~B6 旁路矩阵)',
+      zones:[
+        {x:30,y:70,w:1390,h:300,label:'① 存量 / 快修 / 排错'},
+        {x:30,y:400,w:1390,h:360,label:'② 归档与断点恢复'}
+      ],
+      nodes:[
+        {x:70,y:140,t:'B1',d:'老项目破局',hot:true},
+        {x:250,y:140,t:'B2',d:'极速微创修补'},
+        {x:430,y:140,t:'B3',d:'开发期排错'},
+        {x:610,y:140,t:'B4',d:'线上排障'},
+        {x:790,y:140,t:'B5',d:'上下文归档'},
+        {x:970,y:140,t:'B6',d:'续航恢复'},
+        {x:70,y:470,t:'TASK-510',d:'S1-Bone 尺寸契约'},
+        {x:250,y:470,t:'TASK-511',d:'S2-Muscle 交互'},
+        {x:430,y:470,t:'TASK-512',d:'S3-Stub 探针'},
+        {x:610,y:470,t:'GATE',d:'门禁自检'},
+        {x:790,y:470,t:'VERIFY',d:'机器核验'},
+        {x:970,y:470,t:'ACCEPT',d:'用户放行'}
+      ]
+    }
+  };
+
+  let mode='L', panEnabled=true, panX=0, panY=0, simTimer=null;
+
+  function render(){
+    const d=DATA[mode];
+    document.getElementById('trackTag').textContent=d.tag;
+    document.getElementById('btnL').classList.toggle('active',mode==='L');
+    document.getElementById('btnS').classList.toggle('active',mode==='S');
+    zonesEl.innerHTML=d.zones.map(z=>
+      `<div class="zone" style="left:${z.x}px;top:${z.y}px;width:${z.w}px;height:${z.h}px"><span>${z.label}</span></div>`).join('');
+    nodesEl.innerHTML=d.nodes.map((n,i)=>
+      `<div class="node${n.hot?' hot':''}" data-i="${i}" style="left:${n.x}px;top:${n.y}px"><span class="n">${n.t}</span><span class="d">${n.d}</span></div>`).join('');
+    let s='';
+    for(let i=0;i<d.nodes.length-1;i++){
+      const a=d.nodes[i], b=d.nodes[i+1];
+      if(Math.abs(b.y-a.y)>80) continue;
+      s+=`<line x1="${a.x+132}" y1="${a.y+24}" x2="${b.x}" y2="${b.y+24}" stroke="#3b6fa8" stroke-width="1.5" marker-end="url(#ar)"/>`;
+    }
+    links.innerHTML=`<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10 z" fill="#3b6fa8"/></marker></defs>`+s;
+    bindNodes();
+  }
+
+  function bindNodes(){
+    nodesEl.querySelectorAll('.node').forEach(el=>{
+      el.addEventListener('mousedown',e=>{
+        e.stopPropagation();
+        const startX=e.clientX, startY=e.clientY;
+        const n=DATA[mode].nodes[+el.dataset.i];
+        const ox=n.x, oy=n.y;
+        el.style.borderColor='#60a5fa';
+        const move=ev=>{
+          n.x=Math.max(0,Math.min(1450-140,ox+ev.clientX-startX));
+          n.y=Math.max(0,Math.min(820-56,oy+ev.clientY-startY));
+          el.style.left=n.x+'px'; el.style.top=n.y+'px';
+        };
+        const up=()=>{el.style.borderColor='';document.removeEventListener('mousemove',move);document.removeEventListener('mouseup',up);};
+        document.addEventListener('mousemove',move);document.addEventListener('mouseup',up);
+      });
+    });
+  }
+
+  // 平移：只改变内层视角，绝不动 scrollTop / scrollLeft
+  vp.addEventListener('mousedown',e=>{
+    if(!panEnabled || e.target.closest('.node')) return;
+    const sx=e.clientX, sy=e.clientY, ox=panX, oy=panY;
+    const move=ev=>{panX=ox+ev.clientX-sx;panY=oy+ev.clientY-sy;applyPan();};
+    const up=()=>{document.removeEventListener('mousemove',move);document.removeEventListener('mouseup',up);};
+    document.addEventListener('mousemove',move);document.addEventListener('mouseup',up);
+  });
+  function applyPan(){canvas.style.transform=`translate(${panX}px,${panY}px)`;}
+
+  vp.addEventListener('scroll',()=>{
+    document.getElementById('mScroll').textContent=Math.round(vp.scrollTop)+' / '+Math.round(vp.scrollLeft);
+  });
+
+  document.getElementById('btnL').onclick=()=>{mode='L';resetPan();render();};
+  document.getElementById('btnS').onclick=()=>{mode='S';resetPan();render();};
+  document.getElementById('btnPan').onclick=e=>{
+    panEnabled=!panEnabled;
+    e.target.textContent='平移：'+(panEnabled?'开':'关');
+    e.target.classList.toggle('active',panEnabled);
+    vp.classList.toggle('panning-on',panEnabled);
+  };
+  document.getElementById('btnReset').onclick=()=>{resetPan();vp.scrollTo(0,0);};
+  function resetPan(){panX=0;panY=0;applyPan();}
+
+  // 实时读数 + 尺寸稳定性采样（静置 3 秒方差为 0）
+  let samples=[], lastH=0, stable=true;
+  function measure(){
+    const r=vp.getBoundingClientRect();
+    document.getElementById('mH').textContent=Math.round(r.height);
+    document.getElementById('mW').textContent=Math.round(r.width);
+    samples.push(Math.round(r.height*100)/100);
+    if(samples.length>15) samples.shift();
+    if(samples.length===15){
+      const v=samples.reduce((a,b)=>a+b,0)/15;
+      stable=samples.every(x=>Math.abs(x-v)<0.01);
+      document.getElementById('mSamples').textContent=stable?'稳定 ✓':'异常：尺寸在变';
+      document.getElementById('mSamples').style.color=stable?'#4ade80':'#f87171';
+    }
+  }
+  setInterval(measure,200);
+
+  // 修复前对照：模拟持续膨胀
+  const btnSim=document.getElementById('btnSim');
+  btnSim.onclick=()=>{
+    if(simTimer){
+      clearInterval(simTimer);simTimer=null;btnSim.textContent='▶ 模拟持续膨胀';
+      document.getElementById('badNum').textContent='49,889 × 110,470';
+      document.getElementById('badNum2').textContent='51,045 × 113,054';
+      return;
+    }
+    let w=49889,h=110470;
+    btnSim.textContent='⏸ 停止模拟';
+    simTimer=setInterval(()=>{
+      w+=578;h+=1292;
+      document.getElementById('badNum').textContent=w.toLocaleString()+' × '+h.toLocaleString();
+      document.getElementById('badNum2').textContent=(w+1156).toLocaleString()+' × '+(h+2584).toLocaleString();
+    },300);
+  };
+
+  render();measure();
+})();
+</script>
+</body>
+</html>

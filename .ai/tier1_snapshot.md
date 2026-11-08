@@ -17,8 +17,10 @@
 
 ## 🎯 3. 当前活跃状态
 <!-- TIER1-ACTIVE:START -->
-- **当前焦点**：无（没有 ACTIVE 任务）
-- **下一待办**：暂无 —— 需回复 `[1]` 规划新需求
+- **当前焦点**：`[Task-510]` [S1-Bone] 画布尺寸契约与 X6 尺寸回写隔离（Status: IN_PROGRESS）
+- **白话目标**：确立外层可视框与内层内容画布的尺寸契约，切断 autoResize 回写引发的 ResizeObserver 正反馈，可视框高度恒为 360px
+- **涉及文件**：base_template/frontend/src/modules/req-management/views/ReqManagementView.vue
+- **下一待办**：`[Task-511]` [S2-Muscle] 360px 可视区滚动条与平移/拖拽共存
 <!-- TIER1-ACTIVE:END -->
 
 ## ⚠️ 4. 核心架构约束

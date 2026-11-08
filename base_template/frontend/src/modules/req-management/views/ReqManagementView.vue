@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
@@ -123,6 +123,12 @@ const workflowActiveNodeInfo = computed(() => {
   return currentActiveDAGNodes.value.find(n => n.id === workflowSelectedNode.value) || currentActiveDAGNodes.value[1]
 })
 
+// 画布尺寸契约（唯一声明点）：可视框高度 360px 由 .wf-viewport 的 CSS 单独决定；
+// 内容画布固定 1450×520，同时供 X6 挂载点样式与 Graph 配置使用，禁止在别处复制字面量。
+const WORKFLOW_CANVAS = { width: 1450, height: 520 }
+// 挂载点高度由折行结果驱动并交给 Vue 管理，避免后续响应式刷新把它覆盖回 520px
+const workflowHostHeight = ref(WORKFLOW_CANVAS.height)
+
 // AntV X6 真实拓扑画布实例与容器引用
 const workflowGraphContainer = ref<HTMLDivElement | null>(null)
 let workflowGraph: Graph | null = null
@@ -135,11 +141,14 @@ const initWorkflowGraph = () => {
     workflowGraph = null
   }
 
-  // 1. 创建 AntV X6 画布实例 (带网格与平移缩放，高度限定为 210px 精巧大屏)
+  // 1. 创建 AntV X6 画布实例：挂载点尺寸固定，关闭 autoResize 以切断
+  //    「X6 回写容器尺寸 → ResizeObserver → 容器再变大」的正反馈；
+  //    可视区 360px 与滚动条由外层 .wf-viewport 独立承担。
   workflowGraph = new Graph({
     container: workflowGraphContainer.value,
-    autoResize: true,
-    height: 210,
+    autoResize: false,
+    width: WORKFLOW_CANVAS.width,
+    height: WORKFLOW_CANVAS.height,
     background: {
       color: '#0e1726' // 高端工业极客暗黑背景 (对齐用户提供的网络拓扑大屏风格)
     },
@@ -159,12 +168,13 @@ const initWorkflowGraph = () => {
       enabled: true,
       modifiers: ['ctrl', 'meta']
     },
+    // 节点拖拽边界 = 内容画布边界（不是可视框），与 WORKFLOW_CANVAS 同源
     translating: {
       restrict: {
         x: 0,
         y: 0,
-        width: 1450,
-        height: 210
+        width: WORKFLOW_CANVAS.width,
+        height: WORKFLOW_CANVAS.height
       }
     },
     interacting: {
@@ -175,6 +185,60 @@ const initWorkflowGraph = () => {
 
   renderWorkflowGraphData()
 }
+
+// 按可视框宽度把算子节点折行铺满，消除右侧空白（节点尺寸与字号保持不变）
+const relayoutWorkflowGraph = () => {
+  if (!workflowGraph || !workflowGraphContainer.value) return
+  // X6 初始化时会把 1450px 回写到挂载点，这里复位为 100% 以免产生多余的横向滚动
+  workflowGraphContainer.value.style.width = '100%'
+  const vpEl = workflowGraphContainer.value.parentElement
+  const vpW = vpEl ? Math.min(vpEl.clientWidth, vpEl.getBoundingClientRect().width) : 950
+  const W = (vpW || 950) - 24
+  const all = workflowGraph.getNodes()
+  all.filter(n => String(n.id).startsWith('zone_')).forEach(n => n.remove())
+  const nodes = all.filter(n => !String(n.id).startsWith('zone_'))
+  const cols = Math.max(4, Math.floor(W / 155))
+  const cellW = W / cols
+  const rows = Math.ceil(nodes.length / cols)
+  // 窄屏可能折成 3 行，动态收紧行高，保证所有节点在 360px 可视框内一屏看全
+  const rowH = Math.min(118, Math.floor(328 / rows))
+  nodes.forEach((n, i) => {
+    const w = n.getSize().width || 110
+    n.position(Math.round(12 + (i % cols) * cellW + (cellW - w) / 2), 26 + Math.floor(i / cols) * rowH)
+  })
+  // 按真实节点底部兜底：即使列数/行数算错，也绝不把最后一行裁掉
+  let maxBottom = 0
+  nodes.forEach(n => {
+    const p = n.getPosition(), s = n.getSize()
+    maxBottom = Math.max(maxBottom, p.y + (s.height || 52))
+  })
+  workflowHostHeight.value = Math.max(rows * rowH + 30, maxBottom + 26)
+  // 重排时一并复位平移：在空白处按住左键拖动会把画布 pan 出可视框，导致节点只露一半
+  workflowGraph.translate(0, 0)
+}
+// 初始化时机不确定：监听可视框尺寸，稳定后自动收敛，无需用户手动点按钮
+let workflowViewportObserver: ResizeObserver | null = null
+const ensureWorkflowLayout = () => {
+  const vp = workflowGraphContainer.value?.parentElement
+  if (!vp) return
+  if (!workflowViewportObserver) {
+    workflowViewportObserver = new ResizeObserver(() => relayoutWorkflowGraph())
+    workflowViewportObserver.observe(vp)
+  }
+  relayoutWorkflowGraph()
+}
+const handleWorkflowResize = () => relayoutWorkflowGraph()
+// 一键复位平移与缩放：画布空白处按住左键即可平移，拖乱后点此恢复
+const resetWorkflowView = () => {
+  if (!workflowGraph) return
+  workflowGraph.translate(0, 0)
+  workflowGraph.zoomTo(1)
+}
+onMounted(() => window.addEventListener('resize', handleWorkflowResize))
+onUnmounted(() => {
+  window.removeEventListener('resize', handleWorkflowResize)
+  workflowViewportObserver?.disconnect()
+})
 
 // 根据当前模式渲染 X6 真实拓扑图元 (完美复刻 .ai/sop 规约 Mermaid 全景拓扑)
 const renderWorkflowGraphData = () => {
@@ -351,6 +415,9 @@ const renderWorkflowGraphData = () => {
     createGraphEdge('SOP-07', 'SOP-08', '#10b981', true, 'right', 'left', 'normal')
     createGraphEdge('SOP-08', 'SOP-09', '#10b981', false, 'right', 'left', 'normal')
   }
+
+  // 渲染完成后按可视框宽度折行铺满，并挂上尺寸观察器兜住首屏初始化时机
+  ensureWorkflowLayout()
 
   // 绑定节点点击事件：点击拓扑节点联动更新选中的算子
   workflowGraph.on('node:click', ({ node }) => {
@@ -1650,15 +1717,15 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- 主体二合一工作区：左侧需求列表 ➔ 中间/右侧 DAG 算子拓扑 -->
-          <div style="display:grid; grid-template-columns: 320px 1fr; gap:20px;">
-            <!-- 左侧：多需求列表选择器 (查谁在做、当前状态) -->
-            <div class="card" style="padding:16px; display:flex; flex-direction:column; height:calc(100vh - 300px);">
+          <!-- 主体工作区：拓扑画布独占整行铺满内容区，需求列表置于画布下方 -->
+          <div style="display:flex; flex-direction:column; gap:20px;">
+            <!-- 下方：多需求列表选择器 (查谁在做、当前状态)，order:2 排在画布之后 -->
+            <div class="card" style="padding:16px; display:flex; flex-direction:column; max-height:300px; order:2;">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                 <span style="font-weight:700; font-size:14px;">📋 待办与在研需求 ({{ requirements.length }})</span>
                 <span class="tag tag-clarifying" style="font-size:10px;">点击切入</span>
               </div>
-              <div style="overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:8px;">
+              <div style="overflow-y:auto; flex:1; display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:8px; align-content:start;">
                 <div
                   v-for="r in requirements"
                   :key="r.id"
@@ -1683,8 +1750,9 @@ onMounted(async () => {
               </div>
             </div>
 
-            <!-- 右侧：微观算子流转拓扑链与当前工位详情 -->
-            <div style="display:flex; flex-direction:column; gap:16px;">
+            <!-- 上方：DAG 算子拓扑与当前工位详情，order:1 优先展示并铺满整行 -->
+            <!-- min-width:0 防止内层 1450px 画布把容器撑宽，导致内容被祖先 overflow:hidden 裁掉 -->
+            <div style="display:flex; flex-direction:column; gap:16px; min-width:0; order:1;">
               <!-- 真实的 AntV X6 工业级有向无环拓扑大图 (带大区分组与多分支指向) -->
               <div class="card" style="padding:16px; border:1px solid var(--border); background:#0e1726;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding:0 4px;">
@@ -1694,7 +1762,7 @@ onMounted(async () => {
                       ⚡ S级极速快轨
                     </span>
                     <span v-else class="tag tag-baselined" style="margin-left:8px; font-size:11px;">
-                      🛡️ L级标准工程闭环拓扑 (3大区隔离)
+                      🛡️ L级标准工程闭环拓扑 (自适应折行铺满)
                     </span>
                   </div>
                   <!-- 顶层轨道流转自适应切换 -->
@@ -1713,14 +1781,25 @@ onMounted(async () => {
                     >
                       ⚡ 小Bug极速修补 (S级)
                     </button>
+                    <button
+                      class="btn btn-sm btn-outline"
+                      title="画布被拖乱（节点只露一半）时点此复位平移与缩放"
+                      @click="resetWorkflowView()"
+                    >
+                      🎯 重置视图
+                    </button>
                   </div>
                 </div>
 
-                <!-- AntV X6 画布挂载容器 (真正的工业拓扑大屏，高度限定为 210px) -->
-                <div
-                  ref="workflowGraphContainer"
-                  style="width:100%; height:210px; border-radius:var(--radius-sm); border:1px solid #1e293b; overflow:hidden;"
-                ></div>
+                <!-- 可视框固定 360px；内层挂载点固定 1450×520，由 X6 承接图元。
+                     两层分离确保 X6 的尺寸回写只落在内层常量上，永远不会撑大外层。 -->
+                <div class="wf-viewport">
+                  <div
+                    ref="workflowGraphContainer"
+                    class="wf-graph-host"
+                    :style="{ width: '100%', height: workflowHostHeight + 'px' }"
+                  ></div>
+                </div>
               </div>
 
               <!-- 旁路全景矩阵常驻面板 (B1 ~ B6 运维排错自愈通道) -->
@@ -3285,6 +3364,28 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+/* 工程流水线拓扑画布可视区 (FR-REQ-WFC-01 / Task-510)
+   可视框尺寸只由这里的 360px 决定；X6 挂载点在内层，尺寸回写不会触及外层。 */
+.wf-viewport {
+  height: 360px;
+  width: 100%;
+  overflow: auto;
+  border-radius: var(--radius-sm);
+  border: 1px solid #1e293b;
+  background: #0b1320;
+  scrollbar-color: #3b4d68 #0b1320;
+  scrollbar-width: thin;
+}
+.wf-viewport::-webkit-scrollbar { width: 12px; height: 12px; }
+.wf-viewport::-webkit-scrollbar-track { background: #0b1320; border-radius: 8px; }
+.wf-viewport::-webkit-scrollbar-thumb {
+  background: #3b4d68;
+  border: 2px solid #0b1320;
+  border-radius: 8px;
+}
+.wf-viewport::-webkit-scrollbar-thumb:hover { background: #5b7396; }
+.wf-graph-host { background: #0e1726; overflow: hidden; }
+
 .req-app-container {
   --primary: #14535B;
   --primary-dark: #0D373D;

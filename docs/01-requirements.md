@@ -19,6 +19,10 @@ mindmap
       prd_net_04["📄 [PRD-NET-04] Linux 容器网络沙箱互联 (高级演进)"]
     english[🔮 核心模块二 (预留)：英语学习模块 English]
       prd_eng_01["📄 [PRD-ENG-01] 词汇图谱与情景语料演练"]
+    req_mgmt[📦 核心模块三：需求治理平台 Req Management]
+      prd_req_01["📄 [PRD-REQ-01] 需求与版本全生命周期治理"]
+      prd_req_02["📄 [FR-REQ-WFC-01] 工程流水线拓扑画布可视区治理"]
+      prd_req_03["📄 [FR-REQ-WFC-02] 拓扑数据驱动改造 (16篇 SOP 入库)"]
 ```
 
 ---
@@ -30,6 +34,9 @@ mindmap
 | **🏛️ 平台基础设施 & 认证** | `backend/platform-common` + `platform-server` | `docs/modules/sys_platform/prd-sys-platform-v1.0.md` | `FR-SYS-01` | `🟢 [x]` 已就绪 | 架构师 |
 | **💡 网络拓扑仿真 (核心)** | `backend/module-network-sim` + `frontend/src/modules/network-sim` | `docs/modules/network_sim/prd-network-sim-v1.0.md` | `FR-NET-01` | `🔴 [/]` 规划中 | 架构师 / 算法工程师 |
 | **🔮 英语学习 (预留)** | `backend/module-english` + `frontend/src/modules/english` | `docs/modules/english/prd-english-v1.0.md` | `FR-ENG-01` | `⚪ [ ]` 待规划 | 产品专家 |
+| **📦 需求治理平台** | `backend/platform-server/req` + `frontend/src/modules/req-management` | `docs/modules/req-management/prd-req-management-v1.0.md` | `FR-REQ-01` | `🟢 [x]` 已就绪 | 架构师 |
+| **🗺️ 流水线拓扑画布可视区** | `frontend/src/modules/req-management/views/ReqManagementView.vue` | `docs/modules/req-management/prd-workflow-canvas-viewport-v1.0.md` | `FR-REQ-WFC-01` | `🔴 [/]` 规划中 | 前端 / 架构师 |
+| **🔌 拓扑数据驱动改造** | `docs/db/migrations/` + `backend/.../req/` + `frontend/.../req-management` | `docs/modules/req-management/prd-workflow-sop-data-driven-v1.0.md` | `FR-REQ-WFC-02` | `🔴 [/]` 规划中 | 架构师 / 前端 / 后端 |
 
 ---
 
@@ -40,6 +47,9 @@ mindmap
 - [x] **FR-SYS-01 [模块: sys_platform]**：统一认证、管理员开户与通用响应骨架 ➔ `docs/modules/sys_platform/` (已归档)
 - [/] **FR-NET-01 [模块: network_sim]**：网络拓扑仿真系统 (多模块改造、BFS寻路、ACL规则拦截、X6画布交互) ➔ `docs/modules/network_sim/prd-network-sim-v1.0.md`
 - [ ] **FR-ENG-01 [模块: english]**：个人英语学习与复习平台 (后续预留模块)
+- [/] **FR-REQ-01 [模块: req-management]**：需求与版本全生命周期治理 (四层清单 / 基线冻结 / 客户免登签署) ➔ `docs/modules/req-management/prd-req-management-v1.0.md`
+- [/] **FR-REQ-WFC-01 [模块: req-management]**：工程流水线拓扑画布固定 360px 可视区 + 滚动条 + 平移拖拽共存 (消除 X6 尺寸回写导致的无限膨胀) ➔ `docs/modules/req-management/prd-workflow-canvas-viewport-v1.0.md` ｜ 原型 `mockup-workflow-canvas-viewport.html` ｜ SRS `docs/srs/workflow-canvas-viewport/srs.md` ｜ TC 已挂起
+- [/] **FR-REQ-WFC-02 [模块: req-management]**：拓扑数据驱动改造 —— 流程定义 + 每需求工位状态全量入库，参考 `WORKFLOW_GUIDE.md` §2/§8 的 0~13 全流程并以现行 16 篇 SOP 为口径，保留 L/S 双轨、接口失败禁止降级 ➔ `docs/modules/req-management/prd-workflow-sop-data-driven-v1.0.md` ｜ 原型 `mockup-workflow-sop-data-driven.html` ｜ SRS `docs/srs/workflow-sop-data-driven/srs.md` ｜ TC 已挂起
 
 ---
 
