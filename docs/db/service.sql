@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS `t_req_project` (
   KEY `idx_req_proj_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='需求管理-项目空间表';
 
--- 4.2 需求定义表 (含客户原话留痕)
+-- 4.2 需求定义表 (含客户原话留痕与工程流水线工位绑定)
 CREATE TABLE IF NOT EXISTS `t_req_requirement` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '自增主键',
   `project_id` BIGINT NOT NULL COMMENT '关联项目ID',
@@ -105,12 +105,15 @@ CREATE TABLE IF NOT EXISTS `t_req_requirement` (
   `status` VARCHAR(32) NOT NULL DEFAULT 'DRAFT' COMMENT '状态: DRAFT草稿, CLARIFYING澄清中, PENDING待确认, BASELINED已基线, RELEASED已发布, CLOSED已关闭',
   `priority` VARCHAR(16) NOT NULL DEFAULT 'P1' COMMENT '优先级: P1核心必做, P2重要, P3优化',
   `owner_name` VARCHAR(64) NOT NULL COMMENT '责任产品经理/研发',
+  `current_node_id` VARCHAR(32) NOT NULL DEFAULT 'SOP-01' COMMENT '当前绑定的工程流水线微观工位(如 SOP-01, SOP-02, SOP-03)',
+  `current_track_mode` VARCHAR(32) NOT NULL DEFAULT 'STANDARD' COMMENT '当前执行路径模式: STANDARD大需求主轨, FASTTRACK极速微创旁路',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_req_code` (`project_id`, `req_code`),
   KEY `idx_req_proj_status` (`project_id`, `status`),
-  KEY `idx_req_owner` (`owner_name`)
+  KEY `idx_req_owner` (`owner_name`),
+  KEY `idx_req_node` (`current_node_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='需求管理-需求实体表';
 
 -- 4.3 四层确认清单与代价表
@@ -214,8 +217,27 @@ CREATE TABLE IF NOT EXISTS `t_req_artifact` (
   KEY `idx_art_hash` (`sha256_hash`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='需求管理-设计文档与归档产物表';
 
+-- 4.8 工程流水线与工位流转履历归档表 (记录人机对话流转、Skill专家调用与人工跳步存证)
+CREATE TABLE IF NOT EXISTS `t_req_workflow_record` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '自增主键',
+  `req_code` VARCHAR(64) NOT NULL COMMENT '关联需求业务编码(如 REQ-001)',
+  `node_id` VARCHAR(32) NOT NULL COMMENT '工位节点标识(如 SOP-01, SOP-02, TC-GEN, SOP-B2)',
+  `node_name` VARCHAR(128) NOT NULL COMMENT '工位节点名称',
+  `track_mode` VARCHAR(32) NOT NULL DEFAULT 'STANDARD' COMMENT '工作模式: STANDARD标准研发, FASTTRACK极速微创, DISCOVERY咨询认知',
+  `skill_name` VARCHAR(64) DEFAULT NULL COMMENT '绑定的专属 AI Skill (如 requirement-discovery, coding-standards)',
+  `operator` VARCHAR(64) NOT NULL DEFAULT 'admin' COMMENT '操作人或责任研发/架构师',
+  `action_type` VARCHAR(32) NOT NULL DEFAULT 'ADVANCE' COMMENT '流转动作类型: ADVANCE顺推, OVERRIDE人工覆盖跳步, REJECT退回, CONSULT咨询',
+  `override_reason` VARCHAR(256) DEFAULT NULL COMMENT '人工跳步或覆盖AI推荐时的理由说明',
+  `artifacts_json` TEXT DEFAULT NULL COMMENT '当前节点产出的物理产物元数据清单(JSON格式)',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录落盘时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_wf_req` (`req_code`),
+  KEY `idx_wf_node` (`node_id`),
+  KEY `idx_wf_created` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='工程流水线-工位流转与人机协同审计履历表';
+
 -- ------------------------------------------------------------------------------
--- 4.8 需求管理模块演示种子数据 (NET-SIM 项目空间, REQ-001 需求, 四层清单与 BL-v1.0 基线)
+-- 4.9 需求管理模块演示种子数据 (NET-SIM 项目空间, REQ-001 需求, 四层清单与 BL-v1.0 基线)
 -- ------------------------------------------------------------------------------
 INSERT IGNORE INTO `t_req_project` (`id`, `project_key`, `name`, `client_name`, `description`, `status`, `created_by`)
 VALUES (1, 'NET-SIM', '全景工业网络仿真与拓扑排版系统', '国家电网调度中心', '大型工业互联网与变电站网络拓扑仿真及等保隔离可视化平台', 'ACTIVE', 'admin');

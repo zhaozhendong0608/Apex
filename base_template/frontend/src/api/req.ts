@@ -54,10 +54,30 @@ export function getWorkflowDagStateApi(params?: { reqCode?: string; trackMode?: 
   })
 }
 
-export function advanceWorkflowDagApi(params: { reqCode: string; targetNode: string; status?: string; operator?: string }): Promise<ApiResponse<any>> {
+export function advanceWorkflowDagApi(params: {
+  reqCode: string
+  targetNode: string
+  nodeName?: string
+  trackMode?: string
+  skillName?: string
+  actionType?: string
+  overrideReason?: string
+  artifactsJson?: string
+  status?: string
+  operator?: string
+}): Promise<ApiResponse<any>> {
   return request({
     url: '/req/workflow/advance',
     method: 'POST',
+    params
+  })
+}
+
+// 0.2 获取指定需求的历史流转审计履历
+export function getWorkflowRecordsApi(params: { reqCode: string }): Promise<ApiResponse<any[]>> {
+  return request({
+    url: '/req/workflow/records',
+    method: 'GET',
     params
   })
 }

@@ -32,6 +32,8 @@ public class ReqRequirement implements Serializable {
     private String status;
     private String priority;
     private String ownerName;
+    private String currentNodeId;
+    private String currentTrackMode;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

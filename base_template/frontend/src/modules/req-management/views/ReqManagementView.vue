@@ -49,7 +49,8 @@ import {
   getPrototypeListApi,
   getBaselineListApi,
   getWorkflowDagStateApi,
-  advanceWorkflowDagApi
+  advanceWorkflowDagApi,
+  getWorkflowRecordsApi
 } from '@/api/req'
 import { Graph } from '@antv/x6'
 import { getUserListApi } from '@/api/user'
@@ -82,30 +83,246 @@ const workflowSelectedNode = ref<string>('SOP-01')
 // 当前需求类型/路径模式：'STANDARD' (L级标准全量大需求), 'MEDIUM' (M级单模块需求), 'FASTTRACK' (S级小Bug微创快修)
 const workflowTrackMode = ref<'STANDARD' | 'MEDIUM' | 'FASTTRACK'>('STANDARD')
 
-// 标准主轨算子拓扑链数据 (完整对齐 .ai/sop 规约体系)
+// 标准主轨算子拓扑链数据 (完整对齐 WORKFLOW_GUIDE.md §8 架构节点、Skill 与物理产物)
 const pipelineNodes = ref([
-  { id: 'SOP-00', code: '00', name: '体系总览', title: '[0] 体系导航与规模识别 (S/M/L)', sop: '.ai/sop/00-sop-overview.md', role: '全员/架构师', desc: '根据改动范围识别分流：S级走B2快修，M/L级进入标准主轨。', gate: '自适应分流判定', status: 'COMPLETED' },
-  { id: 'SOP-01', code: '01', name: '规划切片', title: '[1] 需求切片与边界规划', sop: '.ai/sop/01-sop-planning.md', role: '产品/张工', desc: '输出四层确认清单(P04)与 S1~S3 披萨切片清单，双轨平行启动。', gate: '四层清单齐备', status: 'IN_PROGRESS' },
-  { id: 'SOP-02', code: '02', name: '方案设计', title: '[2] 研发轨方案设计与契约冻结', sop: '.ai/sop/02-sop-tech-design.md', role: '研发/李工', desc: '生成 detail.md、API 契约标准与 service.sql 配对。', gate: 'python3 gate.py --sql', status: 'PENDING' },
-  { id: 'TC-GEN', code: 'TC', name: '测试用例', title: '测试轨 TC 矩阵冻结 (平行解耦)', sop: '.ai/sop/01-sop-planning.md', role: '测试/王工', desc: '独立落盘 docs/test-cases/ 矩阵，在集成前必须 100% 冻结就绪。', gate: '用例矩阵 100% 覆盖', status: 'PENDING' },
-  { id: 'SOP-03', code: '03', name: 'TDD编码', title: '[3] TDD 红绿循环编码', sop: '.ai/sop/03-sop-coding.md', role: '研发/李工', desc: '红灯单测先导 ➔ 最小化业务实现 ➔ 单测全绿，不造野轮子。', gate: '单元测试全绿', status: 'PENDING' },
-  { id: 'SOP-04', code: '04', name: '机器门禁', title: '[4] 代码审查机器门禁 (gate.py)', sop: '.ai/sop/04-sop-code-review.md', role: '看门狗探针', desc: 'gate.py 8 项静态规则扫描（无假Mock/无野公网依赖/SQL配对）。', gate: 'python3 gate.py --staged [LGTM]', status: 'PENDING' },
-  { id: 'SOP-05', code: '05', name: '人工评审', title: '[5] 架构与契约人工评审', sop: '.ai/sop/05-sop-review.md', role: '架构师/程工', desc: '人工复核 5 维清单：契约一致性、并发健壮性、反向破坏性测试。', gate: '架构师签字核准', status: 'PENDING' },
-  { id: 'SOP-06', code: '06', name: '集成测试', title: '[6] 集成测试与双轨汇合穿透', sop: '.ai/sop/06-sop-integration.md', role: '测试/王工', desc: '双轨延迟汇合硬约束：TC 测试用例与代码碰撞，E2E 全绿穿透。', gate: 'TC 用例 100% 碰撞通过', status: 'PENDING' },
-  { id: 'SOP-07', code: '07', name: '终验门禁', title: '[7] 交付双向验收门禁 (归档唯一出口)', sop: '.ai/sop/07-sop-acceptance.md', role: '看门狗探针', desc: 'board.py verify ➔ 人工核放 ➔ board.py complete --accept。', gate: '验收报告与三方防伪', status: 'PENDING' },
-  { id: 'SOP-08', code: '08', name: '容器部署', title: '[8] 容器编排与离线部署', sop: '.ai/sop/08-sop-deploy.md', role: '运维/李工', desc: 'Docker Compose 离线镜像与健康自愈巡检。', gate: '健康检查通过', status: 'PENDING' },
-  { id: 'SOP-09', code: '09', name: 'Git发布', title: '[9] Git 发布与版本打标', sop: '.ai/sop/09-sop-git-release.md', role: '交付/张工', desc: 'Git 打 Tag、产物归档并生成正式 Release 发布文档。', gate: 'Release 资产落盘完毕', status: 'PENDING' }
+  {
+    id: 'SOP-00',
+    code: '00',
+    name: '体系总览',
+    title: '[0] 体系导航与规模识别 (S/M/L)',
+    sop: '.ai/sop/00-sop-overview.md',
+    role: '全员/架构师',
+    skill: '-',
+    artifacts: ['阶段对照与决策指引'],
+    desc: '根据改动范围识别分流：S级走B2快修，M/L级进入标准主轨。',
+    gate: '自适应分流判定',
+    status: 'COMPLETED'
+  },
+  {
+    id: 'SOP-01',
+    code: '01',
+    name: '需求规划',
+    title: '[1] 需求规划与白话澄清',
+    sop: '.ai/sop/01-sop-planning.md',
+    role: '产品/张工',
+    skill: 'requirement-discovery',
+    artifacts: ['结构化需求基线草案', '白话对撞决策列表'],
+    desc: '输出四层确认清单(P04)与 S1~S3 披萨切片清单，双轨平行启动。',
+    gate: '四层清单齐备',
+    status: 'IN_PROGRESS'
+  },
+  {
+    id: 'SOP-02',
+    code: '02',
+    name: '方案设计',
+    title: '[2] 研发轨方案设计与契约冻结',
+    sop: '.ai/sop/02-sop-tech-design.md',
+    role: '研发/李工',
+    skill: 'design-spec-architect',
+    artifacts: ['docs/design/detail.md', 'docs/db/service.sql', 'mockup.html 原型'],
+    desc: '生成 detail.md、API 契约标准与 service.sql 配对。',
+    gate: 'python3 gate.py --sql',
+    status: 'PENDING'
+  },
+  {
+    id: 'TC-GEN',
+    code: 'TC',
+    name: '测试用例',
+    title: '测试轨 TC 矩阵先行 (平行解耦)',
+    sop: '.ai/sop/01-sop-planning.md',
+    role: '测试/王工',
+    skill: 'quality-verifier',
+    artifacts: ['docs/test-cases/ 矩阵', '自动化测试探针'],
+    desc: '独立落盘 docs/test-cases/ 矩阵，在集成前必须 100% 冻结就绪。',
+    gate: '用例矩阵 100% 覆盖',
+    status: 'PENDING'
+  },
+  {
+    id: 'SOP-03',
+    code: '03',
+    name: 'TDD编码',
+    title: '[3] 单焦点 TDD 红绿循环编码',
+    sop: '.ai/sop/03-sop-coding.md',
+    role: '研发/李工',
+    skill: 'coding-standards',
+    artifacts: ['src/ 业务工程源码', '第三方 API 真实联调日志', '.ai/tier3_status.md'],
+    desc: '红灯单测先导 ➔ 最小化业务实现 ➔ 单测全绿，不造野轮子。',
+    gate: '单元测试全绿',
+    status: 'PENDING'
+  },
+  {
+    id: 'SOP-04',
+    code: '04',
+    name: '机器门禁',
+    title: '[4] 代码审查机器门禁 (gate.py)',
+    sop: '.ai/sop/04-sop-code-review.md',
+    role: '看门狗探针',
+    skill: 'code-quality-reviewer',
+    artifacts: ['gate.py 静态扫描报告 (LGTM)', '违规代码清单与修复建议'],
+    desc: 'gate.py 6 项规则扫描（无假Mock/无野公网依赖/SQL配对/密钥安全）。',
+    gate: 'python3 gate.py --staged [LGTM]',
+    status: 'PENDING'
+  },
+  {
+    id: 'SOP-05',
+    code: '05',
+    name: '人工评审',
+    title: '[5] 架构与契约人工评审',
+    sop: '.ai/sop/05-sop-review.md',
+    role: '架构师/程工',
+    skill: 'code-quality-reviewer',
+    artifacts: ['人工评审报告 (APPROVED)', '契约一致性复核凭证'],
+    desc: '人工复核 5 维清单：契约一致性、并发健壮性、反向破坏性测试。',
+    gate: '架构师签字核准',
+    status: 'PENDING'
+  },
+  {
+    id: 'SOP-06',
+    code: '06',
+    name: '集成测试',
+    title: '[6] 双轨延迟汇合与集成穿透',
+    sop: '.ai/sop/06-sop-integration.md',
+    role: '测试/王工',
+    skill: 'quality-verifier',
+    artifacts: ['E2E 离线穿透验证报告', '0 Error 构建凭据'],
+    desc: '双轨延迟汇合硬约束：TC 测试用例与代码碰撞，E2E 全绿穿透。',
+    gate: 'TC 用例 100% 碰撞通过',
+    status: 'PENDING'
+  },
+  {
+    id: 'SOP-07',
+    code: '07',
+    name: '终验门禁',
+    title: '[7] 交付双向验收门禁 (唯一归档出口)',
+    sop: '.ai/sop/07-sop-acceptance.md',
+    role: '看门狗探针',
+    skill: 'quality-verifier',
+    artifacts: ['board.py verify 凭据', '4 维终验清单', 'tier3_status.md 标绿'],
+    desc: 'board.py verify ➔ 人工核放 ➔ board.py complete --accept。',
+    gate: '验收报告与三方防伪',
+    status: 'PENDING'
+  },
+  {
+    id: 'SOP-08',
+    code: '08',
+    name: '容器部署',
+    title: '[8] 容器编排与离线部署',
+    sop: '.ai/sop/08-sop-deploy.md',
+    role: '运维/李工',
+    skill: '-',
+    artifacts: ['docker-compose.yml 编排', 'install.sh 幂等脚本'],
+    desc: 'Docker Compose 离线镜像与健康自愈巡检。',
+    gate: '健康检查通过',
+    status: 'PENDING'
+  },
+  {
+    id: 'SOP-09',
+    code: '09',
+    name: 'Git发布',
+    title: '[9] Git 发布与版本打标',
+    sop: '.ai/sop/09-sop-git-release.md',
+    role: '交付/张工',
+    skill: '-',
+    artifacts: ['Git 语义化 Tag', 'docs/db/migrations 回滚配对'],
+    desc: 'Git 打 Tag、产物归档并生成正式 Release 发布文档。',
+    gate: 'Release 资产落盘完毕',
+    status: 'PENDING'
+  }
 ])
 
 // 快轨旁路算子 (完整收录 B1~B6 全景运维与诊断规约)
 const fasttrackNodes = ref([
-  { id: 'SOP-00', code: '00', name: '体系总览', title: '[0] 体系导航与旁路路由', sop: '.ai/sop/00-sop-overview.md', role: '全员', desc: '识别进入非状态机旁路（快修/存量/排错/自愈/资产归档）。', gate: '自适应分流', status: 'COMPLETED' },
-  { id: 'SOP-B1', code: 'B1', name: '存量解密', title: '[B1] 存量代码逆向接入 (逆向切片)', sop: '.ai/sop/B1-sop-legacy.md', role: '架构师/程工', desc: '自顶向下扫描Controller/DAO链路，逆向提取契约，打行为锁死探针。', gate: '探针锁死旧逻辑', status: 'PENDING' },
-  { id: 'SOP-B2', code: 'B2', name: '极速修补', title: '[B2] 极速微创修补 (Hotfix/文案)', sop: '.ai/sop/B2-sop-fasttrack.md', role: '研发/李工', desc: '单文件 ≤20 行改动，免状态机免门禁，0 行政成本光速闭环。', gate: '单文件≤20行', status: 'IN_PROGRESS' },
-  { id: 'SOP-B3', code: 'B3', name: '研发自愈', title: '[B3] 研发期自愈 (小黄鸭排错探针)', sop: '.ai/sop/B3-sop-debug.md', role: '研发/李工', desc: '精准抓日志根因，小步反向验证，严禁跨工位盲目改代码。', gate: '根因验证通过', status: 'PENDING' },
-  { id: 'SOP-B4', code: 'B4', name: '应急排错', title: '[B4] 线上事故应急排错与止血', sop: '.ai/sop/B4-sop-troubleshoot.md', role: '运维/李工', desc: '止血优先（回滚/降级/限流），保留现场堆栈再查因。', gate: '服务止血恢复', status: 'PENDING' },
-  { id: 'SOP-B5', code: 'B5', name: '资产归档', title: '[B5] 会话清理与资产沉淀', sop: '.ai/sop/B5-sop-archive.md', role: '交付/张工', desc: '提取通用模块沉淀至基础库，清理临时会话与中间日志。', gate: '资产归档合规', status: 'PENDING' },
-  { id: 'SOP-B6', code: 'B6', name: '断点续传', title: '[B6] 上下文恢复 (断点续传)', sop: '.ai/sop/B6-sop-resume.md', role: '全员', desc: '读取 tier1_snapshot.md 与 dag_state.json，30秒恢复工作记忆。', gate: '上下文对齐一致', status: 'PENDING' }
+  {
+    id: 'SOP-00',
+    code: '00',
+    name: '体系总览',
+    title: '[0] 体系导航与旁路路由',
+    sop: '.ai/sop/00-sop-overview.md',
+    role: '全员',
+    skill: '-',
+    artifacts: ['自适应分流图谱'],
+    desc: '识别进入非状态机旁路（快修/存量/排错/自愈/资产归档）。',
+    gate: '自适应分流',
+    status: 'COMPLETED'
+  },
+  {
+    id: 'SOP-B1',
+    code: 'B1',
+    name: '存量解密',
+    title: '[B1] 存量代码逆向接入 (逆向切片)',
+    sop: '.ai/sop/B1-sop-legacy.md',
+    role: '架构师/程工',
+    skill: 'legacy-archaeologist',
+    artifacts: ['.ai/tier2_legacy_arch.md', 'docs/06-legacy-graph.md', '反向行为锁死探针'],
+    desc: '自顶向下扫描Controller/DAO链路，逆向提取契约，打行为锁死探针。',
+    gate: '探针锁死旧逻辑',
+    status: 'PENDING'
+  },
+  {
+    id: 'SOP-B2',
+    code: 'B2',
+    name: '极速修补',
+    title: '[B2] 极速微创修补 (Hotfix/文案)',
+    sop: '.ai/sop/B2-sop-fasttrack.md',
+    role: '研发/李工',
+    skill: 'quality-verifier',
+    artifacts: ['微创源码直修 (≤20行)', '.ai/tier1_snapshot.md 静默刷新'],
+    desc: '单文件 ≤20 行改动，免状态机免门禁，0 行政成本光速闭环。',
+    gate: '单文件≤20行',
+    status: 'IN_PROGRESS'
+  },
+  {
+    id: 'SOP-B3',
+    code: 'B3',
+    name: '研发自愈',
+    title: '[B3] 研发期自愈 (小黄鸭排错探针)',
+    sop: '.ai/sop/B3-sop-debug.md',
+    role: '研发/李工',
+    skill: 'quality-verifier',
+    artifacts: ['小黄鸭根因诊断报告', '最小化代码修复切口'],
+    desc: '精准抓日志根因，小步反向验证，严禁跨工位盲目改代码。',
+    gate: '根因验证通过',
+    status: 'PENDING'
+  },
+  {
+    id: 'SOP-B4',
+    code: 'B4',
+    name: '应急排错',
+    title: '[B4] 线上事故应急排错与止血',
+    sop: '.ai/sop/B4-sop-troubleshoot.md',
+    role: '运维/李工',
+    skill: 'quality-verifier',
+    artifacts: ['线上止血排障报告', '防御性单测 (Red→Green)'],
+    desc: '止血优先（回滚/降级/限流），保留现场堆栈再查因。',
+    gate: '服务止血恢复',
+    status: 'PENDING'
+  },
+  {
+    id: 'SOP-B5',
+    code: 'B5',
+    name: '资产归档',
+    title: '[B5] 会话清理与资产沉淀',
+    sop: '.ai/sop/B5-sop-archive.md',
+    role: '交付/张工',
+    skill: '-',
+    artifacts: ['.ai/tier3_handover.md', '通用资产沉淀'],
+    desc: '提取通用模块沉淀至基础库，清理临时会话与中间日志。',
+    gate: '资产归档合规',
+    status: 'PENDING'
+  },
+  {
+    id: 'SOP-B6',
+    code: 'B6',
+    name: '断点续传',
+    title: '[B6] 上下文恢复 (断点续传)',
+    sop: '.ai/sop/B6-sop-resume.md',
+    role: '全员',
+    skill: '-',
+    artifacts: ['tier1_snapshot.md 记忆复原'],
+    desc: '读取 tier1_snapshot.md 与 dag_state.json，30秒恢复工作记忆。',
+    gate: '上下文对齐一致',
+    status: 'PENDING'
+  }
 ])
 
 // 联动当前选中的需求对象
@@ -123,10 +340,9 @@ const workflowActiveNodeInfo = computed(() => {
   return currentActiveDAGNodes.value.find(n => n.id === workflowSelectedNode.value) || currentActiveDAGNodes.value[1]
 })
 
-// 画布尺寸契约（唯一声明点）：可视框高度 360px 由 .wf-viewport 的 CSS 单独决定；
-// 内容画布固定 1450×520，同时供 X6 挂载点样式与 Graph 配置使用，禁止在别处复制字面量。
-const WORKFLOW_CANVAS = { width: 1450, height: 520 }
-// 挂载点高度由折行结果驱动并交给 Vue 管理，避免后续响应式刷新把它覆盖回 520px
+// 画布尺寸契约：可视框高度 480px 由 .wf-viewport 决定；
+// 内容画布完整包容四层一体化全景拓扑 (指令轨 / AI Skill 专家轨 / 控制中枢轨 / 物理产物轨)，宽 1750px，高 520px
+const WORKFLOW_CANVAS = { width: 1750, height: 520 }
 const workflowHostHeight = ref(WORKFLOW_CANVAS.height)
 
 // AntV X6 真实拓扑画布实例与容器引用
@@ -141,16 +357,13 @@ const initWorkflowGraph = () => {
     workflowGraph = null
   }
 
-  // 1. 创建 AntV X6 画布实例：挂载点尺寸固定，关闭 autoResize 以切断
-  //    「X6 回写容器尺寸 → ResizeObserver → 容器再变大」的正反馈；
-  //    可视区 360px 与滚动条由外层 .wf-viewport 独立承担。
   workflowGraph = new Graph({
     container: workflowGraphContainer.value,
     autoResize: false,
     width: WORKFLOW_CANVAS.width,
     height: WORKFLOW_CANVAS.height,
     background: {
-      color: '#0e1726' // 高端工业极客暗黑背景 (对齐用户提供的网络拓扑大屏风格)
+      color: '#0b1320' // 工业极客暗黑底色
     },
     grid: {
       visible: true,
@@ -162,23 +375,14 @@ const initWorkflowGraph = () => {
     },
     panning: {
       enabled: true,
-      eventTypes: ['leftMouseDown']
+      eventTypes: ['leftMouseDown'] // 允许空白处按住左键拖拽平移漫游
     },
     mousewheel: {
       enabled: true,
       modifiers: ['ctrl', 'meta']
     },
-    // 节点拖拽边界 = 内容画布边界（不是可视框），与 WORKFLOW_CANVAS 同源
-    translating: {
-      restrict: {
-        x: 0,
-        y: 0,
-        width: WORKFLOW_CANVAS.width,
-        height: WORKFLOW_CANVAS.height
-      }
-    },
     interacting: {
-      nodeMovable: true, // 允许自由拖拽节点排版
+      nodeMovable: true, // 允许自由微调拖拽节点排版
       edgeMovable: false
     }
   })
@@ -186,279 +390,284 @@ const initWorkflowGraph = () => {
   renderWorkflowGraphData()
 }
 
-// 按可视框宽度把算子节点折行铺满，消除右侧空白（节点尺寸与字号保持不变）
-const relayoutWorkflowGraph = () => {
-  if (!workflowGraph || !workflowGraphContainer.value) return
-  // X6 初始化时会把 1450px 回写到挂载点，这里复位为 100% 以免产生多余的横向滚动
-  workflowGraphContainer.value.style.width = '100%'
-  const vpEl = workflowGraphContainer.value.parentElement
-  const vpW = vpEl ? Math.min(vpEl.clientWidth, vpEl.getBoundingClientRect().width) : 950
-  const W = (vpW || 950) - 24
-  const all = workflowGraph.getNodes()
-  all.filter(n => String(n.id).startsWith('zone_')).forEach(n => n.remove())
-  const nodes = all.filter(n => !String(n.id).startsWith('zone_'))
-  const cols = Math.max(4, Math.floor(W / 155))
-  const cellW = W / cols
-  const rows = Math.ceil(nodes.length / cols)
-  // 窄屏可能折成 3 行，动态收紧行高，保证所有节点在 360px 可视框内一屏看全
-  const rowH = Math.min(118, Math.floor(328 / rows))
-  nodes.forEach((n, i) => {
-    const w = n.getSize().width || 110
-    n.position(Math.round(12 + (i % cols) * cellW + (cellW - w) / 2), 26 + Math.floor(i / cols) * rowH)
-  })
-  // 按真实节点底部兜底：即使列数/行数算错，也绝不把最后一行裁掉
-  let maxBottom = 0
-  nodes.forEach(n => {
-    const p = n.getPosition(), s = n.getSize()
-    maxBottom = Math.max(maxBottom, p.y + (s.height || 52))
-  })
-  workflowHostHeight.value = Math.max(rows * rowH + 30, maxBottom + 26)
-  // 重排时一并复位平移：在空白处按住左键拖动会把画布 pan 出可视框，导致节点只露一半
-  workflowGraph.translate(0, 0)
-}
-// 初始化时机不确定：监听可视框尺寸，稳定后自动收敛，无需用户手动点按钮
-let workflowViewportObserver: ResizeObserver | null = null
-const ensureWorkflowLayout = () => {
-  const vp = workflowGraphContainer.value?.parentElement
-  if (!vp) return
-  if (!workflowViewportObserver) {
-    workflowViewportObserver = new ResizeObserver(() => relayoutWorkflowGraph())
-    workflowViewportObserver.observe(vp)
-  }
-  relayoutWorkflowGraph()
-}
-const handleWorkflowResize = () => relayoutWorkflowGraph()
-// 一键复位平移与缩放：画布空白处按住左键即可平移，拖乱后点此恢复
+// 一键复位平移与缩放，完美居中自适应
 const resetWorkflowView = () => {
-  if (!workflowGraph) return
-  workflowGraph.translate(0, 0)
+  if (!workflowGraph || !workflowGraphContainer.value) return
   workflowGraph.zoomTo(1)
+  workflowGraph.translate(0, 0)
 }
+
+const handleWorkflowResize = () => {
+  // 保持画布平移与流向平稳
+}
+
 onMounted(() => window.addEventListener('resize', handleWorkflowResize))
 onUnmounted(() => {
   window.removeEventListener('resize', handleWorkflowResize)
-  workflowViewportObserver?.disconnect()
 })
 
 // 根据当前模式渲染 X6 真实拓扑图元 (完美复刻 .ai/sop 规约 Mermaid 全景拓扑)
+// 渲染 WORKFLOW_GUIDE.md §8 架构节点与物理产物流转全景拓扑 (四层一体化：指令轨 + Skill专家轨 + 控制中枢轨 + 物理产物轨)
 const renderWorkflowGraphData = () => {
   if (!workflowGraph) return
   workflowGraph.clearCells()
 
-  const isFasttrack = workflowTrackMode.value === 'FASTTRACK'
+  // ========================================================
+  // 1. 四大阶段大区背景底框 (横向延展至 1750px，纵深容纳四层)
+  // ========================================================
+  // 阶段一：【需求发现与规划契约区】
+  workflowGraph.addNode({
+    id: 'zone_phase1',
+    x: 20,
+    y: 15,
+    width: 320,
+    height: 480,
+    label: '【阶段一 · 需求发现与规划契约区】',
+    attrs: {
+      body: { fill: 'rgba(56, 189, 248, 0.03)', stroke: '#38bdf8', strokeWidth: 1.2, strokeDasharray: '4 4', rx: 8, ry: 8 },
+      label: { refX: 14, refY: 16, textAnchor: 'start', fill: '#38bdf8', fontSize: 12, fontWeight: 700 }
+    }
+  })
 
-  if (isFasttrack) {
-    // ==========================================
-    // ⚡ 旁路工位全景拓扑 (完整复刻 B1~B6：存量/快修/自愈/排错/归档/断点)
-    // ==========================================
-    // 旁路工区大容器
-    workflowGraph.addNode({
-      id: 'zone_fasttrack',
-      x: 20,
-      y: 20,
-      width: 1060,
-      height: 380,
-      label: '⚡ 旁路规约矩阵大区 (B1~B6 · 逆向存量/极速微创/小黄鸭自愈/应急排错/归档续传 · 免看板状态机)',
-      attrs: {
-        body: {
-          fill: 'rgba(245, 158, 11, 0.03)',
-          stroke: '#f59e0b',
-          strokeWidth: 1.2,
-          strokeDasharray: '4 4',
-          rx: 10,
-          ry: 10
-        },
-        label: { refX: 16, refY: 16, textAnchor: 'start', fill: '#f59e0b', fontSize: 11, fontWeight: 700 }
-      }
-    })
+  // 阶段二：【研发与测试解耦双轨区】
+  workflowGraph.addNode({
+    id: 'zone_phase2',
+    x: 360,
+    y: 15,
+    width: 620,
+    height: 480,
+    label: '【阶段二 · 研发主轨与测试矩阵解耦双轨区】',
+    attrs: {
+      body: { fill: 'rgba(239, 68, 68, 0.03)', stroke: '#f87171', strokeWidth: 1.2, strokeDasharray: '4 4', rx: 8, ry: 8 },
+      label: { refX: 14, refY: 16, textAnchor: 'start', fill: '#f87171', fontSize: 12, fontWeight: 700 }
+    }
+  })
 
-    // 旁路节点自左向右优雅平推
-    createGraphNode('SOP-00', '[0] 体系总览\n旁路路由判定', 40, 75, '#94a3b8', 120, 54)
-    createGraphNode('SOP-B1', '[B1] 存量解密\n逆向切片与锁死', 200, 75, '#38bdf8', 125, 54)
-    createGraphNode('SOP-B2', '[B2] 极速微创\n单文件≤20行', 360, 75, '#f59e0b', 125, 54)
-    createGraphNode('SOP-B3', '[B3] 研发自愈\n小黄鸭日志探针', 520, 75, '#a855f7', 125, 54)
-    createGraphNode('SOP-B4', '[B4] 应急排错\n线上止血与查因', 680, 75, '#ef4444', 125, 54)
-    createGraphNode('SOP-B5', '[B5] 资产沉淀\n会话清理与复用', 840, 75, '#10b981', 125, 54)
-    createGraphNode('SOP-B6', '[B6] 断点续传\n快照30秒恢复记忆', 400, 240, '#0284c7', 280, 54)
+  // 阶段三：【双轨汇合与终验区】
+  workflowGraph.addNode({
+    id: 'zone_phase3',
+    x: 1000,
+    y: 15,
+    width: 340,
+    height: 480,
+    label: '【阶段三 · 双轨延迟汇合与双向验收区】',
+    attrs: {
+      body: { fill: 'rgba(2, 132, 199, 0.04)', stroke: '#0284c7', strokeWidth: 1.2, strokeDasharray: '4 4', rx: 8, ry: 8 },
+      label: { refX: 14, refY: 16, textAnchor: 'start', fill: '#0284c7', fontSize: 12, fontWeight: 700 }
+    }
+  })
 
-    // 旁路连线 (平直连线)
-    createGraphEdge('SOP-00', 'SOP-B1', '#94a3b8', false, 'right', 'left', 'normal')
-    createGraphEdge('SOP-B1', 'SOP-B2', '#38bdf8', false, 'right', 'left', 'normal')
-    createGraphEdge('SOP-B2', 'SOP-B3', '#f59e0b', false, 'right', 'left', 'normal')
-    createGraphEdge('SOP-B3', 'SOP-B4', '#a855f7', false, 'right', 'left', 'normal')
-    createGraphEdge('SOP-B4', 'SOP-B5', '#ef4444', false, 'right', 'left', 'normal')
-    // B6 断点续传支撑全线
-    createGraphEdge('SOP-00', 'SOP-B6', '#0284c7', true, 'bottom', 'left', 'smooth')
-    createGraphEdge('SOP-B6', 'SOP-B5', '#0284c7', true, 'right', 'bottom', 'smooth')
+  // 阶段四：【里程碑发布与旁路自愈区】
+  workflowGraph.addNode({
+    id: 'zone_phase4',
+    x: 1360,
+    y: 15,
+    width: 350,
+    height: 480,
+    label: '【阶段四 · 容器编排/发布回滚与旁路自愈区】',
+    attrs: {
+      body: { fill: 'rgba(16, 185, 129, 0.04)', stroke: '#10b981', strokeWidth: 1.2, strokeDasharray: '4 4', rx: 8, ry: 8 },
+      label: { refX: 14, refY: 16, textAnchor: 'start', fill: '#10b981', fontSize: 12, fontWeight: 700 }
+    }
+  })
 
-  } else {
-    // ==========================================
-    // 🛡️ L/M级标准工程闭环拓扑 (极简高美感一字型横向流水线 + 双轨平行汇合)
-    // ==========================================
+  // ========================================================
+  // 2. 第一层：【👤 用户数字 SOP 指令节点】 (y: 40 ~ 130)
+  // ========================================================
+  // 规划阶段
+  createGraphNode('SOP-00', '[0] 体系总览\n规模分流识别', 38, 48, '#94a3b8', 120, 52, undefined, 'instruction')
+  createGraphNode('SOP-01', '[1] 需求规划\n白话澄清与切片', 185, 48, '#f59e0b', 130, 52, undefined, 'instruction')
 
-    // 1. 阶段底框：高度收紧为 170px，紧凑美观
-    // 规划区 (x: 20 -> 270)
-    workflowGraph.addNode({
-      id: 'zone_phase1',
-      x: 20,
-      y: 15,
-      width: 250,
-      height: 175,
-      label: '【规划契约区】',
-      attrs: {
-        body: {
-          fill: 'rgba(56, 189, 248, 0.03)',
-          stroke: '#38bdf8',
-          strokeWidth: 1.2,
-          strokeDasharray: '4 4',
-          rx: 10,
-          ry: 10
-        },
-        label: { refX: 14, refY: 16, textAnchor: 'start', fill: '#38bdf8', fontSize: 11, fontWeight: 700 }
-      }
-    })
+  // 阶段二：上轨 研发主干 (y: 48)
+  createGraphNode('SOP-02', '[2] 方案设计\n契约与表结构冻结', 385, 48, '#38bdf8', 130, 52, undefined, 'instruction')
+  createGraphNode('SOP-03', '[3] TDD编码\n单焦点红绿单测', 535, 48, '#94a3b8', 130, 52, undefined, 'instruction')
+  createGraphNode('SOP-04', '[4] 机器门禁\ngate.py 6项阻断', 685, 48, '#ef4444', 130, 52, undefined, 'instruction')
+  createGraphNode('SOP-05', '[5] 人工评审\n架构与契约复核', 835, 48, '#f59e0b', 130, 52, undefined, 'instruction')
 
-    // 研发与门禁区 (与规划区间隔 35px，从 x: 305 开始)
-    workflowGraph.addNode({
-      id: 'zone_phase2',
-      x: 305,
-      y: 15,
-      width: 535,
-      height: 175,
-      label: '【研发与机器门禁主轨 (Dev Track)】',
-      attrs: {
-        body: {
-          fill: 'rgba(239, 68, 68, 0.03)',
-          stroke: '#ef4444',
-          strokeWidth: 1.2,
-          strokeDasharray: '4 4',
-          rx: 10,
-          ry: 10
-        },
-        label: { refX: 14, refY: 16, textAnchor: 'start', fill: '#ef4444', fontSize: 11, fontWeight: 700 }
-      }
-    })
+  // 阶段二：下轨 测试矩阵解耦 (y: 115)
+  createGraphNode('TC-GEN', '[TC] 测试用例矩阵\ndocs/test-cases 冻结', 535, 115, '#8b5cf6', 280, 48, undefined, 'instruction')
 
-    // 汇合终验区 (从 x: 870 开始)
-    workflowGraph.addNode({
-      id: 'zone_phase3',
-      x: 870,
-      y: 15,
-      width: 270,
-      height: 175,
-      label: '【双轨汇合与终验区】',
-      attrs: {
-        body: {
-          fill: 'rgba(2, 132, 199, 0.03)',
-          stroke: '#0284c7',
-          strokeWidth: 1.2,
-          strokeDasharray: '4 4',
-          rx: 10,
-          ry: 10
-        },
-        label: { refX: 14, refY: 16, textAnchor: 'start', fill: '#0284c7', fontSize: 11, fontWeight: 700 }
-      }
-    })
+  // 阶段三：汇合终验 (y: 48)
+  createGraphNode('SOP-06', '[6] 集成测试\n★ 双轨延迟汇合穿透', 1025, 48, '#0284c7', 135, 52, undefined, 'instruction')
+  createGraphNode('SOP-07', '[7] 双向验收\n唯一归档出口 (放行)', 1185, 48, '#ef4444', 135, 52, undefined, 'instruction')
 
-    // 交付发布区 (从 x: 1170 开始)
-    workflowGraph.addNode({
-      id: 'zone_phase4',
-      x: 1170,
-      y: 15,
-      width: 280,
-      height: 175,
-      label: '【里程碑交付发布区】',
-      attrs: {
-        body: {
-          fill: 'rgba(16, 185, 129, 0.03)',
-          stroke: '#10b981',
-          strokeWidth: 1.2,
-          strokeDasharray: '4 4',
-          rx: 10,
-          ry: 10
-        },
-        label: { refX: 14, refY: 16, textAnchor: 'start', fill: '#10b981', fontSize: 11, fontWeight: 700 }
-      }
-    })
+  // 阶段四：离线容器与发布打标 (y: 48)
+  createGraphNode('SOP-08', '[8] 容器部署\nDockerCompose离线', 1380, 48, '#10b981', 135, 52, undefined, 'instruction')
+  createGraphNode('SOP-09', '[9] Git发布\nTag+Release回滚配对', 1545, 48, '#10b981', 135, 52, undefined, 'instruction')
 
-    // ==========================================
-    // 2. 节点坐标布局 (同一水平线 y=65，整齐一字排开)
-    // ==========================================
-    // 阶段一：规划
-    createGraphNode('SOP-00', '[0] 体系总览\n规模分流识别', 38, 65, '#94a3b8', 105, 52)
-    createGraphNode('SOP-01', '[1] 需求切片\n四层清单+披萨切片', 155, 65, '#f59e0b', 105, 52)
+  // 旁路快速通道 (y: 115)
+  createGraphNode('SOP-B2', '⚡ [B2] 极速微创修补\n单文件≤20行免门禁', 1380, 115, '#d97706', 300, 48, undefined, 'instruction')
 
-    // 上轨：研发主干 (y=65)
-    createGraphNode('SOP-02', '[2] 方案设计\ndetail.md+SQL', 325, 65, '#38bdf8', 110, 52)
-    createGraphNode('SOP-03', '[3] TDD编码\n红绿循环测试', 455, 65, '#94a3b8', 110, 52)
-    createGraphNode('SOP-04', '[4] 机器门禁\ngate.py 8项阻断', 585, 65, '#ef4444', 110, 52)
-    createGraphNode('SOP-05', '[5] 人工评审\n架构与契约审查', 715, 65, '#f59e0b', 110, 52)
+  // 主轨指令连线
+  createGraphEdge('SOP-00', 'SOP-01', '#94a3b8', false, 'right', 'left', 'normal')
+  createGraphEdge('SOP-01', 'SOP-02', '#38bdf8', false, 'right', 'left', 'smooth')
+  createGraphEdge('SOP-01', 'TC-GEN', '#8b5cf6', true, 'right', 'left', 'smooth')
+  createGraphEdge('SOP-02', 'SOP-03', '#38bdf8', false, 'right', 'left', 'normal')
+  createGraphEdge('SOP-03', 'SOP-04', '#ef4444', false, 'right', 'left', 'normal')
+  createGraphEdge('SOP-04', 'SOP-05', '#f59e0b', false, 'right', 'left', 'normal')
+  createGraphEdge('SOP-05', 'SOP-06', '#0284c7', false, 'right', 'left', 'smooth')
+  createGraphEdge('TC-GEN', 'SOP-06', '#8b5cf6', false, 'right', 'left', 'smooth')
+  createGraphEdge('SOP-06', 'SOP-07', '#ef4444', false, 'right', 'left', 'normal')
+  createGraphEdge('SOP-07', 'SOP-08', '#10b981', true, 'right', 'left', 'normal')
+  createGraphEdge('SOP-08', 'SOP-09', '#10b981', false, 'right', 'left', 'normal')
+  // B2 旁路直通发布
+  createGraphEdge('SOP-00', 'SOP-B2', '#d97706', true, 'bottom', 'left', 'smooth')
+  createGraphEdge('SOP-B2', 'SOP-09', '#d97706', true, 'right', 'bottom', 'smooth')
 
-    // 阶段三：汇合终验 (y=65)
-    createGraphNode('SOP-06', '[6] 集成测试\n★ 双轨延迟汇合穿透', 890, 65, '#0284c7', 120, 52)
-    createGraphNode('SOP-07', '[7] 终验门禁\n归档唯一出口 (放行)', 1025, 65, '#ef4444', 100, 52)
+  // ========================================================
+  // 3. 第二层：【🧩 AI 专属 Skill 技能专家】 (y: 195 ~ 245) - 穿透绑定上游状态
+  // ========================================================
+  createGraphNode('SKILL-01', '🤖 requirement-discovery\n需求发现与白话澄清专家', 100, 195, '#0284c7', 220, 50, undefined, 'skill', 'SOP-01')
+  createGraphNode('SKILL-02', '🤖 design-spec-architect\n概要与详细设计专家', 385, 195, '#38bdf8', 210, 50, undefined, 'skill', 'SOP-02')
+  createGraphNode('SKILL-03', '🤖 coding-standards\n代码规范与契约绑定专家', 610, 195, '#10b981', 200, 50, undefined, 'skill', 'SOP-03')
+  createGraphNode('SKILL-04', '🤖 code-quality-reviewer\n静态质量审查与门禁专家', 825, 195, '#ef4444', 210, 50, undefined, 'skill', 'SOP-04')
+  createGraphNode('SKILL-06', '🤖 quality-verifier\n质量验证与小黄鸭探针专家', 1080, 195, '#8b5cf6', 220, 50, undefined, 'skill', 'SOP-06')
+  createGraphNode('SKILL-00', '🏛️ legacy-archaeologist\n老项目逆向考古专家', 1380, 195, '#f59e0b', 210, 50, undefined, 'skill', 'SOP-B1')
 
-    // 阶段四：里程碑交付 (y=65)
-    createGraphNode('SOP-08', '[8] 容器部署\nDocker离线巡检', 1190, 65, '#10b981', 110, 52)
-    createGraphNode('SOP-09', '[9] Git发布\nTag+Release文档', 1320, 65, '#10b981', 110, 52)
+  // 指令激活 Skill 连线 (垂直虚线)
+  createGraphEdge('SOP-01', 'SKILL-01', '#0284c7', true, 'bottom', 'top', 'smooth')
+  createGraphEdge('SOP-02', 'SKILL-02', '#38bdf8', true, 'bottom', 'top', 'smooth')
+  createGraphEdge('SOP-03', 'SKILL-03', '#10b981', true, 'bottom', 'top', 'smooth')
+  createGraphEdge('SOP-04', 'SKILL-04', '#ef4444', true, 'bottom', 'top', 'smooth')
+  createGraphEdge('SOP-06', 'SKILL-06', '#8b5cf6', true, 'bottom', 'top', 'smooth')
 
-    // ==========================================
-    // 3. 拓扑连线 (纯净一马平川水平直线)
-    // ==========================================
-    createGraphEdge('SOP-00', 'SOP-01', '#94a3b8', false, 'right', 'left', 'normal')
-    createGraphEdge('SOP-01', 'SOP-02', '#38bdf8', false, 'right', 'left', 'normal')
-    createGraphEdge('SOP-02', 'SOP-03', '#38bdf8', false, 'right', 'left', 'normal')
-    createGraphEdge('SOP-03', 'SOP-04', '#ef4444', false, 'right', 'left', 'normal')
-    createGraphEdge('SOP-04', 'SOP-05', '#f59e0b', false, 'right', 'left', 'normal')
-    createGraphEdge('SOP-05', 'SOP-06', '#0284c7', false, 'right', 'left', 'normal')
-    createGraphEdge('SOP-06', 'SOP-07', '#ef4444', false, 'right', 'left', 'normal')
-    createGraphEdge('SOP-07', 'SOP-08', '#10b981', true, 'right', 'left', 'normal')
-    createGraphEdge('SOP-08', 'SOP-09', '#10b981', false, 'right', 'left', 'normal')
-  }
+  // ========================================================
+  // 4. 第三层：【🧠 状态与记忆控制中枢 (.ai/)】 (y: 285 ~ 335) - 穿透绑定上游状态
+  // ========================================================
+  createGraphNode('CTRL-SNAP', '⚡ tier1_snapshot.md\n极简名片卡 (<30行)', 100, 285, '#eab308', 200, 50, undefined, 'control', 'SOP-00')
+  createGraphNode('CTRL-BOARD', '🛠️ board.py 看板脚本\n状态机唯一合法入口', 450, 285, '#f97316', 210, 50, undefined, 'control', 'SOP-02')
+  createGraphNode('CTRL-STATUS', '📋 tier3_status.md\nACTIVE/DONE 任务看板', 730, 285, '#06b6d4', 220, 50, undefined, 'control', 'SOP-03')
+  createGraphNode('CTRL-GATE', '🔒 gate.py 机器门禁\nLGTM 阻断拦截看门狗', 1030, 285, '#ef4444', 200, 50, undefined, 'control', 'SOP-04')
+  createGraphNode('CTRL-HANDOVER', '📦 tier3_handover.md\n历史长效交接黑匣子', 1380, 285, '#a855f7', 220, 50, undefined, 'control', 'SOP-07')
 
-  // 渲染完成后按可视框宽度折行铺满，并挂上尺寸观察器兜住首屏初始化时机
-  ensureWorkflowLayout()
+  // Skill 驱动 Control 连线
+  createGraphEdge('SKILL-02', 'CTRL-BOARD', '#f97316', false, 'bottom', 'top', 'smooth')
+  createGraphEdge('CTRL-BOARD', 'CTRL-STATUS', '#06b6d4', false, 'right', 'left', 'normal')
+  createGraphEdge('SKILL-04', 'CTRL-GATE', '#ef4444', false, 'bottom', 'top', 'smooth')
 
-  // 绑定节点点击事件：点击拓扑节点联动更新选中的算子
+  // ========================================================
+  // 5. 第四层：【📄 确定性物理输出产物 (Artifacts)】 (y: 385 ~ 445) - 穿透绑定产出工位状态
+  // ========================================================
+  createGraphNode('ART-01', '📝 四层清单基线草案\n白话对撞决策列表 (P04)', 80, 385, '#38bdf8', 220, 56, undefined, 'artifact', 'SOP-01')
+  createGraphNode('ART-02', '🎨 mockup.html / PRD\n📐 detail.md + service.sql', 360, 385, '#38bdf8', 230, 56, undefined, 'artifact', 'SOP-02')
+  createGraphNode('ART-03', '💻 src/ 业务源码工程\n🔌 第三方 API 真实联调日志', 660, 385, '#10b981', 230, 56, undefined, 'artifact', 'SOP-03')
+  createGraphNode('ART-04', '🔒 gate.py LGTM 报告\n🧪 E2E 离线穿透验证凭据', 970, 385, '#ef4444', 230, 56, undefined, 'artifact', 'SOP-04')
+  createGraphNode('ART-05', '🏁 board.py verify 凭据\n🏷️ Git Tag + Release 文档', 1330, 385, '#10b981', 230, 56, undefined, 'artifact', 'SOP-07')
+
+  // 控制/技能驱动物理产物落盘连线
+  createGraphEdge('SKILL-01', 'ART-01', '#38bdf8', true, 'bottom', 'top', 'smooth')
+  createGraphEdge('CTRL-BOARD', 'ART-02', '#38bdf8', true, 'bottom', 'top', 'smooth')
+  createGraphEdge('SKILL-03', 'ART-03', '#10b981', true, 'bottom', 'top', 'smooth')
+  createGraphEdge('CTRL-GATE', 'ART-04', '#ef4444', true, 'bottom', 'top', 'smooth')
+  createGraphEdge('SOP-07', 'ART-05', '#10b981', true, 'bottom', 'top', 'smooth')
+
+  // 绑定节点点击事件：点击任意工位节点或技能专家均可联动查看
   workflowGraph.on('node:click', ({ node }) => {
     const id = node.id
-    if (!id.startsWith('zone_') && workflowSelectedNode.value !== id) {
-      workflowSelectedNode.value = id
+    if (!id.startsWith('zone_')) {
+      // 智能推演点击的实际关联工位ID
+      const mappedId = id.startsWith('SKILL-01') || id === 'ART-01' ? 'SOP-01'
+        : (id.startsWith('SKILL-02') || id === 'CTRL-BOARD' || id === 'ART-02' ? 'SOP-02'
+        : (id.startsWith('SKILL-03') || id === 'CTRL-STATUS' || id === 'ART-03' ? 'SOP-03'
+        : (id.startsWith('SKILL-04') || id === 'CTRL-GATE' || id === 'ART-04' ? 'SOP-04'
+        : (id.startsWith('SKILL-06') ? 'SOP-06'
+        : (id === 'ART-05' ? 'SOP-07' : id)))))
+      workflowSelectedNode.value = mappedId
       renderWorkflowGraphData()
     }
   })
 }
 
-// 辅助创建工业拓扑风格节点 (隐藏粗糙连接桩，强化卡片视觉与阴影)
-const createGraphNode = (id: string, name: string, x: number, y: number, color: string, width = 150, height = 64) => {
+// 辅助创建工业拓扑风格节点 (支持三态色彩分级：已完成翡翠绿、当前激活电光青发光、未激活暗夜置灰)
+const createGraphNode = (
+  id: string,
+  name: string,
+  x: number,
+  y: number,
+  defaultColor: string,
+  width = 150,
+  height = 68,
+  skillTag?: string,
+  category = 'instruction', // 'instruction' 指令, 'skill' AI专家, 'control' 控制中枢, 'artifact' 物理产物
+  parentInstructionId?: string // 绑定的上游指令ID，用于全层联动判定状态
+) => {
   if (!workflowGraph) return null
-  const isActive = workflowSelectedNode.value === id
-  const targetColor = isActive ? '#06b6d4' : color
+
+  // 1. 推演当前节点状态 (COMPLETED / ACTIVE / PENDING)
+  const targetId = parentInstructionId || id
+  const isActive = workflowSelectedNode.value === targetId
+  const nodeStatus = pipelineNodes.value.find(n => n.id === targetId)?.status || (id === 'SOP-00' ? 'COMPLETED' : 'PENDING')
+  const isCompleted = nodeStatus === 'COMPLETED'
+
+  // 2. 根据三态计算颜色与发光特效
+  let strokeColor = defaultColor
+  let bgFill = '#151c2c'
+  let textColor = '#f1f5f9'
+  let filterEffect = 'none'
+
+  if (isActive) {
+    // 当前激活聚焦：电光青高光 + 呼吸阴影
+    strokeColor = '#06b6d4'
+    bgFill = '#0f2942'
+    textColor = '#38bdf8'
+    filterEffect = 'drop-shadow(0 0 12px rgba(6, 182, 212, 0.6))'
+  } else if (isCompleted) {
+    // 已完成：翡翠绿微光
+    strokeColor = '#10b981'
+    bgFill = '#062d22'
+    textColor = '#a7f3d0'
+    filterEffect = 'drop-shadow(0 0 6px rgba(16, 185, 129, 0.35))'
+  } else {
+    // 未激活：暗夜置灰，全层低调下沉
+    strokeColor = '#334155'
+    bgFill = '#0f172a'
+    textColor = '#64748b'
+    filterEffect = 'none'
+  }
+
+  // 3. 根据四层类型定制圆角
+  let rx = 8
+  let ry = 8
+  if (category === 'skill') {
+    rx = 16
+    ry = 16
+    if (isActive) bgFill = '#1e1b4b'
+  } else if (category === 'control') {
+    rx = 4
+    ry = 4
+    if (isActive) bgFill = '#2e1065'
+  } else if (category === 'artifact') {
+    rx = 6
+    ry = 6
+  }
+
+  const displayText = skillTag ? `${name}\n🤖 ${skillTag}` : name
+
   return workflowGraph.addNode({
     id,
     x,
     y,
     width,
     height,
-    label: name,
+    label: displayText,
     attrs: {
       body: {
-        fill: isActive ? '#0f2942' : '#151c2c',
-        stroke: targetColor,
-        strokeWidth: isActive ? 2.5 : 1.5,
-        rx: 10,
-        ry: 10,
-        filter: isActive ? 'drop-shadow(0 0 8px rgba(6, 182, 212, 0.4))' : 'none'
+        fill: bgFill,
+        stroke: strokeColor,
+        strokeWidth: isActive ? 2.5 : (isCompleted ? 1.8 : 1.2),
+        rx,
+        ry,
+        filter: filterEffect
       },
       label: {
         refX: '50%',
         refY: '50%',
         textAnchor: 'middle',
         textVerticalAnchor: 'middle',
-        fill: isActive ? '#38bdf8' : '#f1f5f9',
-        fontSize: 12,
-        fontWeight: 600,
-        lineHeight: 18
+        fill: textColor,
+        fontSize: category === 'artifact' ? 10 : 11,
+        fontWeight: (isActive || isCompleted) ? 700 : 500,
+        lineHeight: 15
       }
     },
     ports: {
@@ -482,31 +691,45 @@ const createGraphNode = (id: string, name: string, x: number, y: number, color: 
   })
 }
 
-// 辅助创建带流光指向的连线 (正向水平直连，杜绝不必要的折线与兜圈)
+// 辅助创建带流光指向的连线 (支持已完成高亮绿线、未完成暗灰虚线)
 const createGraphEdge = (
   source: string,
   target: string,
-  color: string,
+  _defaultColor: string,
   dashed = false,
   sourcePort = 'right',
   targetPort = 'left',
-  connectorName = 'normal' // 默认直线直连，上下分流时才用 rounded/orth
+  connectorName = 'normal',
+  parentStatus?: string
 ) => {
   if (!workflowGraph) return null
   const isDirect = connectorName === 'normal'
+  const isSmooth = connectorName === 'smooth'
+
+  // 连线三态染色：上游已走过则高亮绿色实线，未走过则暗夜置灰虚线
+  const sourceNode = pipelineNodes.value.find(n => n.id === source)
+  const isLineCompleted = parentStatus === 'COMPLETED' || (sourceNode && sourceNode.status === 'COMPLETED')
+  const isLineActive = source === workflowSelectedNode.value
+
+  let lineColor = isLineActive ? '#06b6d4' : (isLineCompleted ? '#10b981' : '#334155')
+  let lineWidth = (isLineActive || isLineCompleted) ? 2 : 1.2
+  let strokeDash = (isLineActive || isLineCompleted) ? (dashed ? '4 3' : '0') : '4 4'
+
   return workflowGraph.addEdge({
     source: { cell: source, port: sourcePort },
     target: { cell: target, port: targetPort },
-    connector: isDirect ? { name: 'normal' } : { name: 'rounded', args: { radius: 12 } },
-    router: isDirect ? { name: 'normal' } : { name: 'orth' },
+    connector: isDirect ? { name: 'normal' } : (isSmooth ? { name: 'smooth' } : { name: 'rounded', args: { radius: 12 } }),
+    router: isDirect ? { name: 'normal' } : { name: 'er' },
     attrs: {
       line: {
-        stroke: color,
-        strokeWidth: 2,
-        strokeDasharray: dashed ? '4 3' : '0',
+        stroke: lineColor,
+        strokeWidth: lineWidth,
+        strokeDasharray: strokeDash,
         targetMarker: {
           name: 'classic',
-          size: 7
+          size: 7,
+          fill: lineColor,
+          stroke: lineColor
         }
       }
     }
@@ -528,7 +751,7 @@ const syncRealWorkflowDagState = async () => {
   }
 }
 
-// 人工顺推当前需求的 DAG 工位算子 (并持久化落盘)
+// 人工顺推当前需求的 DAG 工位算子 (并持久化落盘至 MySQL 与 .ai 运行时)
 const handleAdvanceWorkflowNode = async () => {
   const req = workflowActiveReq.value
   const currentNode = workflowActiveNodeInfo.value
@@ -537,11 +760,16 @@ const handleAdvanceWorkflowNode = async () => {
     await advanceWorkflowDagApi({
       reqCode: req.reqCode || 'REQ-001',
       targetNode: targetId,
+      nodeName: currentNode.name,
+      trackMode: workflowTrackMode.value,
+      skillName: currentNode.skill || '',
+      actionType: 'ADVANCE',
       status: 'COMPLETED',
       operator: currentOperator.value
     })
-    ElMessage.success(`需求 [${req.reqCode}] 工位 [${targetId}] 已核验通过并持久化落盘！`)
+    ElMessage.success(`需求 [${req.reqCode}] 工位 [${targetId}] 成果已核验并持久化落盘至 MySQL 数据库！`)
     await syncRealWorkflowDagState()
+    await loadWorkflowRecords()
     renderWorkflowGraphData()
   } catch (e: any) {
     ElMessage.success(`工位 [${targetId}] 执行成果已确认！`)
@@ -555,7 +783,7 @@ const handleSelectWorkflowReq = (req: any) => {
   const isBugOrFasttrack = req.title?.includes('Bug') || req.title?.includes('修复') || req.title?.includes('缺陷') || req.priority === 'P3'
   if (isBugOrFasttrack) {
     workflowTrackMode.value = 'FASTTRACK'
-    workflowSelectedNode.value = 'B2-02'
+    workflowSelectedNode.value = 'SOP-B2'
   } else {
     workflowTrackMode.value = 'STANDARD'
     if (req.status === 'BASELINED') {
@@ -581,9 +809,125 @@ const handleSelectWorkflowReq = (req: any) => {
       })
     }
   }
-  // 重新渲染 X6 拓扑图元
+  // 重新渲染 X6 拓扑图元并同步拉取历史审计履历
   renderWorkflowGraphData()
   syncRealWorkflowDagState()
+  loadWorkflowRecords()
+}
+
+// 智能向导：动态推演 AI 建议的下一步动作 (Next Best Action)
+const aiNextActionAdvice = computed(() => {
+  const node = workflowActiveNodeInfo.value
+  const req = workflowActiveReq.value
+  if (workflowTrackMode.value === 'FASTTRACK') {
+    return {
+      modeText: '⚡ 极速微创修补模式 (免状态机)',
+      tagColor: '#D97706',
+      advice: `当前处于 [${node.id} ${node.name}] 工位。建议直接在对话框执行极速修补，改动控制在单文件≤20行内。`,
+      recommendedCmd: `[${node.code}] ${node.name}`,
+      skill: node.skill || 'quality-verifier'
+    }
+  }
+
+  // 标准研发主轨推演
+  switch (node.id) {
+    case 'SOP-00':
+      return {
+        modeText: '🛡️ 体系总览与分流判定',
+        tagColor: '#64748B',
+        advice: `当前需求规模为 ${req.priority || 'P1'}。下一步推荐敲击 [1] 启动需求规划与边界切片。`,
+        recommendedCmd: '[1] 需求规划',
+        skill: 'requirement-discovery'
+      }
+    case 'SOP-01':
+      return {
+        modeText: '🛡️ 规划契约阶段',
+        tagColor: '#0284C7',
+        advice: `需求四层清单已初步明确。下一步推荐敲击 [2] 冻结技术方案 (detail.md 与 SQL)，测试轨同步就绪。`,
+        recommendedCmd: '[2] 技术方案',
+        skill: 'design-spec-architect'
+      }
+    case 'SOP-02':
+      return {
+        modeText: '🛡️ 方案设计与契约冻结',
+        tagColor: '#38BDF8',
+        advice: `接口契约与表结构已冻结。下一步推荐敲击 [3] 启动红绿循环 TDD 编码，严禁编写未经单测验证的代码。`,
+        recommendedCmd: '[3] TDD编码',
+        skill: 'coding-standards'
+      }
+    case 'TC-GEN':
+      return {
+        modeText: '🧪 测试轨平行解耦',
+        tagColor: '#8B5CF6',
+        advice: `测试用例矩阵正在冻结中。完成后将直达 [6] 集成测试与研发代码发生碰撞验证。`,
+        recommendedCmd: '[6] 集成测试',
+        skill: 'quality-verifier'
+      }
+    case 'SOP-03':
+      return {
+        modeText: '🛡️ TDD 单焦点编码阶段',
+        tagColor: '#10B981',
+        advice: `单测已全绿。下一步强烈建议敲击 [4] 运行 gate.py 机器门禁，拦截假 Mock 与公网依赖。`,
+        recommendedCmd: '[4] 机器门禁',
+        skill: 'code-quality-reviewer'
+      }
+    case 'SOP-04':
+      return {
+        modeText: '🔒 机器门禁质检阶段',
+        tagColor: '#EF4444',
+        advice: `机器门禁扫描已通过。下一步推荐敲击 [5] 提交架构师程工进行 5 维人工评审。`,
+        recommendedCmd: '[5] 人工评审',
+        skill: 'code-quality-reviewer'
+      }
+    case 'SOP-05':
+      return {
+        modeText: '🔍 架构与契约人工评审',
+        tagColor: '#F59E0B',
+        advice: `人工评审签字核准。下一步推荐敲击 [6] 启动集成穿透测试，与 TC 用例矩阵汇合。`,
+        recommendedCmd: '[6] 集成测试',
+        skill: 'quality-verifier'
+      }
+    case 'SOP-06':
+      return {
+        modeText: '🧪 双轨汇合与集成穿透',
+        tagColor: '#0284C7',
+        advice: `集成测试通过。下一步推荐敲击 [7] 启动双向验收与归档唯一出口 (board.py verify)。`,
+        recommendedCmd: '[7] 双向验收',
+        skill: 'quality-verifier'
+      }
+    case 'SOP-07':
+      return {
+        modeText: '🏁 交付双向验收 (唯一出口)',
+        tagColor: '#16A34A',
+        advice: `双向验收凭证已冻结。下一步敲击 [8] 离线容器部署或 [9] Git 发布打标归档。`,
+        recommendedCmd: '[8] 容器部署',
+        skill: '运维/交付'
+      }
+    default:
+      return {
+        modeText: '🚀 里程碑就绪',
+        tagColor: '#10B981',
+        advice: `当前工位资产已稳固，项目处于健康可受控状态。`,
+        recommendedCmd: '[9] Git发布',
+        skill: '-'
+      }
+  }
+})
+
+// 历史审计流转记录
+const workflowRecords = ref<any[]>([])
+
+// 加载历史审计履历
+const loadWorkflowRecords = async () => {
+  const reqCode = workflowActiveReq.value?.reqCode || 'REQ-001'
+  try {
+    const res = await getWorkflowRecordsApi({ reqCode })
+    if (res.data) {
+      workflowRecords.value = res.data
+    }
+  } catch (e) {
+    workflowRecords.value = []
+  }
 }
 
 // 视角与路由状态
@@ -1648,72 +1992,42 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- 模式切换快捷控制栏 (大需求全链路 vs S级极速旁路) -->
-          <div style="display:flex; justify-content:space-between; align-items:center; background:#FFF; border:1px solid var(--border); padding:10px 16px; border-radius:var(--radius-sm); margin-bottom:16px; box-shadow:var(--shadow-sm);">
-            <div style="display:flex; align-items:center; gap:12px;">
-              <span style="font-size:13px; font-weight:700; color:var(--text-main);">🎯 流水线工作模式：</span>
-              <div style="display:inline-flex; background:#F1F5F9; padding:3px; border-radius:6px; gap:4px;">
-                <button
-                  class="btn btn-sm"
-                  :style="workflowTrackMode === 'STANDARD' ? 'background:#0284C7; color:#FFF; font-weight:700; box-shadow:0 1px 3px rgba(0,0,0,0.1);' : 'background:transparent; color:#475569; border:none;'"
-                  @click="workflowTrackMode = 'STANDARD'; workflowSelectedNode = 'SOP-01'; renderWorkflowGraphData()"
-                >
-                  🛡️ L级标准工程闭环 (11算子主轨)
-                </button>
-                <button
-                  class="btn btn-sm"
-                  :style="workflowTrackMode === 'FASTTRACK' ? 'background:#D97706; color:#FFF; font-weight:700; box-shadow:0 1px 3px rgba(0,0,0,0.1);' : 'background:transparent; color:#475569; border:none;'"
-                  @click="workflowTrackMode = 'FASTTRACK'; workflowSelectedNode = 'SOP-B2'; renderWorkflowGraphData()"
-                >
-                  ⚡ S级极速微创与旁路 (B1~B6全景矩阵)
-                </button>
+          <!-- 🤖 AI 智能向导与驾驶舱建议条 (对齐人机协同与下一步推荐) -->
+          <div class="card" style="padding:14px 20px; margin-bottom:16px; background:linear-gradient(135deg, #0b1320 0%, #172554 100%); border:1px solid #1e3a8a; color:#FFF; display:flex; justify-content:space-between; align-items:center; box-shadow:0 4px 12px rgba(15,23,42,0.15);">
+            <div style="display:flex; align-items:center; gap:14px;">
+              <div style="width:38px; height:38px; border-radius:50%; background:rgba(56,189,248,0.2); border:1px solid #38bdf8; display:flex; align-items:center; justify-content:center; font-size:18px;">
+                🧭
               </div>
-            </div>
-            <div style="font-size:12px; color:var(--text-muted);">
-              <span v-if="workflowTrackMode === 'STANDARD'">当前正在运行：<strong>L/M级大需求标准工程双轨流水线</strong></span>
-              <span v-else style="color:#B45309;">当前正在运行：<strong>S级极速微创修补与研发自愈旁路 (免状态机)</strong></span>
-            </div>
-          </div>
-
-          <!-- 跑马灯：微观算子节点步进轨道 (展示各节点状态与流转指引) -->
-          <div class="card" style="padding:14px 20px; margin-bottom:16px; background:#F8FAFC; border:1px solid var(--border);">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-              <div style="display:flex; align-items:center; gap:8px;">
-                <span style="font-weight:700; font-size:13px; color:var(--text-main);">🚦 算子步进跑马灯 (流水线巡航轨迹)</span>
-                <span class="tag tag-baselined" style="font-size:11px;">
-                  正在执行：[{{ workflowActiveNodeInfo.id }}] {{ workflowActiveNodeInfo.name }}
-                </span>
-              </div>
-              <div style="font-size:12px; color:var(--text-muted);">
-                点击任意节点可在下方画布与说明面板中即刻查看属性
-              </div>
-            </div>
-
-            <!-- 节点步进横向跑马灯轨道 -->
-            <div style="display:flex; align-items:center; overflow-x:auto; padding:6px 0; gap:8px; scrollbar-width:thin;">
-              <template v-for="(node, idx) in currentActiveDAGNodes" :key="node.id">
-                <div
-                  @click="workflowSelectedNode = node.id; renderWorkflowGraphData()"
-                  style="display:flex; align-items:center; gap:8px; padding:6px 12px; border-radius:var(--radius-sm); cursor:pointer; flex-shrink:0; transition:all 0.2s; border:1px solid transparent;"
-                  :style="workflowSelectedNode === node.id ? 'background:#0284C7; color:#FFF; box-shadow:0 2px 8px rgba(2,132,199,0.3); font-weight:700;' : (node.status === 'COMPLETED' ? 'background:#DCFCE7; color:#15803D; border-color:#BBF7D0;' : (node.status === 'IN_PROGRESS' ? 'background:#FEF3C7; color:#B45309; border-color:#FDE68A;' : 'background:#FFF; color:#64748B; border-color:var(--border);'))"
-                >
-                  <span
-                    style="width:18px; height:18px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:10px; font-weight:700;"
-                    :style="workflowSelectedNode === node.id ? 'background:#FFF; color:#0284C7;' : (node.status === 'COMPLETED' ? 'background:#16A34A; color:#FFF;' : (node.status === 'IN_PROGRESS' ? 'background:#F59E0B; color:#FFF;' : 'background:#CBD5E1; color:#475569;'))"
-                  >
-                    {{ node.status === 'COMPLETED' ? '✔' : idx + 1 }}
+              <div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="font-size:14px; font-weight:700; color:#f8fafc;">AI 流程副驾导航建议</span>
+                  <span class="tag" :style="{ background: aiNextActionAdvice.tagColor, color: '#FFF', fontSize: '11px', padding: '1px 8px' }">
+                    {{ aiNextActionAdvice.modeText }}
                   </span>
-                  <div style="display:flex; flex-direction:column; line-height:1.2;">
-                    <span style="font-size:12px;">{{ node.id }} {{ node.name }}</span>
-                    <span style="font-size:10px; opacity:0.85;">{{ node.role }}</span>
-                  </div>
+                  <span style="font-size:12px; color:#94a3b8;">
+                    绑定 Skill: <code style="background:rgba(255,255,255,0.1); color:#38bdf8; padding:1px 5px; border-radius:3px;">{{ aiNextActionAdvice.skill }}</code>
+                  </span>
                 </div>
+                <div style="font-size:13px; color:#cbd5e1; margin-top:4px;">
+                  💡 <strong>智能建议：</strong>{{ aiNextActionAdvice.advice }}
+                </div>
+              </div>
+            </div>
 
-                <!-- 步进连接箭头 -->
-                <div v-if="idx < currentActiveDAGNodes.length - 1" style="color:#94A3B8; font-size:12px; flex-shrink:0;">
-                  ➔
+            <div style="display:flex; gap:10px; align-items:center;">
+              <div style="text-align:right;">
+                <div style="font-size:11px; color:#94a3b8;">在对话框输入推荐指令：</div>
+                <div style="font-size:13px; font-weight:700; color:#38bdf8; font-family:monospace;">
+                  {{ aiNextActionAdvice.recommendedCmd }}
                 </div>
-              </template>
+              </div>
+              <button
+                class="btn btn-sm"
+                style="background:#0284c7; color:#FFF; border:none; font-weight:700; padding:6px 14px;"
+                @click="handleAdvanceWorkflowNode"
+              >
+                ⚡ 一键确认采纳
+              </button>
             </div>
           </div>
 
@@ -1753,37 +2067,23 @@ onMounted(async () => {
             <!-- 上方：DAG 算子拓扑与当前工位详情，order:1 优先展示并铺满整行 -->
             <!-- min-width:0 防止内层 1450px 画布把容器撑宽，导致内容被祖先 overflow:hidden 裁掉 -->
             <div style="display:flex; flex-direction:column; gap:16px; min-width:0; order:1;">
-              <!-- 真实的 AntV X6 工业级有向无环拓扑大图 (带大区分组与多分支指向) -->
+              <!-- 真实的 AntV X6 工业级有向无环拓扑大图 (四层全景一体化呈现) -->
               <div class="card" style="padding:16px; border:1px solid var(--border); background:#0e1726;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding:0 4px;">
-                  <div>
-                    <span style="font-weight:700; font-size:14px; color:#f8fafc;">🗺️ AntV X6 真实有向无环拓扑图 (支持画布平移与节点拖拽)</span>
-                    <span v-if="workflowTrackMode === 'FASTTRACK'" class="tag tag-pending" style="margin-left:8px; font-size:11px;">
-                      ⚡ S级极速快轨
-                    </span>
-                    <span v-else class="tag tag-baselined" style="margin-left:8px; font-size:11px;">
-                      🛡️ L级标准工程闭环拓扑 (自适应折行铺满)
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-weight:700; font-size:14px; color:#f8fafc;">🗺️ 全流程架构节点与物理产物流转全景图 (4-Layer Topology)</span>
+                    <span class="tag tag-baselined" style="font-size:11px;">
+                      四层一体化 · 100% 对齐 WORKFLOW_GUIDE.md
                     </span>
                   </div>
-                  <!-- 顶层轨道流转自适应切换 -->
-                  <div style="display:flex; gap:6px; align-items:center;">
-                    <button
-                      class="btn btn-sm"
-                      :class="workflowTrackMode === 'STANDARD' ? 'btn-primary' : 'btn-outline'"
-                      @click="workflowTrackMode = 'STANDARD'; workflowSelectedNode = 'SOP-01'; renderWorkflowGraphData()"
-                    >
-                      大需求全链路 (L级)
-                    </button>
-                    <button
-                      class="btn btn-sm"
-                      :class="workflowTrackMode === 'FASTTRACK' ? 'btn-accent' : 'btn-outline'"
-                      @click="workflowTrackMode = 'FASTTRACK'; workflowSelectedNode = 'B2-02'; renderWorkflowGraphData()"
-                    >
-                      ⚡ 小Bug极速修补 (S级)
-                    </button>
+                  <!-- 控制工具栏 -->
+                  <div style="display:flex; gap:8px; align-items:center;">
+                    <span style="font-size:11px; color:#94a3b8;">
+                      按住左键可平移漫游 ｜ Ctrl+滚轮缩放
+                    </span>
                     <button
                       class="btn btn-sm btn-outline"
-                      title="画布被拖乱（节点只露一半）时点此复位平移与缩放"
+                      title="复位平移与缩放"
                       @click="resetWorkflowView()"
                     >
                       🎯 重置视图
@@ -1791,44 +2091,13 @@ onMounted(async () => {
                   </div>
                 </div>
 
-                <!-- 可视框固定 360px；内层挂载点固定 1450×520，由 X6 承接图元。
-                     两层分离确保 X6 的尺寸回写只落在内层常量上，永远不会撑大外层。 -->
+                <!-- 视口高度提升至 510px，完美呈现四层流转 -->
                 <div class="wf-viewport">
                   <div
                     ref="workflowGraphContainer"
                     class="wf-graph-host"
                     :style="{ width: '100%', height: workflowHostHeight + 'px' }"
                   ></div>
-                </div>
-              </div>
-
-              <!-- 旁路全景矩阵常驻面板 (B1 ~ B6 运维排错自愈通道) -->
-              <div class="card" style="padding:16px 20px; border:1px solid #fde68a; background:#fffbeb;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                  <div style="display:flex; align-items:center; gap:8px;">
-                    <span style="font-weight:700; font-size:13px; color:#92400e;">⚡ 研发旁路与自愈矩阵 (B1~B6 · 免看板状态机 · 即开即用)</span>
-                    <span class="tag tag-pending" style="font-size:10px;">非状态机通道</span>
-                  </div>
-                  <span style="font-size:12px; color:#b45309;">遇小Bug微创、存量改造、线上事故或上下文恢复时可随时激活</span>
-                </div>
-
-                <div style="display:grid; grid-template-columns: repeat(6, 1fr); gap:12px;">
-                  <div
-                    v-for="b in fasttrackNodes.slice(1)"
-                    :key="b.id"
-                    @click="workflowSelectedNode = b.id; workflowTrackMode = 'FASTTRACK'"
-                    style="border:1px solid #fcd34d; background:#FFF; border-radius:6px; padding:10px 12px; cursor:pointer; transition:all 0.2s;"
-                    :style="workflowSelectedNode === b.id ? 'border-color:#d97706; box-shadow:0 0 0 2px #fde68a; background:#fef3c7;' : ''"
-                  >
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                      <strong style="color:#b45309; font-size:12px;">{{ b.code }}</strong>
-                      <span style="font-size:10px; color:#94a3b8;">{{ b.role }}</span>
-                    </div>
-                    <div style="font-weight:700; font-size:12px; color:#1e293b; margin-bottom:4px;">{{ b.name }}</div>
-                    <div style="font-size:11px; color:#64748b; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;" :title="b.desc">
-                      {{ b.desc }}
-                    </div>
-                  </div>
                 </div>
               </div>
 
@@ -1852,19 +2121,78 @@ onMounted(async () => {
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; background:#F8FAFC; padding:14px; border-radius:var(--radius-sm); border:1px solid var(--border); font-size:13px; line-height:1.7;">
                   <div>
                     <div><strong>工位常驻责任角色：</strong><span style="color:var(--primary-color); font-weight:600;">{{ workflowActiveNodeInfo.role }}</span></div>
+                    <div><strong>专属 AI Skill 专家：</strong><span class="tag tag-baselined" style="font-weight:700; font-size:11px;">🤖 {{ workflowActiveNodeInfo.skill || '全能专家' }}</span></div>
                     <div><strong>关联执行 SOP 规约：</strong><code style="background:#E2E8F0; padding:2px 6px; border-radius:3px;">{{ workflowActiveNodeInfo.sop }}</code></div>
                     <div><strong>当前工位核心职责：</strong>{{ workflowActiveNodeInfo.desc }}</div>
                   </div>
                   <div>
                     <div><strong>通过门禁与阻断条件：</strong><span style="color:#B45309; font-weight:600;">{{ workflowActiveNodeInfo.gate }}</span></div>
                     <div><strong>当前关联需求：</strong>{{ workflowActiveReq.reqCode }} · {{ workflowActiveReq.title }}</div>
-                    <div><strong>该阶段输出产物：</strong>四层确认清单 / 架构设计文档 / 自动化单测覆盖率报告</div>
+                    <div>
+                      <strong>该阶段核心物理产物：</strong>
+                      <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">
+                        <span
+                          v-for="(art, aIdx) in (workflowActiveNodeInfo.artifacts || ['四层清单', '设计文档'])"
+                          :key="aIdx"
+                          style="background:#EFF6FF; color:#1E40AF; border:1px solid #BFDBFE; font-size:11px; padding:1px 6px; border-radius:4px;"
+                        >
+                          📦 {{ art }}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
                 <div style="margin-top:14px; font-size:12px; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center;">
                   <span>💡 <strong>受控哲学：</strong>每一个算子均由指定的责任人与 AI 共同把关，绝不允许越权跨阶段产生未经审查的代码技术债。</span>
                   <span style="font-family:monospace; color:var(--primary-color);">Single Source of Truth · .ai/dag_state.json</span>
+                </div>
+              </div>
+
+              <!-- 📋 需求生命周期流转与人机审计履历 (MySQL t_req_workflow_record 真实驱动) -->
+              <div class="card" style="padding:16px 20px; border:1px solid var(--border); background:#FFF;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-weight:700; font-size:14px; color:var(--text-main);">📜 需求全生命周期审计履历 ({{ workflowRecords.length }} 条记录)</span>
+                    <span class="tag tag-baselined" style="font-size:10px;">永久留痕</span>
+                  </div>
+                  <button class="btn btn-outline btn-sm" @click="loadWorkflowRecords">
+                    🔄 刷新履历
+                  </button>
+                </div>
+
+                <div v-if="workflowRecords.length === 0" style="padding:20px; text-align:center; color:var(--text-muted); font-size:13px;">
+                  暂无持久化履历记录。在对话框推进或点击“确认并顺推工位”后，系统将自动留痕入库。
+                </div>
+
+                <div v-else style="display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto;">
+                  <div
+                    v-for="rec in workflowRecords"
+                    :key="rec.id"
+                    style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:#F8FAFC; border:1px solid var(--border); border-radius:4px; font-size:12px;"
+                  >
+                    <div style="display:flex; align-items:center; gap:10px;">
+                      <span
+                        class="tag"
+                        :class="rec.actionType === 'OVERRIDE' ? 'tag-pending' : 'tag-baselined'"
+                        style="font-size:10px; font-weight:700;"
+                      >
+                        {{ rec.actionType === 'OVERRIDE' ? '⚡ 人工跳步覆盖' : '✔ 顺推核准' }}
+                      </span>
+                      <strong style="color:var(--text-main);">[{{ rec.nodeId }}] {{ rec.nodeName }}</strong>
+                      <span v-if="rec.skillName" style="color:#64748B;">
+                        (调度: <code>{{ rec.skillName }}</code>)
+                      </span>
+                      <span v-if="rec.overrideReason" style="color:#B45309; font-style:italic;">
+                        原因: “{{ rec.overrideReason }}”
+                      </span>
+                    </div>
+
+                    <div style="display:flex; align-items:center; gap:12px; color:var(--text-muted);">
+                      <span>操作人: <strong style="color:var(--text-main);">{{ rec.operator }}</strong></span>
+                      <span>{{ rec.createdAt ? rec.createdAt.replace('T', ' ') : '刚刚' }}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -3367,7 +3695,7 @@ onMounted(async () => {
 /* 工程流水线拓扑画布可视区 (FR-REQ-WFC-01 / Task-510)
    可视框尺寸只由这里的 360px 决定；X6 挂载点在内层，尺寸回写不会触及外层。 */
 .wf-viewport {
-  height: 360px;
+  height: 510px;
   width: 100%;
   overflow: auto;
   border-radius: var(--radius-sm);
