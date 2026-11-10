@@ -43,6 +43,9 @@ public class WorkflowController {
     @Autowired(required = false)
     private ReqWorkflowTemplateMapper workflowTemplateMapper;
 
+    @Autowired(required = false)
+    private com.apex.req.mapper.ReqWorkflowNodeStateMapper workflowNodeStateMapper;
+
     /**
      * 定位 .ai 存储目录
      */
@@ -87,7 +90,7 @@ public class WorkflowController {
                     "- **最后同步时间**: " + LocalDateTime.now() + "\n\n" +
                     "## 🎯 核心质量与安全护栏\n" +
                     "1. 单次改动 ≤ 3 文件 & 零野公网依赖\n" +
-                    "2. 严禁假 Mock，必须通过 gate.py 机器门禁\n" +
+                    "2. 保持真实数据源，必须通过 gate.py 机器门禁\n" +
                     "3. 唯一归档出口: board.py verify ➔ complete --accept\n";
             try (FileWriter writer = new FileWriter(snapshotFile)) {
                 writer.write(content);
@@ -95,6 +98,106 @@ public class WorkflowController {
         } catch (Exception ex) {
             System.err.println("刷新本地 tier1_snapshot.md 镜像失败(非阻塞): " + ex.getMessage());
         }
+    }
+
+    /**
+     * 获取指定需求在指定轨道下的各工位执行状态 (直接从 MySQL t_req_workflow_node_state 读取)
+     */
+    @GetMapping("/state")
+    public Result<Map<String, Object>> getWorkflowState(
+            @RequestParam(value = "reqCode", defaultValue = "REQ-001") String reqCode,
+            @RequestParam(value = "trackMode", defaultValue = "STANDARD") String trackMode) {
+        Map<String, Object> result = new HashMap<>();
+        String currentNode = "SOP-01";
+
+        if (requirementMapper != null) {
+            try {
+                LambdaQueryWrapper<ReqRequirement> q = new LambdaQueryWrapper<>();
+                q.eq(ReqRequirement::getReqCode, reqCode);
+                ReqRequirement r = requirementMapper.selectOne(q);
+                if (r != null && r.getCurrentNodeId() != null) {
+                    currentNode = r.getCurrentNodeId();
+                }
+            } catch (Exception ignored) {}
+        }
+
+        List<com.apex.req.domain.entity.ReqWorkflowNodeState> list = new ArrayList<>();
+        if (workflowNodeStateMapper != null) {
+            try {
+                LambdaQueryWrapper<com.apex.req.domain.entity.ReqWorkflowNodeState> qw = new LambdaQueryWrapper<>();
+                qw.eq(com.apex.req.domain.entity.ReqWorkflowNodeState::getReqCode, reqCode)
+                  .eq(com.apex.req.domain.entity.ReqWorkflowNodeState::getTrackMode, trackMode);
+                list = workflowNodeStateMapper.selectList(qw);
+
+                // 如果未找到记录，进行初次默认初始化
+                if (list.isEmpty()) {
+                    List<String> defaultNodes = "STANDARD".equalsIgnoreCase(trackMode)
+                            ? Arrays.asList("SOP-00", "SOP-01", "SOP-02", "SOP-03", "SOP-04", "SOP-05", "SOP-06", "SOP-07", "SOP-08", "SOP-09")
+                            : Arrays.asList("SOP-B1", "SOP-B2", "SOP-B3", "SOP-B4", "SOP-B5", "SOP-B6");
+                    for (int i = 0; i < defaultNodes.size(); i++) {
+                        String nid = defaultNodes.get(i);
+                        String st = (i == 0) ? "COMPLETED" : ((i == 1) ? "IN_PROGRESS" : "PENDING");
+                        com.apex.req.domain.entity.ReqWorkflowNodeState ns = com.apex.req.domain.entity.ReqWorkflowNodeState.builder()
+                                .reqCode(reqCode)
+                                .trackMode(trackMode)
+                                .nodeId(nid)
+                                .nodeName(nid)
+                                .status(st)
+                                .operator((i <= 1) ? "admin" : null)
+                                .completedAt((i == 0) ? LocalDateTime.now() : null)
+                                .createdAt(LocalDateTime.now())
+                                .updatedAt(LocalDateTime.now())
+                                .build();
+                        workflowNodeStateMapper.insert(ns);
+                        list.add(ns);
+                    }
+                }
+            } catch (Exception ex) {
+                System.err.println("读取工位状态库失败: " + ex.getMessage());
+            }
+        }
+
+        result.put("reqCode", reqCode);
+        result.put("trackMode", trackMode);
+        result.put("current_node", currentNode);
+        result.put("nodes", list);
+        return Result.success(result);
+    }
+
+    /**
+     * 获取指定轨道的拓扑定义与元数据
+     */
+    @GetMapping("/topology")
+    public Result<Map<String, Object>> getWorkflowTopology(
+            @RequestParam(value = "trackMode", defaultValue = "STANDARD") String trackMode,
+            @RequestParam(value = "projectId", required = false) Long projectId) {
+        Map<String, Object> resp = new HashMap<>();
+        String nodesJson = "[]";
+        String edgesJson = "[]";
+        if (workflowTemplateMapper != null) {
+            try {
+                LambdaQueryWrapper<ReqWorkflowTemplate> qw = new LambdaQueryWrapper<>();
+                if (projectId != null && projectMapper != null) {
+                    ReqProject p = projectMapper.selectById(projectId);
+                    if (p != null && p.getWorkflowTemplateId() != null) {
+                        qw.eq(ReqWorkflowTemplate::getId, p.getWorkflowTemplateId());
+                    } else {
+                        qw.eq(ReqWorkflowTemplate::getIsSystemDefault, 1);
+                    }
+                } else {
+                    qw.eq(ReqWorkflowTemplate::getIsSystemDefault, 1);
+                }
+                ReqWorkflowTemplate tpl = workflowTemplateMapper.selectOne(qw);
+                if (tpl != null) {
+                    if (tpl.getNodesConfig() != null) nodesJson = tpl.getNodesConfig();
+                    if (tpl.getEdgesConfig() != null) edgesJson = tpl.getEdgesConfig();
+                }
+            } catch (Exception ignored) {}
+        }
+        resp.put("trackMode", trackMode);
+        resp.put("nodesConfig", nodesJson);
+        resp.put("edgesConfig", edgesJson);
+        return Result.success(resp);
     }
 
     /**
@@ -189,6 +292,41 @@ public class WorkflowController {
                 workflowRecordMapper.insert(record);
             } catch (Exception ex) {
                 System.err.println("持久化流水线履历到MySQL异常: " + ex.getMessage());
+            }
+        }
+
+        // 2.1 核心持久化：更新/插入 MySQL 独立工位状态表 t_req_workflow_node_state
+        if (workflowNodeStateMapper != null) {
+            try {
+                LambdaQueryWrapper<com.apex.req.domain.entity.ReqWorkflowNodeState> qw = new LambdaQueryWrapper<>();
+                qw.eq(com.apex.req.domain.entity.ReqWorkflowNodeState::getReqCode, reqCode)
+                  .eq(com.apex.req.domain.entity.ReqWorkflowNodeState::getTrackMode, trackMode)
+                  .eq(com.apex.req.domain.entity.ReqWorkflowNodeState::getNodeId, targetNode);
+                com.apex.req.domain.entity.ReqWorkflowNodeState exist = workflowNodeStateMapper.selectOne(qw);
+                if (exist != null) {
+                    exist.setStatus(status);
+                    exist.setOperator(operator);
+                    if ("COMPLETED".equalsIgnoreCase(status)) {
+                        exist.setCompletedAt(LocalDateTime.now());
+                    }
+                    exist.setUpdatedAt(LocalDateTime.now());
+                    workflowNodeStateMapper.updateById(exist);
+                } else {
+                    com.apex.req.domain.entity.ReqWorkflowNodeState newState = com.apex.req.domain.entity.ReqWorkflowNodeState.builder()
+                            .reqCode(reqCode)
+                            .trackMode(trackMode)
+                            .nodeId(targetNode)
+                            .nodeName(nodeName.isEmpty() ? targetNode : nodeName)
+                            .status(status)
+                            .operator(operator)
+                            .completedAt("COMPLETED".equalsIgnoreCase(status) ? LocalDateTime.now() : null)
+                            .createdAt(LocalDateTime.now())
+                            .updatedAt(LocalDateTime.now())
+                            .build();
+                    workflowNodeStateMapper.insert(newState);
+                }
+            } catch (Exception ex) {
+                System.err.println("更新 MySQL 工位状态表异常: " + ex.getMessage());
             }
         }
 

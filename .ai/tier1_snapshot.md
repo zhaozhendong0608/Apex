@@ -1,29 +1,18 @@
-# ⚡ 第一层：极简快照名片 (tier1_snapshot.md)
+<!-- 【三层记忆金字塔 - 第一层：极简快照名片 (<30行)】 -->
+# ⚡ tier1_snapshot.md · 极简工作区名片
 
-> 🏛️ **三层记忆金字塔 · 第一层**。物理死锁 **30 行 / <500 Token**；输入 `[B6]` 复活时**优先且只读本文件**。
-> 🤖 「里程碑」与「活跃状态」两块由 `board.py` 自动重建，**禁止手改**（下方为锚点）。
-
-## 📌 1. 项目身份
-- **项目**：Apex 通用 AI Vibecoding 3.0 框架（示例业务：后台管理平台 / 网络拓扑仿真）
-- **技术栈**：Java 17 / Spring Boot 3 / Vue 3 / Vite / MySQL 8.0
-- **工作流内核**：`.ai/`（三层记忆 + 16 篇 SOP + 4 个脚本）｜**新手入口**：`BEGINNER_HANDBOOK.md`
-
-## 🏆 2. 里程碑 (MAX 3 行)
-<!-- TIER1-MILESTONE:START -->
-- **[2026-10-29]** `[Task-508]` [S2-Muscle] 需求工作台全景数据动态对接与项目详情闭环 🟢
-- **[2026-10-29]** `[Task-507]` [S2-Muscle] 需求治理平台菜单架构重构与SQL权限初始化 🟢
-- **[2026-10-29]** `[Task-506]` [S3-Stub] 基线增量差异计算引擎与联调探针 🟢
-<!-- TIER1-MILESTONE:END -->
-
-## 🎯 3. 当前活跃状态
+- **项目空间**: NET-SIM (全景工业网络仿真与拓扑排版系统)
+- **当前聚焦需求**: REQ-001
 <!-- TIER1-ACTIVE:START -->
-- **当前焦点**：`[Task-510]` [S1-Bone] 画布尺寸契约与 X6 尺寸回写隔离（Status: IN_PROGRESS）
-- **白话目标**：确立外层可视框与内层内容画布的尺寸契约，切断 autoResize 回写引发的 ResizeObserver 正反馈，可视框高度恒为 360px
-- **涉及文件**：base_template/frontend/src/modules/req-management/views/ReqManagementView.vue
-- **下一待办**：`[Task-511]` [S2-Muscle] 360px 可视区滚动条与平移/拖拽共存
+- **当前焦点**：无（没有 ACTIVE 任务）
+- **下一待办**：暂无 —— 需回复 `[1]` 规划新需求
 <!-- TIER1-ACTIVE:END -->
+- **当前工位**: [SOP-01] (模式: STANDARD)
+- **责任操作人**: admin
+- **单一事实源 (SSOT)**: MySQL `t_req_requirement` / `t_req_workflow_record`
+- **最后同步时间**: 2026-11-10T21:02:30.000000
 
-## ⚠️ 4. 核心架构约束
-1. **统一开户**：禁止前台自由注册，账号一律由 `admin` 后台开户。
-2. **测试先行**：绑定 DLD/Testcase 契约，单次改动收敛范围，严禁假 Mock。
-3. **归档唯一出口**：只能走 `[7]` → `board.py verify` + `complete --accept`。
+## 🎯 核心质量与安全护栏
+1. 单次改动 ≤ 3 文件 & 零野公网依赖
+2. 严禁假 Mock，必须通过 gate.py 机器门禁
+3. 唯一归档出口: board.py verify ➔ complete --accept

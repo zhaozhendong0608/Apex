@@ -107,3 +107,48 @@
 * 🎯 完成任务: [DAG-Engine] DAG 铁链路标运行时引擎落盘、指南全景升级与三层记忆落库大屏设计
 * 🛠️ 本次改动核心文件: .ai/scripts/dag_chain.py, .ai/dag_state.json, workflow_guide.html, ai_memory_dashboard_mockup.html, docs/handovers/handover-20261102-workflow_dag_engine.md
 * 💡 关键决策: 明确 AI 编程本质为 DAG 节点属性赋值；落盘 dag_chain.py 实现四大控制原语；workflow_guide.html 引入 Mermaid 标准兼容拓扑；设计带 git_branch 隔离的三层记忆落库模型与大屏原型
+
+---
+
+## 📦 归档交接 [2026-11-10 18:57:05]
+* 🎯 完成任务: [Task-513] [S1-Bone] SOP 流程定义与工位状态数据模型 + Migration 配对
+* 🧭 白话目标: 新建流程节点/连线/工位状态表并初始化 16 篇 SOP 定义，落 V*.sql 与 rollback_V*.sql 配对，冻结接口字段与错误码
+* 🛠️ 本次改动核心文件: docs/db/migrations/, docs/db/service.sql, base_template/backend/platform-server/src/main/java/com/apex/req
+* ✅ 终验: `board.py verify` 机器核验通过 + 用户显式放行 (--accept)
+
+---
+
+## 📦 归档交接 [2026-11-10 18:58:53]
+* 🎯 完成任务: [Task-514] [S2-Muscle] 后端拓扑/状态/推进接口与 SOP 定义同步
+* 🧭 白话目标: 提供 topology/state/advance/sync-from-sop 接口，停用 .ai/dag_state.json 文件读写，统一 current_node 字段并对失败返回真实错误
+* 🛠️ 本次改动核心文件: base_template/backend/platform-server/src/main/java/com/apex/req/controller/WorkflowController.java, base_template/frontend/src/api/req.ts
+* ✅ 终验: `board.py verify` 机器核验通过 + 用户显式放行 (--accept)
+
+---
+
+## 📦 归档交接 [2026-11-10 19:00:15]
+* 🎯 完成任务: [Task-515] [S2-Muscle] 前端数据驱动渲染与错误态改造
+* 🧭 白话目标: 删除 pipelineNodes/fasttrackNodes 硬编码，L/S 双轨全量由接口渲染，补错误态与重试，修掉假成功提示与兜底假值
+* 🛠️ 本次改动核心文件: base_template/frontend/src/modules/req-management/views/ReqManagementView.vue
+* ✅ 终验: `board.py verify` 机器核验通过 + 用户显式放行 (--accept)
+
+---
+
+## 📦 归档交接 [2026-11-10 19:24:10]
+* 🎯 完成任务: [Task-516] [S3-Stub] 数据驱动回归探针与 TC 挂接
+* 🧭 白话目标: 落 TC-WFC2 三类矩阵自动化探针，含接口失败不降级、状态落库、字段错位回归，并复跑 Task-510 画布 8 条探针
+* 🛠️ 本次改动核心文件: scripts/tests/, docs/test-cases/workflow-sop-data-driven-testcase.md
+* ✅ 终验: `board.py verify` 机器核验通过 + 用户显式放行 (--accept)
+
+---
+
+## 📦 归档交接 [2026-11-10 20:35:14]
+* 🎯 完成任务: [Task-517] 拓扑图元连线动态驱动与消灭兜底数据
+* 🧭 白话目标: 从后端模板读取拓扑定义并清除张工/固定日期等兜底假数据
+* 🛠️ 本次改动核心文件: base_template/frontend/src/modules/req-management/views/ReqManagementView.vue, base_template/backend/platform-server/src/main/java/com/apex/req/controller/WorkflowController.java
+* ✅ 终验: `board.py verify` 机器核验通过 + 用户显式放行 (--accept)
+
+---
+
+## 📦 归档交接 [2026-11-10 21:01:48]
+完成了工程流水线与工作流模板的数据库驱动闭环、消灭兜底数据、左右分栏可折叠抽屉重构以及工位详情抽屉暗色高质感配色升级

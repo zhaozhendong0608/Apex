@@ -55,7 +55,8 @@ import {
   unfreezeRequirementApi,
   getPrototypeListApi,
   getBaselineListApi,
-  getWorkflowDagStateApi,
+  getWorkflowStateApi,
+  getWorkflowTopologyApi,
   advanceWorkflowDagApi,
   getWorkflowRecordsApi,
   getWorkflowTemplateListApi,
@@ -362,6 +363,9 @@ const workflowActiveNodeInfo = computed(() => {
 // 内容画布完整包容四层一体化全景拓扑 (指令轨 / AI Skill 专家轨 / 控制中枢轨 / 物理产物轨)，宽 1750px，高 520px
 const WORKFLOW_CANVAS = { width: 1750, height: 520 }
 const workflowHostHeight = ref(WORKFLOW_CANVAS.height)
+
+// 需求列表左侧侧边栏折叠状态
+const workflowReqListCollapsed = ref(false)
 
 // AntV X6 真实拓扑画布实例与容器引用
 const workflowGraphContainer = ref<HTMLDivElement | null>(null)
@@ -756,18 +760,59 @@ const createGraphEdge = (
   })
 }
 
-// 从后端 API 拉取真实 DAG 运行时状态
+// 从后端 API 拉取真实 DAG 运行时状态与拓扑蓝本定义
 const syncRealWorkflowDagState = async () => {
   try {
-    const res = await getWorkflowDagStateApi({
-      reqCode: workflowActiveReq.value?.reqCode || 'REQ-001',
+    const reqCode = workflowActiveReq.value?.reqCode || 'REQ-001'
+    
+    // 1. 同步拉取数据库工作流模板真实拓扑定义
+    try {
+      const tplRes = await getWorkflowTopologyApi({
+        trackMode: workflowTrackMode.value,
+        projectId: currentProject.value?.id
+      })
+      if (tplRes.data?.nodesConfig) {
+        const parsedNodes = JSON.parse(tplRes.data.nodesConfig)
+        if (Array.isArray(parsedNodes) && parsedNodes.length > 0) {
+          parsedNodes.forEach((pn: any) => {
+            const target = (workflowTrackMode.value === 'FASTTRACK' ? fasttrackNodes.value : pipelineNodes.value)
+              .find(n => n.id === pn.id)
+            if (target) {
+              if (pn.name) target.name = pn.name
+              if (pn.role) target.role = pn.role
+              if (pn.skill) target.skill = pn.skill
+              if (pn.gate) target.gate = pn.gate
+              if (pn.sop) target.sop = pn.sop
+            }
+          })
+        }
+      }
+    } catch (e) {
+      console.warn('拉取拓扑模板配置失败:', e)
+    }
+
+    // 2. 同步拉取真实工位运行态数据
+    const res = await getWorkflowStateApi({
+      reqCode,
       trackMode: workflowTrackMode.value
     })
-    if (res.data && res.data.activeNode) {
-      workflowSelectedNode.value = res.data.activeNode
+    if (res.data) {
+      if (res.data.current_node) {
+        workflowSelectedNode.value = res.data.current_node
+      }
+      if (res.data.nodes && Array.isArray(res.data.nodes)) {
+        res.data.nodes.forEach((dbNode: any) => {
+          const target = (workflowTrackMode.value === 'FASTTRACK' ? fasttrackNodes.value : pipelineNodes.value)
+            .find(n => n.id === dbNode.nodeId)
+          if (target) {
+            target.status = dbNode.status
+            if (dbNode.operator) target.role = dbNode.operator
+          }
+        })
+      }
     }
   } catch (e) {
-    console.warn('获取真实DAG状态失败，降级为本地推演', e)
+    console.warn('获取真实DAG工位状态失败:', e)
   }
 }
 
@@ -787,12 +832,12 @@ const handleAdvanceWorkflowNode = async () => {
       status: 'COMPLETED',
       operator: currentOperator.value
     })
-    ElMessage.success(`需求 [${req.reqCode}] 工位 [${targetId}] 成果已核验并持久化落盘至 MySQL 数据库！`)
+    ElMessage.success(`需求 [${req.reqCode || 'REQ-001'}] 工位 [${targetId}] 成果已核验并持久化落盘至 MySQL 数据库！`)
     await syncRealWorkflowDagState()
     await loadWorkflowRecords()
     renderWorkflowGraphData()
   } catch (e: any) {
-    ElMessage.success(`工位 [${targetId}] 执行成果已确认！`)
+    ElMessage.error(`工位 [${targetId}] 推进失败: ${e.message || '网络或后端服务异常'}`)
   }
 }
 
@@ -829,9 +874,10 @@ const handleSelectWorkflowReq = (req: any) => {
       })
     }
   }
-  // 重新渲染 X6 拓扑图元并同步拉取历史审计履历
-  renderWorkflowGraphData()
-  syncRealWorkflowDagState()
+  // 动态同步真实工位状态
+  syncRealWorkflowDagState().then(() => {
+    renderWorkflowGraphData()
+  })
   loadWorkflowRecords()
 }
 
@@ -887,7 +933,7 @@ const aiNextActionAdvice = computed(() => {
       return {
         modeText: '🛡️ TDD 单焦点编码阶段',
         tagColor: '#10B981',
-        advice: `单测已全绿。下一步强烈建议敲击 [4] 运行 gate.py 机器门禁，拦截假 Mock 与公网依赖。`,
+        advice: `单测已全绿。下一步强烈建议敲击 [4] 运行 gate.py 机器门禁，拦截硬编码与公网依赖。`,
         recommendedCmd: '[4] 机器门禁',
         skill: 'code-quality-reviewer'
       }
@@ -941,7 +987,7 @@ const workflowRecords = ref<any[]>([])
 // 🚀 全流程节点深度透视抽屉 (Drawer) 与 Skill 专家动态选配系统
 // ========================================================
 const drawerWorkflowDetailVisible = ref(false)
-const drawerActiveTab = ref<'overview' | 'skill' | 'artifacts' | 'troubleshoot'>('overview')
+const drawerActiveTab = ref<'overview' | 'skill' | 'artifacts' | 'troubleshoot' | 'records'>('overview')
 const activeDetailNode = ref<any>({
   id: '',
   name: '',
@@ -1336,20 +1382,8 @@ const loadWorkflowTemplates = async () => {
     if (res.data && res.data.length > 0) {
       workflowTemplates.value = res.data
     } else {
-      // 降级兜底初始默认模板
-      workflowTemplates.value = [
-        {
-          id: 1,
-          templateCode: 'TPL-DEFAULT',
-          name: '全局默认 · AI辅助四层一体化研发工作流',
-          description: 'Apex 标准生产工艺：4-Layer 全景拓扑（SOP指令轨 + AI Skill专家轨 + 控制中枢轨 + 确定性物理产物轨），支持双轨延迟汇合与 B2 旁路微创快轨。',
-          isSystemDefault: 1,
-          scopeType: 'GLOBAL',
-          projectKey: null,
-          createdBy: 'admin',
-          createdAt: '2026-11-08 14:00:00'
-        }
-      ]
+      // 模板库数据为空
+      workflowTemplates.value = []
     }
   } catch (e) {
     console.warn('拉取工作流模板失败，使用内置默认蓝本', e)
@@ -1758,7 +1792,8 @@ const renderTemplateDagGraphData = () => {
     renderTemplateDagGraphData()
   }
 
-// 持久化保存模板 DAG 整体配置
+// 持久化保存模板 DAG 整体配置 (供模板保存使用)
+// @ts-ignore
 const handleSaveTemplateDag = async () => {
   if (!currentEditingTemplate.value) return
   try {
@@ -1949,10 +1984,10 @@ const openReqDetail = async (req: any, doNavigate = true) => {
       title: req.title,
       status: req.status,
       baselineCode: req.baselineCode || '—',
-      owner: req.ownerName || req.owner || '张工 (产品负责人)',
-      createdAt: req.createdAt ? req.createdAt.split('T')[0] : (req.updatedAt ? req.updatedAt.split('T')[0] : '2026-10-29'),
+      owner: req.ownerName || req.owner || '未指派',
+      createdAt: req.createdAt ? req.createdAt.split('T')[0] : (req.updatedAt ? req.updatedAt.split('T')[0] : '—'),
       priority: req.priority || 'P1',
-      quote: req.rawQuote || req.quote || '「必须管住需求、版本、原型三件事，做到留痕、可确认、可追溯。」'
+      quote: req.rawQuote || req.quote || ''
     }
 
     try {
@@ -1961,7 +1996,7 @@ const openReqDetail = async (req: any, doNavigate = true) => {
         const r = detailRes.data.requirement
         currentReq.value.title = r.title
         currentReq.value.quote = r.rawQuote || currentReq.value.quote
-        currentReq.value.owner = r.ownerName ? (r.ownerName.includes('(') ? r.ownerName : `${r.ownerName} (研发)`) : '张工 (产品负责人)'
+        currentReq.value.owner = r.ownerName ? (r.ownerName.includes('(') ? r.ownerName : `${r.ownerName} (研发)`) : '未指派'
         currentReq.value.priority = r.priority || 'P1'
         currentReq.value.status = r.status
       }
@@ -2596,12 +2631,12 @@ const loadInitialData = async (targetProjectId?: number) => {
           status: item.status,
           statusText: item.status === 'BASELINED' ? '已基线' : (item.status === 'PENDING' ? '待客户签字' : (item.status === 'DRAFT' ? '草稿' : '需求澄清中')),
           baselineCode: item.baselineCode || '—',
-          ownerName: item.ownerName || '张工',
-          owner: item.ownerName || '张工',
+          ownerName: item.ownerName || '未指定',
+          owner: item.ownerName || '未指定',
           cost: `${Number(item.totalCostDays || 0).toFixed(1)} 人天`,
-          updatedAt: item.updatedAt ? item.updatedAt.split('T')[0] : '2026-10-29',
-          rawQuote: item.rawQuote,
-          priority: item.priority
+          updatedAt: item.updatedAt ? item.updatedAt.split('T')[0] : '—',
+          rawQuote: item.rawQuote || '',
+          priority: item.priority || 'P1'
         }))
         // 自动拉取首个需求的详情与四层清单
         await openReqDetail(requirements.value[0], false)
@@ -2877,7 +2912,7 @@ onMounted(async () => {
             <div class="card" style="padding:16px; border-left:4px solid #16A34A;">
               <div style="font-size:12px; color:var(--text-muted);">当前责任人</div>
               <div style="font-size:16px; font-weight:700; color:#16A34A; margin-top:4px;">
-                👤 {{ workflowActiveReq.ownerName || workflowActiveReq.owner || '张工' }}
+                👤 {{ workflowActiveReq.ownerName || workflowActiveReq.owner || '未指派' }}
               </div>
               <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">角色: 核心研发 / 责任担当</div>
             </div>
@@ -2936,20 +2971,46 @@ onMounted(async () => {
             </div>
           </div>
 
-          <!-- 主体工作区：拓扑画布独占整行铺满内容区，需求列表置于画布下方 -->
-          <div style="display:flex; flex-direction:column; gap:20px;">
-            <!-- 下方：多需求列表选择器 (查谁在做、当前状态)，order:2 排在画布之后 -->
-            <div class="card" style="padding:16px; display:flex; flex-direction:column; max-height:300px; order:2;">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                <span style="font-weight:700; font-size:14px;">📋 待办与在研需求 ({{ requirements.length }})</span>
-                <span class="tag tag-clarifying" style="font-size:10px;">点击切入</span>
+          <!-- 主体工作区：左侧「待办需求列表」（支持一键折叠扩大拓扑图）+ 右侧「DAG 拓扑画板与工位详情」左右分栏 -->
+          <div style="display:flex; gap:16px; align-items:flex-start;">
+            <!-- 左侧：需求列表抽屉 (宽度270px，可折叠至46px) -->
+            <div
+              class="card"
+              style="padding:14px; display:flex; flex-direction:column; transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1); flex-shrink:0; background:#FFF; border:1px solid var(--border); box-sizing:border-box;"
+              :style="{ width: workflowReqListCollapsed ? '46px' : '270px', height: '680px' }"
+            >
+              <!-- 折叠头部 -->
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--border);">
+                <div v-if="!workflowReqListCollapsed" style="display:flex; align-items:center; gap:6px;">
+                  <span style="font-weight:700; font-size:14px; white-space:nowrap;">📋 待办需求</span>
+                  <span class="tag tag-clarifying" style="font-size:10px; padding:1px 6px;">{{ requirements.length }}</span>
+                </div>
+                <button
+                  class="btn btn-outline btn-sm"
+                  style="padding:3px 8px; font-size:12px; margin-left:auto; display:flex; align-items:center; justify-content:center;"
+                  :title="workflowReqListCollapsed ? '展开需求列表' : '折叠需求列表以扩大拓扑画板视野'"
+                  @click="workflowReqListCollapsed = !workflowReqListCollapsed"
+                >
+                  {{ workflowReqListCollapsed ? '➔' : '◀' }}
+                </button>
               </div>
-              <div style="overflow-y:auto; flex:1; display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:8px; align-content:start;">
+
+              <!-- 折叠状态下的竖排提示 -->
+              <div
+                v-if="workflowReqListCollapsed"
+                style="writing-mode:vertical-lr; text-orientation:mixed; letter-spacing:4px; font-size:12px; color:var(--text-muted); cursor:pointer; height:100%; display:flex; align-items:center; justify-content:center; padding-top:20px; font-weight:600;"
+                @click="workflowReqListCollapsed = false"
+              >
+                📋 展开需求 ({{ requirements.length }})
+              </div>
+
+              <!-- 展开状态下的需求卡片滚动列表 -->
+              <div v-else style="overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:8px;">
                 <div
                   v-for="r in requirements"
                   :key="r.id"
                   style="border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px; cursor:pointer; transition:all 0.2s;"
-                  :style="workflowSelectedReqId === r.id ? 'border-color:var(--primary-color); background:var(--primary-light);' : 'background:#FFF;'"
+                  :style="workflowSelectedReqId === r.id ? 'border-color:var(--primary-color); background:var(--primary-light); box-shadow:0 2px 8px rgba(2,132,199,0.15);' : 'background:#FFF;'"
                   @click="handleSelectWorkflowReq(r)"
                 >
                   <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -2969,9 +3030,8 @@ onMounted(async () => {
               </div>
             </div>
 
-            <!-- 上方：DAG 算子拓扑与当前工位详情，order:1 优先展示并铺满整行 -->
-            <!-- min-width:0 防止内层 1450px 画布把容器撑宽，导致内容被祖先 overflow:hidden 裁掉 -->
-            <div style="display:flex; flex-direction:column; gap:16px; min-width:0; order:1;">
+            <!-- 右侧：拓扑画板与工位深度下钻详情 (自适应撑满剩余宽度) -->
+            <div style="display:flex; flex-direction:column; gap:16px; flex:1; min-width:0;">
               <!-- 真实的 AntV X6 工业级有向无环拓扑大图 (四层全景一体化呈现) -->
               <div class="card" style="padding:16px; border:1px solid var(--border); background:#0e1726;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding:0 4px;">
@@ -2988,10 +3048,19 @@ onMounted(async () => {
                     </span>
                     <button
                       class="btn btn-sm btn-outline"
+                      style="background:#1e293b; color:#cbd5e1; border-color:#334155;"
                       title="复位平移与缩放"
                       @click="resetWorkflowView()"
                     >
                       🎯 重置视图
+                    </button>
+                    <button
+                      class="btn btn-sm btn-primary"
+                      style="background:#0284c7; color:#fff; border:none; font-weight:600; display:inline-flex; align-items:center; gap:5px; box-shadow:0 2px 8px rgba(2,132,199,0.3);"
+                      @click="openNodeDetailDrawer(workflowActiveNodeInfo.id)"
+                    >
+                      <span>⚙️ 当前工位详情 & 履历</span>
+                      <span class="tag" style="background:rgba(255,255,255,0.25); color:#fff; font-size:10px; padding:0 4px; border-radius:3px;">{{ workflowRecords.length }}</span>
                     </button>
                   </div>
                 </div>
@@ -3006,100 +3075,6 @@ onMounted(async () => {
                 </div>
               </div>
 
-              <!-- 选中的算子深度下钻详情面板 -->
-              <div class="card" style="padding:20px; border-top:3px solid var(--primary-color);">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-                  <div style="display:flex; align-items:center; gap:10px;">
-                    <span class="tag tag-baselined" style="font-weight:700; font-size:13px;">{{ workflowActiveNodeInfo.id }}</span>
-                    <h3 style="font-size:16px; font-weight:700; margin:0;">{{ workflowActiveNodeInfo.title }}</h3>
-                  </div>
-                  <div style="display:flex; gap:8px;">
-                    <button class="btn btn-outline btn-sm" @click="openReqDetail(workflowActiveReq, true)">
-                      📄 查看对应需求四层清单 (P04)
-                    </button>
-                    <button class="btn btn-primary btn-sm" @click="handleAdvanceWorkflowNode">
-                      ✔ 确认并顺推工位 (Advance)
-                    </button>
-                  </div>
-                </div>
-
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; background:#F8FAFC; padding:14px; border-radius:var(--radius-sm); border:1px solid var(--border); font-size:13px; line-height:1.7;">
-                  <div>
-                    <div><strong>工位常驻责任角色：</strong><span style="color:var(--primary-color); font-weight:600;">{{ workflowActiveNodeInfo.role }}</span></div>
-                    <div><strong>专属 AI Skill 专家：</strong><span class="tag tag-baselined" style="font-weight:700; font-size:11px;">🤖 {{ workflowActiveNodeInfo.skill || '全能专家' }}</span></div>
-                    <div><strong>关联执行 SOP 规约：</strong><code style="background:#E2E8F0; padding:2px 6px; border-radius:3px;">{{ workflowActiveNodeInfo.sop }}</code></div>
-                    <div><strong>当前工位核心职责：</strong>{{ workflowActiveNodeInfo.desc }}</div>
-                  </div>
-                  <div>
-                    <div><strong>通过门禁与阻断条件：</strong><span style="color:#B45309; font-weight:600;">{{ workflowActiveNodeInfo.gate }}</span></div>
-                    <div><strong>当前关联需求：</strong>{{ workflowActiveReq.reqCode }} · {{ workflowActiveReq.title }}</div>
-                    <div>
-                      <strong>该阶段核心物理产物：</strong>
-                      <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">
-                        <span
-                          v-for="(art, aIdx) in (workflowActiveNodeInfo.artifacts || ['四层清单', '设计文档'])"
-                          :key="aIdx"
-                          style="background:#EFF6FF; color:#1E40AF; border:1px solid #BFDBFE; font-size:11px; padding:1px 6px; border-radius:4px;"
-                        >
-                          📦 {{ art }}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div style="margin-top:14px; font-size:12px; color:var(--text-muted); display:flex; justify-content:space-between; align-items:center;">
-                  <span>💡 <strong>受控哲学：</strong>每一个算子均由指定的责任人与 AI 共同把关，绝不允许越权跨阶段产生未经审查的代码技术债。</span>
-                  <span style="font-family:monospace; color:var(--primary-color);">Single Source of Truth · .ai/dag_state.json</span>
-                </div>
-              </div>
-
-              <!-- 📋 需求生命周期流转与人机审计履历 (MySQL t_req_workflow_record 真实驱动) -->
-              <div class="card" style="padding:16px 20px; border:1px solid var(--border); background:#FFF;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                  <div style="display:flex; align-items:center; gap:8px;">
-                    <span style="font-weight:700; font-size:14px; color:var(--text-main);">📜 需求全生命周期审计履历 ({{ workflowRecords.length }} 条记录)</span>
-                    <span class="tag tag-baselined" style="font-size:10px;">永久留痕</span>
-                  </div>
-                  <button class="btn btn-outline btn-sm" @click="loadWorkflowRecords">
-                    🔄 刷新履历
-                  </button>
-                </div>
-
-                <div v-if="workflowRecords.length === 0" style="padding:20px; text-align:center; color:var(--text-muted); font-size:13px;">
-                  暂无持久化履历记录。在对话框推进或点击“确认并顺推工位”后，系统将自动留痕入库。
-                </div>
-
-                <div v-else style="display:flex; flex-direction:column; gap:8px; max-height:220px; overflow-y:auto;">
-                  <div
-                    v-for="rec in workflowRecords"
-                    :key="rec.id"
-                    style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:#F8FAFC; border:1px solid var(--border); border-radius:4px; font-size:12px;"
-                  >
-                    <div style="display:flex; align-items:center; gap:10px;">
-                      <span
-                        class="tag"
-                        :class="rec.actionType === 'OVERRIDE' ? 'tag-pending' : 'tag-baselined'"
-                        style="font-size:10px; font-weight:700;"
-                      >
-                        {{ rec.actionType === 'OVERRIDE' ? '⚡ 人工跳步覆盖' : '✔ 顺推核准' }}
-                      </span>
-                      <strong style="color:var(--text-main);">[{{ rec.nodeId }}] {{ rec.nodeName }}</strong>
-                      <span v-if="rec.skillName" style="color:#64748B;">
-                        (调度: <code>{{ rec.skillName }}</code>)
-                      </span>
-                      <span v-if="rec.overrideReason" style="color:#B45309; font-style:italic;">
-                        原因: “{{ rec.overrideReason }}”
-                      </span>
-                    </div>
-
-                    <div style="display:flex; align-items:center; gap:12px; color:var(--text-muted);">
-                      <span>操作人: <strong style="color:var(--text-main);">{{ rec.operator }}</strong></span>
-                      <span>{{ rec.createdAt ? rec.createdAt.replace('T', ' ') : '刚刚' }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -4509,116 +4484,155 @@ onMounted(async () => {
 
     <!-- ================= 抽屉面板：全流程节点深度透视与 Skill 专家动态选配 (Drawer) ================= -->
     <div class="drawer-overlay" :class="{ active: drawerWorkflowDetailVisible }" @click="drawerWorkflowDetailVisible = false"></div>
-    <div class="drawer-panel" :class="{ open: drawerWorkflowDetailVisible }" style="width:680px; max-width:90vw;">
-      <div class="drawer-header" style="background:#0b1320; border-bottom:1px solid #1e293b; color:#fff;">
+    <div
+      class="drawer-panel wf-drawer-tech-theme"
+      :class="{ open: drawerWorkflowDetailVisible }"
+      style="width:720px; max-width:92vw; background:linear-gradient(180deg, #0e1726 0%, #0a0f1d 100%); border-left:1px solid rgba(56, 189, 248, 0.2); box-shadow:-8px 0 32px rgba(0,0,0,0.6); display:flex; flex-direction:column;"
+    >
+      <!-- 头部：轻拟态高质感顶栏 -->
+      <div class="drawer-header" style="background:rgba(15, 23, 42, 0.85); backdrop-filter:blur(12px); border-bottom:1px solid rgba(56, 189, 248, 0.15); padding:16px 22px; display:flex; justify-content:space-between; align-items:center;">
         <div style="display:flex; align-items:center; gap:10px;">
           <span
             class="tag"
+            style="font-size:11px; font-weight:700; padding:2px 8px; border-radius:4px; letter-spacing:0.5px; box-shadow:0 0 10px rgba(2,132,199,0.3);"
             :style="{
-              background: activeDetailNode.category === 'skill' ? '#6366f1' : (activeDetailNode.category === 'control' ? '#d97706' : (activeDetailNode.category === 'artifact' ? '#059669' : '#0284c7')),
-              color: '#FFF',
-              fontWeight: 700
+              background: activeDetailNode.category === 'skill' ? 'linear-gradient(135deg, #6366f1, #4f46e5)' : (activeDetailNode.category === 'control' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : (activeDetailNode.category === 'artifact' ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #0284c7, #0369a1)')),
+              color: '#FFF'
             }"
           >
             {{ activeDetailNode.categoryName }}
           </span>
-          <span style="font-size:16px; font-weight:700; color:#f8fafc;">
+          <span style="font-size:16px; font-weight:700; color:#f8fafc; letter-spacing:0.3px;">
             {{ activeDetailNode.id }} · {{ activeDetailNode.name }}
           </span>
         </div>
-        <button class="btn btn-outline btn-sm" style="color:#94a3b8; border-color:#334155;" @click="drawerWorkflowDetailVisible = false">✕</button>
+        <button
+          class="btn btn-outline btn-sm"
+          style="color:#94a3b8; border-color:rgba(148,163,184,0.2); background:rgba(30,41,59,0.5); width:30px; height:30px; padding:0; display:flex; align-items:center; justify-content:center; border-radius:6px; transition:all 0.2s;"
+          @click="drawerWorkflowDetailVisible = false"
+        >✕</button>
       </div>
 
-      <div class="drawer-body" style="padding:20px; background:#0f172a; color:#cbd5e1; font-size:13px;">
-        <!-- 标签页导航 -->
-        <div style="display:flex; border-bottom:1px solid #334155; margin-bottom:18px; gap:10px;">
+      <div class="drawer-body" style="padding:22px; background:transparent; color:#e2e8f0; font-size:13px; overflow-y:auto; flex:1;">
+        <!-- 标签页导航：现代药丸胶囊风格 (Pill Tabs) -->
+        <div style="display:flex; background:rgba(30, 41, 59, 0.6); border:1px solid rgba(148, 163, 184, 0.15); padding:4px; border-radius:8px; margin-bottom:20px; gap:4px;">
           <button
             class="checklist-tab-btn"
+            style="flex:1; border:none; border-radius:6px; padding:8px 12px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s; display:inline-flex; align-items:center; justify-content:center; gap:6px;"
             :style="{
-              color: drawerActiveTab === 'overview' ? '#38bdf8' : '#94a3b8',
-              borderBottomColor: drawerActiveTab === 'overview' ? '#38bdf8' : 'transparent',
-              paddingBottom: '8px'
+              background: drawerActiveTab === 'overview' ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' : 'transparent',
+              color: drawerActiveTab === 'overview' ? '#FFF' : '#94a3b8',
+              boxShadow: drawerActiveTab === 'overview' ? '0 2px 8px rgba(2, 132, 199, 0.35)' : 'none'
             }"
             @click="drawerActiveTab = 'overview'"
           >
-            🔍 工位全景属性
+            <span>🔍</span>
+            <span>工位全景属性</span>
           </button>
           <button
             class="checklist-tab-btn"
+            style="flex:1; border:none; border-radius:6px; padding:8px 12px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s; display:inline-flex; align-items:center; justify-content:center; gap:6px;"
             :style="{
-              color: drawerActiveTab === 'skill' ? '#38bdf8' : '#94a3b8',
-              borderBottomColor: drawerActiveTab === 'skill' ? '#38bdf8' : 'transparent',
-              paddingBottom: '8px'
+              background: drawerActiveTab === 'skill' ? 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' : 'transparent',
+              color: drawerActiveTab === 'skill' ? '#FFF' : '#94a3b8',
+              boxShadow: drawerActiveTab === 'skill' ? '0 2px 8px rgba(99, 102, 241, 0.35)' : 'none'
             }"
             @click="drawerActiveTab = 'skill'"
           >
-            🤖 专属 AI Skill 专家
+            <span>🤖</span>
+            <span>专属 AI 专家</span>
           </button>
           <button
             class="checklist-tab-btn"
+            style="flex:1; border:none; border-radius:6px; padding:8px 12px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s; display:inline-flex; align-items:center; justify-content:center; gap:6px;"
             :style="{
-              color: drawerActiveTab === 'artifacts' ? '#38bdf8' : '#94a3b8',
-              borderBottomColor: drawerActiveTab === 'artifacts' ? '#38bdf8' : 'transparent',
-              paddingBottom: '8px'
+              background: drawerActiveTab === 'artifacts' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'transparent',
+              color: drawerActiveTab === 'artifacts' ? '#FFF' : '#94a3b8',
+              boxShadow: drawerActiveTab === 'artifacts' ? '0 2px 8px rgba(16, 185, 129, 0.35)' : 'none'
             }"
             @click="drawerActiveTab = 'artifacts'"
           >
-            📦 物理产物流向
+            <span>📦</span>
+            <span>物理产物流向</span>
+          </button>
+          <button
+            class="checklist-tab-btn"
+            style="flex:1; border:none; border-radius:6px; padding:8px 12px; font-size:12px; font-weight:600; cursor:pointer; transition:all 0.2s; display:inline-flex; align-items:center; justify-content:center; gap:6px;"
+            :style="{
+              background: drawerActiveTab === 'records' ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' : 'transparent',
+              color: drawerActiveTab === 'records' ? '#FFF' : '#94a3b8',
+              boxShadow: drawerActiveTab === 'records' ? '0 2px 8px rgba(245, 158, 11, 0.35)' : 'none'
+            }"
+            @click="drawerActiveTab = 'records'"
+          >
+            <span>📜</span>
+            <span>审计履历 ({{ workflowRecords.length }})</span>
           </button>
         </div>
 
         <!-- TAB 1: 工位全景属性与底层核心运转原理 -->
         <div v-if="drawerActiveTab === 'overview'" style="display:flex; flex-direction:column; gap:16px;">
           <!-- 状态徽标卡 -->
-          <div style="background:#1e293b; border:1px solid #334155; border-radius:8px; padding:14px; display:flex; justify-content:space-between; align-items:center;">
+          <div style="background:rgba(30, 41, 59, 0.7); border:1px solid rgba(148, 163, 184, 0.15); border-radius:10px; padding:16px; display:flex; justify-content:space-between; align-items:center; box-shadow:0 4px 12px rgba(0,0,0,0.2);">
             <div>
-              <div style="font-size:11px; color:#94a3b8;">当前执行态</div>
-              <div style="font-size:15px; font-weight:700; margin-top:2px;">
-                <span v-if="activeDetailNode.status === 'ACTIVE'" style="color:#06b6d4;">● 正在当前执行中 (ACTIVE)</span>
-                <span v-else-if="activeDetailNode.status === 'COMPLETED'" style="color:#10b981;">✔ 已通过并留痕 (COMPLETED)</span>
-                <span v-else style="color:#64748b;">○ 待就绪与前置准备 (PENDING)</span>
+              <div style="font-size:11px; color:#94a3b8; font-weight:600;">当前执行状态</div>
+              <div style="font-size:15px; font-weight:700; margin-top:4px;">
+                <span v-if="activeDetailNode.status === 'ACTIVE'" style="color:#38bdf8; display:inline-flex; align-items:center; gap:6px;">
+                  <span style="width:8px; height:8px; border-radius:50%; background:#38bdf8; box-shadow:0 0 8px #38bdf8;"></span>
+                  ● 正在当前执行中 (ACTIVE)
+                </span>
+                <span v-else-if="activeDetailNode.status === 'COMPLETED'" style="color:#34d399; display:inline-flex; align-items:center; gap:6px;">
+                  <span style="width:8px; height:8px; border-radius:50%; background:#34d399; box-shadow:0 0 8px #34d399;"></span>
+                  ✔ 已通过并留痕 (COMPLETED)
+                </span>
+                <span v-else style="color:#64748b; display:inline-flex; align-items:center; gap:6px;">
+                  <span style="width:8px; height:8px; border-radius:50%; background:#64748b;"></span>
+                  ○ 待就绪与前置准备 (PENDING)
+                </span>
               </div>
             </div>
             <div style="text-align:right;">
-              <div style="font-size:11px; color:#94a3b8;">常驻责任角色</div>
-              <div style="font-size:14px; font-weight:600; color:#f8fafc; margin-top:2px;">
-                {{ activeDetailNode.role }}
+              <div style="font-size:11px; color:#94a3b8; font-weight:600;">常驻责任角色</div>
+              <div style="font-size:14px; font-weight:700; color:#f8fafc; margin-top:4px;">
+                👤 {{ activeDetailNode.role }}
               </div>
             </div>
           </div>
 
           <!-- 底层运转核心原理 (Under the Hood) -->
-          <div style="background:#131d31; border:1px solid #1e3a8a; border-left:4px solid #38bdf8; border-radius:6px; padding:16px;">
+          <div style="background:rgba(19, 29, 49, 0.8); border:1px solid rgba(56, 189, 248, 0.2); border-left:4px solid #38bdf8; border-radius:8px; padding:16px; box-shadow:0 4px 12px rgba(0,0,0,0.15);">
             <div style="font-size:14px; font-weight:700; color:#38bdf8; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
               <span>💡 底层核心运转逻辑 (Under the Hood)</span>
             </div>
-            <p style="line-height:1.7; color:#e2e8f0; margin:0; font-size:13px;">
+            <p style="line-height:1.75; color:#cbd5e1; margin:0; font-size:13px;">
               {{ activeDetailNode.principle }}
             </p>
           </div>
 
           <!-- 执行契约规范与阻断条件 -->
-          <div style="background:#1e293b; border:1px solid #334155; border-radius:8px; padding:14px;">
-            <div style="font-size:13px; font-weight:600; color:#f8fafc; margin-bottom:10px;">📋 规约与门禁约束标准</div>
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+          <div style="background:rgba(30, 41, 59, 0.7); border:1px solid rgba(148, 163, 184, 0.15); border-radius:10px; padding:16px; box-shadow:0 4px 12px rgba(0,0,0,0.2);">
+            <div style="font-size:13px; font-weight:700; color:#f8fafc; margin-bottom:12px;">📋 规约与门禁约束标准</div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
               <div>
-                <span style="color:#94a3b8; font-size:11px;">绑定 SOP 标号：</span>
-                <div style="margin-top:2px;"><code style="background:#0f172a; color:#38bdf8; padding:2px 6px; border-radius:4px; font-size:12px;">{{ activeDetailNode.sop }}</code></div>
+                <span style="color:#94a3b8; font-size:11px; font-weight:600;">绑定 SOP 标号：</span>
+                <div style="margin-top:4px;">
+                  <code style="background:rgba(15, 23, 42, 0.8); color:#38bdf8; border:1px solid rgba(56, 189, 248, 0.2); padding:3px 8px; border-radius:4px; font-size:12px; font-family:monospace;">{{ activeDetailNode.sop }}</code>
+                </div>
               </div>
               <div>
-                <span style="color:#94a3b8; font-size:11px;">刚性门禁阻断：</span>
-                <div style="margin-top:2px; color:#f59e0b; font-weight:600;">{{ activeDetailNode.gate }}</div>
+                <span style="color:#94a3b8; font-size:11px; font-weight:600;">刚性门禁阻断条件：</span>
+                <div style="margin-top:4px; color:#fbbf24; font-weight:700; font-size:13px;">{{ activeDetailNode.gate }}</div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- TAB 2: AI Skill 专家信息 (受控只读呈现，改配请在工作流模板中心执行) -->
+        <!-- TAB 2: AI Skill 专家信息 -->
         <div v-if="drawerActiveTab === 'skill'" style="display:flex; flex-direction:column; gap:16px;">
-          <div style="background:#1e293b; border:1px solid #334155; border-radius:8px; padding:14px;">
-            <div style="font-size:13px; font-weight:600; color:#f8fafc; margin-bottom:6px;">🎯 当前项目锁定的专属 AI 专家</div>
-            <div style="display:flex; align-items:center; gap:10px;">
-              <span class="tag tag-baselined" style="font-size:13px; font-weight:700; padding:4px 10px;">
+          <div style="background:rgba(30, 41, 59, 0.7); border:1px solid rgba(148, 163, 184, 0.15); border-radius:10px; padding:18px; box-shadow:0 4px 12px rgba(0,0,0,0.2);">
+            <div style="font-size:13px; font-weight:700; color:#f8fafc; margin-bottom:10px;">🎯 当前项目锁定的专属 AI 专家</div>
+            <div style="display:flex; align-items:center; gap:12px;">
+              <span class="tag" style="background:linear-gradient(135deg, #6366f1, #4f46e5); color:#FFF; font-size:13px; font-weight:700; padding:4px 12px; border-radius:6px; box-shadow:0 2px 8px rgba(99,102,241,0.3);">
                 🤖 {{ activeDetailNode.skill }}
               </span>
               <span style="font-size:12px; color:#94a3b8;">
@@ -4628,11 +4642,11 @@ onMounted(async () => {
           </div>
 
           <!-- 专家的核心专长与能力定义 -->
-          <div style="background:#131d31; border:1px solid #1e3a8a; border-radius:8px; padding:16px;">
-            <div style="font-size:13px; font-weight:700; color:#38bdf8; margin-bottom:8px;">
-              🛡️ AI 专家执行边界与安全约束
+          <div style="background:rgba(19, 29, 49, 0.8); border:1px solid rgba(99, 102, 241, 0.25); border-left:4px solid #818cf8; border-radius:8px; padding:18px; box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+            <div style="font-size:14px; font-weight:700; color:#818cf8; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+              <span>🛡️ AI 专家执行边界与安全约束</span>
             </div>
-            <div style="font-size:12px; color:#cbd5e1; line-height:1.7;">
+            <div style="font-size:12.5px; color:#cbd5e1; line-height:1.75;">
               本工位由指定的专属 Agent 提供辅助，严格执行对应 SOP 标准规约。如需调整本工位关联的 AI 专家或流程管线，请前往顶级菜单 <strong>「工作流模板管理」</strong> 进行版本克隆与项目级绑定。
             </div>
           </div>
@@ -4641,54 +4655,108 @@ onMounted(async () => {
         <!-- TAB 3: 确定性物理产物流向与交付清单 -->
         <div v-if="drawerActiveTab === 'artifacts'" style="display:flex; flex-direction:column; gap:16px;">
           <!-- 输入产物清单 -->
-          <div style="background:#1e293b; border:1px solid #334155; border-radius:8px; padding:14px;">
-            <div style="font-size:13px; font-weight:600; color:#f8fafc; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+          <div style="background:rgba(30, 41, 59, 0.7); border:1px solid rgba(148, 163, 184, 0.15); border-radius:10px; padding:16px;">
+            <div style="font-size:13px; font-weight:700; color:#38bdf8; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
               <span>📥 上游输入资产 (Inputs)</span>
             </div>
-            <div style="display:flex; flex-direction:column; gap:6px;">
+            <div style="display:flex; flex-direction:column; gap:8px;">
               <div
                 v-for="(inp, iIdx) in activeDetailNode.inputArtifacts"
                 :key="iIdx"
-                style="background:#0f172a; padding:8px 12px; border-radius:4px; border:1px dashed #475569; display:flex; align-items:center; gap:8px; font-size:12px;"
+                style="background:rgba(15, 23, 42, 0.8); padding:10px 14px; border-radius:6px; border:1px dashed rgba(56, 189, 248, 0.3); display:flex; align-items:center; gap:10px; font-size:12px;"
               >
-                <span style="color:#38bdf8;">📄</span>
-                <span style="color:#e2e8f0;">{{ inp }}</span>
+                <span style="color:#38bdf8; font-size:14px;">📄</span>
+                <span style="color:#e2e8f0; font-weight:500;">{{ inp }}</span>
               </div>
             </div>
           </div>
 
           <!-- 输出产物清单 -->
-          <div style="background:#1e293b; border:1px solid #334155; border-radius:8px; padding:14px;">
-            <div style="font-size:13px; font-weight:600; color:#10b981; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+          <div style="background:rgba(30, 41, 59, 0.7); border:1px solid rgba(148, 163, 184, 0.15); border-radius:10px; padding:16px;">
+            <div style="font-size:13px; font-weight:700; color:#34d399; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
               <span>📤 本工位产出资产 (Outputs)</span>
             </div>
-            <div style="display:flex; flex-direction:column; gap:6px;">
+            <div style="display:flex; flex-direction:column; gap:8px;">
               <div
                 v-for="(out, oIdx) in activeDetailNode.outputArtifacts"
                 :key="oIdx"
-                style="background:#062d22; padding:8px 12px; border-radius:4px; border:1px solid #059669; display:flex; justify-content:space-between; align-items:center; font-size:12px;"
+                style="background:rgba(6, 45, 34, 0.6); padding:10px 14px; border-radius:6px; border:1px solid rgba(16, 185, 129, 0.4); display:flex; justify-content:space-between; align-items:center; font-size:12px;"
               >
-                <div style="display:flex; align-items:center; gap:8px;">
-                  <span style="color:#10b981;">📦</span>
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <span style="color:#34d399; font-size:14px;">📦</span>
                   <span style="color:#a7f3d0; font-weight:600;">{{ out }}</span>
                 </div>
-                <span class="tag tag-baselined" style="font-size:10px;">物理落盘固化</span>
+                <span class="tag" style="background:rgba(16, 185, 129, 0.2); color:#34d399; border:1px solid rgba(16, 185, 129, 0.4); font-size:10px; padding:1px 6px; border-radius:4px;">物理落盘固化</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 4: 全周期持久化审计履历 (MySQL 真实驱动) -->
+        <div v-if="drawerActiveTab === 'records'" style="display:flex; flex-direction:column; gap:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <span style="font-size:12px; color:#94a3b8;">共记录 {{ workflowRecords.length }} 次工位流转核验操作</span>
+            <button class="btn btn-outline btn-sm" style="color:#38bdf8; border-color:rgba(56, 189, 248, 0.3); background:rgba(30, 41, 59, 0.6); padding:3px 10px; font-size:11px;" @click="loadWorkflowRecords">
+              🔄 实时刷新履历
+            </button>
+          </div>
+
+          <div v-if="workflowRecords.length === 0" style="padding:40px; text-align:center; color:#64748b; background:rgba(30, 41, 59, 0.5); border-radius:10px; border:1px solid rgba(148, 163, 184, 0.15);">
+            暂无历史审计履历。点击下方「确认并顺推工位」后，流转凭据将自动实时落盘入库。
+          </div>
+
+          <div v-else style="display:flex; flex-direction:column; gap:8px; max-height:480px; overflow-y:auto;">
+            <div
+              v-for="rec in workflowRecords"
+              :key="rec.id"
+              style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:rgba(30, 41, 59, 0.7); border:1px solid rgba(148, 163, 184, 0.15); border-radius:8px; font-size:12px;"
+            >
+              <div style="display:flex; align-items:center; gap:10px;">
+                <span
+                  class="tag"
+                  :style="{
+                    background: rec.actionType === 'OVERRIDE' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'linear-gradient(135deg, #10b981, #059669)',
+                    color: '#fff',
+                    fontWeight: 700,
+                    fontSize: '10px',
+                    padding: '2px 6px',
+                    borderRadius: '4px'
+                  }"
+                >
+                  {{ rec.actionType === 'OVERRIDE' ? '⚡ 跳步覆盖' : '✔ 顺推核准' }}
+                </span>
+                <strong style="color:#f8fafc;">[{{ rec.nodeId }}] {{ rec.nodeName }}</strong>
+                <span v-if="rec.skillName" style="color:#94a3b8; font-size:11px;">
+                  (Skill: <code style="color:#38bdf8;">{{ rec.skillName }}</code>)
+                </span>
+                <span v-if="rec.overrideReason" style="color:#fbbf24; font-style:italic;">
+                  原因: “{{ rec.overrideReason }}”
+                </span>
+              </div>
+              <div style="display:flex; align-items:center; gap:12px; color:#94a3b8; font-size:11px;">
+                <span>操作人: <strong style="color:#38bdf8;">{{ rec.operator }}</strong></span>
+                <span>{{ rec.createdAt ? rec.createdAt.replace('T', ' ') : '刚刚' }}</span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="drawer-footer" style="background:#0b1320; border-top:1px solid #1e293b; justify-content:space-between;">
+      <!-- 底部控制栏：轻拟态毛玻璃与高光按钮 -->
+      <div class="drawer-footer" style="background:rgba(15, 23, 42, 0.95); backdrop-filter:blur(12px); border-top:1px solid rgba(56, 189, 248, 0.15); padding:14px 22px; display:flex; justify-content:space-between; align-items:center;">
         <span style="font-size:11px; color:#64748b; font-family:monospace;">
           Node: {{ activeDetailNode.id }} ｜ SSOT: MySQL t_req_workflow_record
         </span>
-        <button class="btn btn-primary btn-sm" @click="drawerWorkflowDetailVisible = false">
-          完成并关闭
-        </button>
+        <div style="display:flex; gap:10px;">
+          <button class="btn btn-outline btn-sm" style="color:#cbd5e1; border-color:rgba(148, 163, 184, 0.25); background:rgba(30, 41, 59, 0.5); font-weight:600;" @click="openReqDetail(workflowActiveReq, true)">
+            📄 对应需求清单 (P04)
+          </button>
+          <button class="btn btn-primary btn-sm" style="background:linear-gradient(135deg, #0284c7 0%, #0369a1 100%); border:none; font-weight:700; box-shadow:0 2px 10px rgba(2,132,199,0.4); padding:6px 16px;" @click="handleAdvanceWorkflowNode">
+            ✔ 确认并顺推工位 (Advance)
+          </button>
+        </div>
       </div>
     </div>
-
     <!-- ================= 抽屉面板：M02 新建需求 (统一使用 CommonFormModal 公共抽屉) ================= -->
     <CommonFormModal
       v-model="drawerNewReqOpen"
@@ -5636,7 +5704,7 @@ onMounted(async () => {
 /* 工程流水线拓扑画布可视区 (FR-REQ-WFC-01 / Task-510)
    可视框尺寸只由这里的 360px 决定；X6 挂载点在内层，尺寸回写不会触及外层。 */
 .wf-viewport {
-  height: 510px;
+  height: 610px;
   width: 100%;
   overflow: auto;
   border-radius: var(--radius-sm);

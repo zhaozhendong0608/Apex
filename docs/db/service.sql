@@ -259,6 +259,25 @@ CREATE TABLE IF NOT EXISTS `t_req_workflow_template` (
   KEY `idx_wf_tpl_default` (`is_system_default`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='需求管理-工作流模板与工位蓝本表';
 
+-- 4.8.2 工作流节点工位真实执行状态表 (按需求、轨道、工位三元组隔离)
+CREATE TABLE IF NOT EXISTS `t_req_workflow_node_state` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `req_code` VARCHAR(64) NOT NULL COMMENT '需求编号 (如 REQ-001)',
+  `track_mode` VARCHAR(32) NOT NULL DEFAULT 'STANDARD' COMMENT '所属轨道 (STANDARD/FASTTRACK)',
+  `node_id` VARCHAR(64) NOT NULL COMMENT '工位算子ID (如 SOP-00, SOP-01, SOP-B2)',
+  `node_name` VARCHAR(128) DEFAULT NULL COMMENT '工位算子名称快照',
+  `status` VARCHAR(32) NOT NULL DEFAULT 'PENDING' COMMENT '工位状态 (PENDING:未开始, IN_PROGRESS:进行中, COMPLETED:已完成, SKIPPED:跳过)',
+  `operator` VARCHAR(64) DEFAULT NULL COMMENT '最后操作/责任人',
+  `completed_at` DATETIME DEFAULT NULL COMMENT '完工时间',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_req_track_node` (`req_code`, `track_mode`, `node_id`),
+  KEY `idx_req_code` (`req_code`),
+  KEY `idx_track_mode` (`track_mode`),
+  KEY `idx_node_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='需求管理-工作流节点工位真实执行状态表';
+
 -- ------------------------------------------------------------------------------
 -- 4.9 需求管理模块演示种子数据 (NET-SIM 项目空间, REQ-001 需求, 四层清单与 BL-v1.0 基线)
 -- ------------------------------------------------------------------------------
@@ -305,6 +324,27 @@ VALUES
   (1, 1, 'BIZ_OWNER', '王总监', 'SIGNED', 'demo-token-biz-owner-64chars-long-hash-token-value-0000000000000001', '7892', '2026-11-29 23:59:59', '2026-10-29 14:02:11', '127.0.0.1', 'Mozilla/5.0 Chrome/120.0', '这版做在线状态和告警，不做历史曲线和财务导出，符合预期。', '7F3A-91C2-88B1'),
   (2, 1, 'ACCEPTOR', '李科长', 'SIGNED', 'demo-token-acceptor-64chars-long-hash-token-value-0000000000000002', '7892', '2026-11-29 23:59:59', '2026-10-29 14:05:00', '127.0.0.1', 'Mozilla/5.0 Chrome/120.0', '确认四层清单指标，以此为终验基准。', '8B2C-44A1-90E2'),
   (3, 1, 'USER_REP', '赵工', 'SIGNED', 'demo-token-user-rep-64chars-long-hash-token-value-0000000000000003', '7892', '2026-11-29 23:59:59', '2026-10-29 14:08:23', '127.0.0.1', 'Mozilla/5.0 Chrome/120.0', '操作流符合现场调度人员使用习惯。', '1C9E-78D3-55F4');
+
+-- 插入 REQ-001 真实工位初始执行进度 (STANDARD 标准主链 & FASTTRACK 快轨)
+INSERT IGNORE INTO `t_req_workflow_node_state` (`req_code`, `track_mode`, `node_id`, `node_name`, `status`, `operator`, `completed_at`) VALUES
+('REQ-001', 'STANDARD', 'SOP-00', '体系总览', 'COMPLETED', '架构师', '2026-10-29 10:00:00'),
+('REQ-001', 'STANDARD', 'SOP-01', '需求规划', 'IN_PROGRESS', '张工', NULL),
+('REQ-001', 'STANDARD', 'SOP-02', '方案设计', 'PENDING', NULL, NULL),
+('REQ-001', 'STANDARD', 'SOP-03', '任务拆解', 'PENDING', NULL, NULL),
+('REQ-001', 'STANDARD', 'SOP-04', '单测先行', 'PENDING', NULL, NULL),
+('REQ-001', 'STANDARD', 'SOP-05', '契约编码', 'PENDING', NULL, NULL),
+('REQ-001', 'STANDARD', 'SOP-06', '集成联调', 'PENDING', NULL, NULL),
+('REQ-001', 'STANDARD', 'SOP-07', '严格终验', 'PENDING', NULL, NULL),
+('REQ-001', 'STANDARD', 'SOP-08', '容器部署', 'PENDING', NULL, NULL),
+('REQ-001', 'STANDARD', 'SOP-09', '代码合流', 'PENDING', NULL, NULL);
+
+INSERT IGNORE INTO `t_req_workflow_node_state` (`req_code`, `track_mode`, `node_id`, `node_name`, `status`, `operator`, `completed_at`) VALUES
+('REQ-001', 'FASTTRACK', 'SOP-B1', '老代码考古', 'PENDING', NULL, NULL),
+('REQ-001', 'FASTTRACK', 'SOP-B2', '极速微创', 'PENDING', NULL, NULL),
+('REQ-001', 'FASTTRACK', 'SOP-B3', '小黄鸭排错', 'PENDING', NULL, NULL),
+('REQ-001', 'FASTTRACK', 'SOP-B4', '故障急救', 'PENDING', NULL, NULL),
+('REQ-001', 'FASTTRACK', 'SOP-B5', '记忆归档', 'PENDING', NULL, NULL),
+('REQ-001', 'FASTTRACK', 'SOP-B6', '断点续传', 'PENDING', NULL, NULL);
 
 
 -- ------------------------------------------------------------------------------
@@ -370,3 +410,4 @@ VALUES
   (1, 10), (1, 101), (1, 102);
 
 SET FOREIGN_KEY_CHECKS = 1;
+

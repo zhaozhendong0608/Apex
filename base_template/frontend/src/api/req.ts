@@ -46,6 +46,22 @@ export function deleteProjectApi(id: number): Promise<ApiResponse<void>> {
 }
 
 // 0.1 DAG 工作流运行时真实状态
+export function getWorkflowStateApi(params: { reqCode: string; trackMode?: string }): Promise<ApiResponse<any>> {
+  return request({
+    url: '/req/workflow/state',
+    method: 'GET',
+    params
+  })
+}
+
+export function getWorkflowTopologyApi(params?: { trackMode?: string; projectId?: number }): Promise<ApiResponse<any>> {
+  return request({
+    url: '/req/workflow/topology',
+    method: 'GET',
+    params
+  })
+}
+
 export function getWorkflowDagStateApi(params?: { reqCode?: string; trackMode?: string }): Promise<ApiResponse<any>> {
   return request({
     url: '/req/workflow/dag-state',
