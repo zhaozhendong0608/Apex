@@ -147,22 +147,55 @@ public class WorkflowController {
                   .eq(com.apex.req.domain.entity.ReqWorkflowNodeState::getTrackMode, trackMode);
                 list = workflowNodeStateMapper.selectList(qw);
 
-                // 如果未找到记录，进行初次默认初始化
+                // 如果未找到记录，按当前系统默认模板 (t_req_workflow_template) 进行初次初始化
                 if (list.isEmpty()) {
-                    List<String> defaultNodes = "STANDARD".equalsIgnoreCase(trackMode)
-                            ? Arrays.asList("SOP-00", "SOP-01", "SOP-02", "SOP-03", "SOP-04", "SOP-05", "SOP-06", "SOP-07", "SOP-08", "SOP-09")
-                            : Arrays.asList("SOP-B1", "SOP-B2", "SOP-B3", "SOP-B4", "SOP-B5", "SOP-B6");
-                    for (int i = 0; i < defaultNodes.size(); i++) {
-                        String nid = defaultNodes.get(i);
-                        String st = (i == 0) ? "COMPLETED" : ((i == 1) ? "IN_PROGRESS" : "PENDING");
+                    List<Map<String, String>> initNodes = new ArrayList<>();
+                    if (workflowTemplateMapper != null) {
+                        try {
+                            LambdaQueryWrapper<ReqWorkflowTemplate> tplQw = new LambdaQueryWrapper<>();
+                            tplQw.eq(ReqWorkflowTemplate::getIsSystemDefault, 1);
+                            ReqWorkflowTemplate defaultTpl = workflowTemplateMapper.selectOne(tplQw);
+                            if (defaultTpl != null && defaultTpl.getNodesConfig() != null) {
+                                List<Map<String, Object>> parsed = objectMapper.readValue(defaultTpl.getNodesConfig(), List.class);
+                                for (Map<String, Object> item : parsed) {
+                                    String nid = String.valueOf(item.getOrDefault("id", ""));
+                                    String nname = String.valueOf(item.getOrDefault("name", nid));
+                                    String ntrack = String.valueOf(item.getOrDefault("track", nid.startsWith("SOP-B") ? "FASTTRACK" : "STANDARD"));
+                                    if (trackMode.equalsIgnoreCase(ntrack)) {
+                                        Map<String, String> pair = new HashMap<>();
+                                        pair.put("id", nid);
+                                        pair.put("name", nname);
+                                        initNodes.add(pair);
+                                    }
+                                }
+                            }
+                        } catch (Exception ignored) {}
+                    }
+                    if (initNodes.isEmpty()) {
+                        List<String> fallbackIds = "STANDARD".equalsIgnoreCase(trackMode)
+                                ? Arrays.asList("SOP-00", "SOP-01", "SOP-02", "TC-GEN", "SOP-03", "SOP-04", "SOP-05", "SOP-06", "SOP-07", "SOP-08", "SOP-09")
+                                : Arrays.asList("SOP-B1", "SOP-B2", "SOP-B3", "SOP-B4", "SOP-B5", "SOP-B6");
+                        for (String nid : fallbackIds) {
+                            Map<String, String> pair = new HashMap<>();
+                            pair.put("id", nid);
+                            pair.put("name", nid);
+                            initNodes.add(pair);
+                        }
+                    }
+                    for (int i = 0; i < initNodes.size(); i++) {
+                        String nid = initNodes.get(i).get("id");
+                        String nname = initNodes.get(i).get("name");
+                        String st = "STANDARD".equalsIgnoreCase(trackMode)
+                                ? ((i == 0) ? "COMPLETED" : ((i == 1) ? "IN_PROGRESS" : "PENDING"))
+                                : ((i == 0) ? "IN_PROGRESS" : "PENDING");
                         com.apex.req.domain.entity.ReqWorkflowNodeState ns = com.apex.req.domain.entity.ReqWorkflowNodeState.builder()
                                 .reqCode(reqCode)
                                 .trackMode(trackMode)
                                 .nodeId(nid)
-                                .nodeName(nid)
+                                .nodeName(nname)
                                 .status(st)
-                                .operator((i <= 1) ? "admin" : null)
-                                .completedAt((i == 0) ? LocalDateTime.now() : null)
+                                .operator(("COMPLETED".equals(st) || "IN_PROGRESS".equals(st)) ? "admin" : null)
+                                .completedAt("COMPLETED".equals(st) ? LocalDateTime.now() : null)
                                 .createdAt(LocalDateTime.now())
                                 .updatedAt(LocalDateTime.now())
                                 .build();

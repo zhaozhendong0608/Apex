@@ -341,3 +341,41 @@ export function rejectSignApi(token: string, data: any): Promise<ApiResponse<any
     data
   })
 }
+
+// 5. 发布版本追踪与发版流水线 (P16 / M12)
+export function getReleasesApi(projectId?: number): Promise<ApiResponse<any[]>> {
+  return request({
+    url: '/req/releases',
+    method: 'GET',
+    params: projectId ? { projectId } : undefined
+  })
+}
+
+export function getFrozenBaselinesApi(projectId?: number): Promise<ApiResponse<any[]>> {
+  return request({
+    url: '/req/releases/frozen-baselines',
+    method: 'GET',
+    params: projectId ? { projectId } : undefined
+  })
+}
+
+export function createReleaseApi(data: {
+  projectId: number
+  baselineId: number
+  releaseVersion: string
+  plannedDate?: string
+  releaseNotes?: string
+}): Promise<ApiResponse<any>> {
+  return request({
+    url: '/req/releases',
+    method: 'POST',
+    data
+  })
+}
+
+export function publishReleaseApi(id: number): Promise<ApiResponse<any>> {
+  return request({
+    url: `/req/releases/${id}/publish`,
+    method: 'POST'
+  })
+}

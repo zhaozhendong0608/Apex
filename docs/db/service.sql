@@ -278,6 +278,27 @@ CREATE TABLE IF NOT EXISTS `t_req_workflow_node_state` (
   KEY `idx_node_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='需求管理-工作流节点工位真实执行状态表';
 
+-- 4.8.3 发布版本追踪表 (严格绑定已冻结基线，闭环 需求 ➔ 原型 ➔ 基线 ➔ 发布)
+CREATE TABLE IF NOT EXISTS `t_req_release` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `project_id` BIGINT NOT NULL COMMENT '所属项目ID',
+  `baseline_id` BIGINT NOT NULL COMMENT '严格绑定的已冻结基线ID (t_req_baseline.id)',
+  `release_version` VARCHAR(64) NOT NULL COMMENT '发布版本号 (如 R-1.0.0)',
+  `git_tag` VARCHAR(128) DEFAULT NULL COMMENT '正式发布打标的 Git Tag (如 release/NET-SIM/R-1.0.0)',
+  `planned_date` DATE DEFAULT NULL COMMENT '计划发布日期',
+  `released_at` DATETIME DEFAULT NULL COMMENT '实际正式发布时间',
+  `status` VARCHAR(32) NOT NULL DEFAULT 'PLANNED' COMMENT '发布状态 (PLANNED:计划中, RELEASED:已发布, ROLLBACK:已回滚)',
+  `release_notes` TEXT COMMENT '发布清单与变更摘要',
+  `created_by` VARCHAR(64) NOT NULL DEFAULT 'admin' COMMENT '创建人',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_proj_release_ver` (`project_id`, `release_version`),
+  KEY `idx_rel_project_id` (`project_id`),
+  KEY `idx_rel_baseline_id` (`baseline_id`),
+  KEY `idx_rel_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='需求管理-发布版本追踪表';
+
 -- ------------------------------------------------------------------------------
 -- 4.9 需求管理模块演示种子数据 (NET-SIM 项目空间, REQ-001 需求, 四层清单与 BL-v1.0 基线)
 -- ------------------------------------------------------------------------------
@@ -295,10 +316,10 @@ VALUES (
   'GLOBAL',
   NULL,
   NULL,
-  '[{"id":"SOP-00","name":"体系总览","role":"全员","skill":"-","sop":".ai/sop/00-sop-overview.md","gate":"自适应分流"},{"id":"SOP-01","name":"需求规划","role":"产品/张工","skill":"requirement-discovery","sop":".ai/sop/01-sop-planning.md","gate":"四层清单齐备"},{"id":"SOP-02","name":"方案设计","role":"研发/李工","skill":"design-spec-architect","sop":".ai/sop/02-sop-tech-design.md","gate":"python3 gate.py --sql"},{"id":"TC-GEN","name":"测试用例矩阵","role":"测试/王工","skill":"quality-verifier","sop":".ai/sop/01-sop-planning.md","gate":"用例覆盖100%"},{"id":"SOP-03","name":"TDD编码","role":"研发/李工","skill":"coding-standards","sop":".ai/sop/03-sop-coding.md","gate":"单元测试全绿"},{"id":"SOP-04","name":"机器门禁","role":"看门狗探针","skill":"code-quality-reviewer","sop":".ai/sop/04-sop-code-review.md","gate":"python3 gate.py --staged [LGTM]"},{"id":"SOP-05","name":"人工评审","role":"架构师/程工","skill":"code-quality-reviewer","sop":".ai/sop/05-sop-review.md","gate":"架构师签字核准"},{"id":"SOP-06","name":"集成测试","role":"测试/王工","skill":"quality-verifier","sop":".ai/sop/06-sop-integration.md","gate":"TC用例100%碰撞通过"},{"id":"SOP-07","name":"双向验收","role":"看门狗探针","skill":"quality-verifier","sop":".ai/sop/07-sop-acceptance.md","gate":"board.py verify放行"},{"id":"SOP-08","name":"容器部署","role":"运维/李工","skill":"-","sop":".ai/sop/08-sop-deploy.md","gate":"健康检查通过"},{"id":"SOP-09","name":"Git发布","role":"交付/张工","skill":"-","sop":".ai/sop/09-sop-git-release.md","gate":"Release资产落盘"},{"id":"SOP-B2","name":"极速修补","role":"研发/李工","skill":"quality-verifier","sop":".ai/sop/B2-sop-fasttrack.md","gate":"单文件≤20行"}]',
-  '[]',
+  '[{"id":"SOP-00","name":"体系总览","role":"全员","skill":"-","track":"STANDARD","sop":".ai/sop/00-sop-overview.md","gate":"自适应分流"},{"id":"SOP-01","name":"需求规划","role":"产品/张工","skill":"requirement-discovery","track":"STANDARD","sop":".ai/sop/01-sop-planning.md","gate":"四层清单齐备"},{"id":"SOP-02","name":"方案设计","role":"研发/李工","skill":"design-spec-architect","track":"STANDARD","sop":".ai/sop/02-sop-tech-design.md","gate":"python3 gate.py --sql"},{"id":"TC-GEN","name":"测试用例矩阵","role":"测试/王工","skill":"quality-verifier","track":"STANDARD","sop":".ai/sop/01-sop-planning.md","gate":"用例覆盖100%"},{"id":"SOP-03","name":"TDD编码","role":"研发/李工","skill":"coding-standards","track":"STANDARD","sop":".ai/sop/03-sop-coding.md","gate":"单元测试全绿"},{"id":"SOP-04","name":"机器门禁","role":"看门狗探针","skill":"code-quality-reviewer","track":"STANDARD","sop":".ai/sop/04-sop-code-review.md","gate":"python3 gate.py --staged"},{"id":"SOP-05","name":"人工评审","role":"架构师/程工","skill":"code-quality-reviewer","track":"STANDARD","sop":".ai/sop/05-sop-review.md","gate":"架构师签字核准"},{"id":"SOP-06","name":"集成测试","role":"测试/王工","skill":"quality-verifier","track":"STANDARD","sop":".ai/sop/06-sop-integration.md","gate":"TC用例100%碰撞通过"},{"id":"SOP-07","name":"双向验收","role":"架构师/看门狗","skill":"quality-verifier","track":"STANDARD","sop":".ai/sop/07-sop-acceptance.md","gate":"board.py verify放行"},{"id":"SOP-08","name":"容器部署","role":"运维/李工","skill":"-","track":"STANDARD","sop":".ai/sop/08-sop-deploy.md","gate":"健康检查通过"},{"id":"SOP-09","name":"Git发布","role":"交付/张工","skill":"-","track":"STANDARD","sop":".ai/sop/09-sop-git-release.md","gate":"Release资产落盘"},{"id":"SOP-B1","name":"老代码考古","role":"架构师/李工","skill":"legacy-archaeologist","track":"FASTTRACK","sop":".ai/sop/B1-sop-legacy.md","gate":"路由切片提取"},{"id":"SOP-B2","name":"极速微创","role":"研发/李工","skill":"quality-verifier","track":"FASTTRACK","sop":".ai/sop/B2-sop-fasttrack.md","gate":"单文件≤20行且回归绿"},{"id":"SOP-B3","name":"小黄鸭排错","role":"研发/李工","skill":"quality-verifier","track":"FASTTRACK","sop":".ai/sop/B3-sop-debug.md","gate":"日志抓取与根因最小复现"},{"id":"SOP-B4","name":"故障急救","role":"全员","skill":"-","track":"FASTTRACK","sop":".ai/sop/B4-sop-troubleshoot.md","gate":"系统降级止血"},{"id":"SOP-B5","name":"记忆归档","role":"架构师","skill":"-","track":"FASTTRACK","sop":".ai/sop/B5-sop-archive.md","gate":"三层金字塔持久化"},{"id":"SOP-B6","name":"断点续传","role":"全员","skill":"-","track":"FASTTRACK","sop":".ai/sop/B6-sop-resume.md","gate":"读取tier1快照"}]',
+  '[{"source":"SOP-00","target":"SOP-01"},{"source":"SOP-01","target":"SOP-02"},{"source":"SOP-01","target":"TC-GEN"},{"source":"SOP-02","target":"SOP-03"},{"source":"TC-GEN","target":"SOP-03"},{"source":"SOP-03","target":"SOP-04"},{"source":"SOP-04","target":"SOP-05"},{"source":"SOP-05","target":"SOP-06"},{"source":"SOP-06","target":"SOP-07"},{"source":"SOP-07","target":"SOP-08"},{"source":"SOP-08","target":"SOP-09"},{"source":"SOP-B1","target":"SOP-01"},{"source":"SOP-B3","target":"SOP-B2"},{"source":"SOP-B2","target":"SOP-04"},{"source":"SOP-B4","target":"SOP-B5"},{"source":"SOP-B6","target":"SOP-00"}]',
   'admin'
-) ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `description` = VALUES(`description`);
+) ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `description` = VALUES(`description`), `nodes_config` = VALUES(`nodes_config`), `edges_config` = VALUES(`edges_config`);
 
 INSERT IGNORE INTO `t_req_requirement` (`id`, `project_id`, `req_code`, `title`, `raw_quote`, `trigger_event`, `status`, `priority`, `owner_name`)
 VALUES (1, 1, 'REQ-001', '需求与版本全生命周期治理核心模块', '必须管住需求、版本、原型三件事，做到留痕、可确认、可追溯。每次变更都要客户免登签字，复述理解，绝不允许口头扯皮。', '项目中期范围频繁蔓延与客户验收扯皮', 'BASELINED', 'P1', '张工');
@@ -330,13 +351,14 @@ INSERT IGNORE INTO `t_req_workflow_node_state` (`req_code`, `track_mode`, `node_
 ('REQ-001', 'STANDARD', 'SOP-00', '体系总览', 'COMPLETED', '架构师', '2026-10-29 10:00:00'),
 ('REQ-001', 'STANDARD', 'SOP-01', '需求规划', 'IN_PROGRESS', '张工', NULL),
 ('REQ-001', 'STANDARD', 'SOP-02', '方案设计', 'PENDING', NULL, NULL),
-('REQ-001', 'STANDARD', 'SOP-03', '任务拆解', 'PENDING', NULL, NULL),
-('REQ-001', 'STANDARD', 'SOP-04', '单测先行', 'PENDING', NULL, NULL),
-('REQ-001', 'STANDARD', 'SOP-05', '契约编码', 'PENDING', NULL, NULL),
-('REQ-001', 'STANDARD', 'SOP-06', '集成联调', 'PENDING', NULL, NULL),
-('REQ-001', 'STANDARD', 'SOP-07', '严格终验', 'PENDING', NULL, NULL),
+('REQ-001', 'STANDARD', 'TC-GEN', '测试用例矩阵', 'PENDING', NULL, NULL),
+('REQ-001', 'STANDARD', 'SOP-03', 'TDD编码', 'PENDING', NULL, NULL),
+('REQ-001', 'STANDARD', 'SOP-04', '机器门禁', 'PENDING', NULL, NULL),
+('REQ-001', 'STANDARD', 'SOP-05', '人工评审', 'PENDING', NULL, NULL),
+('REQ-001', 'STANDARD', 'SOP-06', '集成测试', 'PENDING', NULL, NULL),
+('REQ-001', 'STANDARD', 'SOP-07', '双向验收', 'PENDING', NULL, NULL),
 ('REQ-001', 'STANDARD', 'SOP-08', '容器部署', 'PENDING', NULL, NULL),
-('REQ-001', 'STANDARD', 'SOP-09', '代码合流', 'PENDING', NULL, NULL);
+('REQ-001', 'STANDARD', 'SOP-09', 'Git发布', 'PENDING', NULL, NULL);
 
 INSERT IGNORE INTO `t_req_workflow_node_state` (`req_code`, `track_mode`, `node_id`, `node_name`, `status`, `operator`, `completed_at`) VALUES
 ('REQ-001', 'FASTTRACK', 'SOP-B1', '老代码考古', 'PENDING', NULL, NULL),
@@ -345,6 +367,10 @@ INSERT IGNORE INTO `t_req_workflow_node_state` (`req_code`, `track_mode`, `node_
 ('REQ-001', 'FASTTRACK', 'SOP-B4', '故障急救', 'PENDING', NULL, NULL),
 ('REQ-001', 'FASTTRACK', 'SOP-B5', '记忆归档', 'PENDING', NULL, NULL),
 ('REQ-001', 'FASTTRACK', 'SOP-B6', '断点续传', 'PENDING', NULL, NULL);
+
+-- 插入 NET-SIM 发布版本追踪种子数据 (严格绑定已冻结基线 BL-v1.0)
+INSERT IGNORE INTO `t_req_release` (`id`, `project_id`, `baseline_id`, `release_version`, `git_tag`, `planned_date`, `released_at`, `status`, `release_notes`, `created_by`)
+VALUES (1, 1, 1, 'R-1.0.0', NULL, '2026-11-30', NULL, 'PLANNED', '首批核心交付：包含四层确认清单、SHA256原型快照与三方免登签署回执（绑定 BL-v1.0）。', 'admin');
 
 
 -- ------------------------------------------------------------------------------

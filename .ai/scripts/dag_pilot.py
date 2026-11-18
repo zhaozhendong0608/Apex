@@ -22,6 +22,8 @@ AI_DIR = PROJECT_ROOT / ".ai"
 TIER1_FILE = AI_DIR / "tier1_snapshot.md"
 
 BASE_URL = "http://127.0.0.1:8080/api/v1/req/workflow"
+# 本地回环调用禁用系统代理，避免 Clash/VPN 代理劫持 127.0.0.1 导致超时降级
+LOCAL_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 # 算子指令速查映射表
 NODE_CMD_MAP = {
@@ -36,7 +38,12 @@ NODE_CMD_MAP = {
     "SOP-07": "[7] 双向验收",
     "SOP-08": "[8] 容器部署",
     "SOP-09": "[9] Git发布",
-    "SOP-B2": "[B2] 极速修补",
+    "SOP-B1": "[B1] 老代码考古",
+    "SOP-B2": "[B2] 极速微创",
+    "SOP-B3": "[B3] 小黄鸭排错",
+    "SOP-B4": "[B4] 故障急救",
+    "SOP-B5": "[B5] 记忆归档",
+    "SOP-B6": "[B6] 断点续传",
 }
 
 # 默认拓扑算子序列（降级兜底）
@@ -76,8 +83,8 @@ def fetch_dag_status(req_code="REQ-001"):
 
     try:
         url_state = f"{BASE_URL}/dag-state?reqCode={req_code}"
-        req = urllib.request.Request(url_state, timeout=1.5)
-        with urllib.request.urlopen(req) as resp:
+        req = urllib.request.Request(url_state)
+        with LOCAL_OPENER.open(req, timeout=2.0) as resp:
             data = json.loads(resp.read().decode())
             if data.get("code") == 200 and data.get("data"):
                 current_node = data["data"].get("current_node", current_node)
@@ -92,22 +99,69 @@ def fetch_dag_status(req_code="REQ-001"):
 
     try:
         url_topo = f"{BASE_URL}/topology"
-        req = urllib.request.Request(url_topo, timeout=1.5)
-        with urllib.request.urlopen(req) as resp:
+        req = urllib.request.Request(url_topo)
+        with LOCAL_OPENER.open(req, timeout=2.0) as resp:
             data = json.loads(resp.read().decode())
             if data.get("code") == 200 and data.get("data"):
                 raw_nodes = json.loads(data["data"].get("nodesConfig", "[]"))
+                raw_edges = json.loads(data["data"].get("edgesConfig", "[]"))
                 if raw_nodes:
-                    node_map = {n["id"]: n for n in raw_nodes}
-                    # 补齐 next 关系
+                    # 优先使用数据库真实 edgesConfig 构建有向后继邻接表
+                    adj = {}
+                    for edge in raw_edges:
+                        src = edge.get("source")
+                        tgt = edge.get("target")
+                        if src and tgt:
+                            adj.setdefault(src, [])
+                            if tgt not in adj[src]:
+                                adj[src].append(tgt)
                     for idx, n in enumerate(raw_nodes):
-                        if "next" not in n:
+                        nid = n.get("id")
+                        if nid in adj:
+                            n["next"] = adj[nid]
+                        elif "next" not in n:
                             n["next"] = [raw_nodes[idx + 1]["id"]] if idx + 1 < len(raw_nodes) else []
                     nodes = raw_nodes
     except Exception:
         pass
 
     return current_node, nodes
+
+
+def advance_dag_node(req_code, target_node, status="COMPLETED", track_mode="STANDARD", operator="admin"):
+    """一键推进需求工位并持久化至 MySQL (SSOT)，触发大屏实时点亮"""
+    _, nodes = fetch_dag_status(req_code)
+    node_map = {n["id"]: n for n in nodes}
+    info = node_map.get(target_node, {})
+    node_name = info.get("name", target_node)
+    skill_name = info.get("skill", "")
+    resolved_track = info.get("track", track_mode)
+
+    params = urllib.parse.urlencode({
+        "reqCode": req_code,
+        "targetNode": target_node,
+        "nodeName": node_name,
+        "trackMode": resolved_track,
+        "skillName": "" if skill_name == "-" else skill_name,
+        "actionType": "ADVANCE",
+        "status": status,
+        "operator": operator,
+    }).encode("utf-8")
+
+    req = urllib.request.Request(f"{BASE_URL}/advance", data=params, method="POST")
+    req.add_header("Content-Type", "application/x-www-form-urlencoded")
+    try:
+        with LOCAL_OPENER.open(req, timeout=3.0) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+            if payload.get("code") == 200:
+                print(f"✅ [MySQL SSOT 已落库] 需求 [{req_code}] 工位 [{target_node} {node_name}] 状态已更新为 {status}！")
+                return True
+            else:
+                print(f"❌ 推进失败: {payload.get('message', payload)}")
+                return False
+    except Exception as e:
+        print(f"❌ 无法连接后端推进接口 ({BASE_URL}/advance): {e}")
+        return False
 
 def render_breadcrumbs(req_code, current_node, nodes):
     """根据当前算子和拓扑，生成智能路标指引卡片"""
@@ -144,6 +198,37 @@ def render_breadcrumbs(req_code, current_node, nodes):
 
 def main():
     req_code = get_current_req_code()
+
+    # 支持子命令: python3 dag_pilot.py advance <NODE_ID> [REQ_CODE] [--status COMPLETED|IN_PROGRESS] [--track STANDARD|FASTTRACK]
+    if len(sys.argv) >= 3 and sys.argv[1] == "advance":
+        target_node = sys.argv[2]
+        status = "COMPLETED"
+        track_mode = "STANDARD"
+        operator = "admin"
+        rest = sys.argv[3:]
+        i = 0
+        while i < len(rest):
+            if rest[i] == "--status" and i + 1 < len(rest):
+                status = rest[i + 1]
+                i += 2
+            elif rest[i] == "--track" and i + 1 < len(rest):
+                track_mode = rest[i + 1]
+                i += 2
+            elif rest[i] == "--operator" and i + 1 < len(rest):
+                operator = rest[i + 1]
+                i += 2
+            elif not rest[i].startswith("--"):
+                req_code = rest[i]
+                i += 1
+            else:
+                i += 1
+        ok = advance_dag_node(req_code, target_node, status=status, track_mode=track_mode, operator=operator)
+        if not ok:
+            return 1
+        curr_node, nodes = fetch_dag_status(req_code)
+        print(render_breadcrumbs(req_code, curr_node, nodes))
+        return 0
+
     if len(sys.argv) > 1 and not sys.argv[1].startswith("--"):
         req_code = sys.argv[1]
 

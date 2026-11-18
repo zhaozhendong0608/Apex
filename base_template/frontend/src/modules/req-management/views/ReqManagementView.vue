@@ -69,7 +69,11 @@ import {
   deleteWorkflowTemplateApi,
   getWorkflowSkillsApi,
   getWorkflowScriptsApi,
-  getWorkflowFileContentApi
+  getWorkflowFileContentApi,
+  getReleasesApi,
+  getFrozenBaselinesApi,
+  createReleaseApi,
+  publishReleaseApi
 } from '@/api/req'
 import { Graph } from '@antv/x6'
 import { getUserListApi } from '@/api/user'
@@ -102,251 +106,35 @@ const workflowSelectedNode = ref<string>('SOP-01')
 // 当前需求类型/路径模式：'STANDARD' (L级标准全量大需求), 'MEDIUM' (M级单模块需求), 'FASTTRACK' (S级小Bug微创快修)
 const workflowTrackMode = ref<'STANDARD' | 'MEDIUM' | 'FASTTRACK'>('STANDARD')
 
-// 标准主轨算子拓扑链数据 (完整对齐 WORKFLOW_GUIDE.md §8 架构节点、Skill 与物理产物)
-const pipelineNodes = ref([
-  {
-    id: 'SOP-00',
-    code: '00',
-    name: '体系总览',
-    title: '[0] 体系导航与规模识别 (S/M/L)',
-    sop: '.ai/sop/00-sop-overview.md',
-    role: '全员/架构师',
-    skill: '-',
-    artifacts: ['阶段对照与决策指引'],
-    desc: '根据改动范围识别分流：S级走B2快修，M/L级进入标准主轨。',
-    gate: '自适应分流判定',
-    status: 'COMPLETED'
-  },
-  {
-    id: 'SOP-01',
-    code: '01',
-    name: '需求规划',
-    title: '[1] 需求规划与白话澄清',
-    sop: '.ai/sop/01-sop-planning.md',
-    role: '产品/张工',
-    skill: 'requirement-discovery',
-    artifacts: ['结构化需求基线草案', '白话对撞决策列表'],
-    desc: '输出四层确认清单(P04)与 S1~S3 披萨切片清单，双轨平行启动。',
-    gate: '四层清单齐备',
-    status: 'IN_PROGRESS'
-  },
-  {
-    id: 'SOP-02',
-    code: '02',
-    name: '方案设计',
-    title: '[2] 研发轨方案设计与契约冻结',
-    sop: '.ai/sop/02-sop-tech-design.md',
-    role: '研发/李工',
-    skill: 'design-spec-architect',
-    artifacts: ['docs/design/detail.md', 'docs/db/service.sql', 'mockup.html 原型'],
-    desc: '生成 detail.md、API 契约标准与 service.sql 配对。',
-    gate: 'python3 gate.py --sql',
-    status: 'PENDING'
-  },
-  {
-    id: 'TC-GEN',
-    code: 'TC',
-    name: '测试用例',
-    title: '测试轨 TC 矩阵先行 (平行解耦)',
-    sop: '.ai/sop/01-sop-planning.md',
-    role: '测试/王工',
-    skill: 'quality-verifier',
-    artifacts: ['docs/test-cases/ 矩阵', '自动化测试探针'],
-    desc: '独立落盘 docs/test-cases/ 矩阵，在集成前必须 100% 冻结就绪。',
-    gate: '用例矩阵 100% 覆盖',
-    status: 'PENDING'
-  },
-  {
-    id: 'SOP-03',
-    code: '03',
-    name: 'TDD编码',
-    title: '[3] 单焦点 TDD 红绿循环编码',
-    sop: '.ai/sop/03-sop-coding.md',
-    role: '研发/李工',
-    skill: 'coding-standards',
-    artifacts: ['src/ 业务工程源码', '第三方 API 真实联调日志', '.ai/tier3_status.md'],
-    desc: '红灯单测先导 ➔ 最小化业务实现 ➔ 单测全绿，不造野轮子。',
-    gate: '单元测试全绿',
-    status: 'PENDING'
-  },
-  {
-    id: 'SOP-04',
-    code: '04',
-    name: '机器门禁',
-    title: '[4] 代码审查机器门禁 (gate.py)',
-    sop: '.ai/sop/04-sop-code-review.md',
-    role: '看门狗探针',
-    skill: 'code-quality-reviewer',
-    artifacts: ['gate.py 静态扫描报告 (LGTM)', '违规代码清单与修复建议'],
-    desc: 'gate.py 6 项规则扫描（无假Mock/无野公网依赖/SQL配对/密钥安全）。',
-    gate: 'python3 gate.py --staged [LGTM]',
-    status: 'PENDING'
-  },
-  {
-    id: 'SOP-05',
-    code: '05',
-    name: '人工评审',
-    title: '[5] 架构与契约人工评审',
-    sop: '.ai/sop/05-sop-review.md',
-    role: '架构师/程工',
-    skill: 'code-quality-reviewer',
-    artifacts: ['人工评审报告 (APPROVED)', '契约一致性复核凭证'],
-    desc: '人工复核 5 维清单：契约一致性、并发健壮性、反向破坏性测试。',
-    gate: '架构师签字核准',
-    status: 'PENDING'
-  },
-  {
-    id: 'SOP-06',
-    code: '06',
-    name: '集成测试',
-    title: '[6] 双轨延迟汇合与集成穿透',
-    sop: '.ai/sop/06-sop-integration.md',
-    role: '测试/王工',
-    skill: 'quality-verifier',
-    artifacts: ['E2E 离线穿透验证报告', '0 Error 构建凭据'],
-    desc: '双轨延迟汇合硬约束：TC 测试用例与代码碰撞，E2E 全绿穿透。',
-    gate: 'TC 用例 100% 碰撞通过',
-    status: 'PENDING'
-  },
-  {
-    id: 'SOP-07',
-    code: '07',
-    name: '终验门禁',
-    title: '[7] 交付双向验收门禁 (唯一归档出口)',
-    sop: '.ai/sop/07-sop-acceptance.md',
-    role: '看门狗探针',
-    skill: 'quality-verifier',
-    artifacts: ['board.py verify 凭据', '4 维终验清单', 'tier3_status.md 标绿'],
-    desc: 'board.py verify ➔ 人工核放 ➔ board.py complete --accept。',
-    gate: '验收报告与三方防伪',
-    status: 'PENDING'
-  },
-  {
-    id: 'SOP-08',
-    code: '08',
-    name: '容器部署',
-    title: '[8] 容器编排与离线部署',
-    sop: '.ai/sop/08-sop-deploy.md',
-    role: '运维/李工',
-    skill: '-',
-    artifacts: ['docker-compose.yml 编排', 'install.sh 幂等脚本'],
-    desc: 'Docker Compose 离线镜像与健康自愈巡检。',
-    gate: '健康检查通过',
-    status: 'PENDING'
-  },
-  {
-    id: 'SOP-09',
-    code: '09',
-    name: 'Git发布',
-    title: '[9] Git 发布与版本打标',
-    sop: '.ai/sop/09-sop-git-release.md',
-    role: '交付/张工',
-    skill: '-',
-    artifacts: ['Git 语义化 Tag', 'docs/db/migrations 回滚配对'],
-    desc: 'Git 打 Tag、产物归档并生成正式 Release 发布文档。',
-    gate: 'Release 资产落盘完毕',
-    status: 'PENDING'
-  }
-])
+// 数据驱动状态：节点算子与连线 100% 来自后端数据库 (t_req_workflow_template + t_req_workflow_node_state)
+const pipelineNodes = ref<any[]>([])
+const fasttrackNodes = ref<any[]>([])
+const workflowEdges = ref<Array<{ source: string; target: string }>>([])
+const workflowLoading = ref<boolean>(false)
+const workflowLoadError = ref<string | null>(null)
 
-// 快轨旁路算子 (完整收录 B1~B6 全景运维与诊断规约)
-const fasttrackNodes = ref([
-  {
-    id: 'SOP-00',
-    code: '00',
-    name: '体系总览',
-    title: '[0] 体系导航与旁路路由',
-    sop: '.ai/sop/00-sop-overview.md',
-    role: '全员',
-    skill: '-',
-    artifacts: ['自适应分流图谱'],
-    desc: '识别进入非状态机旁路（快修/存量/排错/自愈/资产归档）。',
-    gate: '自适应分流',
-    status: 'COMPLETED'
-  },
-  {
-    id: 'SOP-B1',
-    code: 'B1',
-    name: '存量解密',
-    title: '[B1] 存量代码逆向接入 (逆向切片)',
-    sop: '.ai/sop/B1-sop-legacy.md',
-    role: '架构师/程工',
-    skill: 'legacy-archaeologist',
-    artifacts: ['.ai/tier2_legacy_arch.md', 'docs/06-legacy-graph.md', '反向行为锁死探针'],
-    desc: '自顶向下扫描Controller/DAO链路，逆向提取契约，打行为锁死探针。',
-    gate: '探针锁死旧逻辑',
-    status: 'PENDING'
-  },
-  {
-    id: 'SOP-B2',
-    code: 'B2',
-    name: '极速修补',
-    title: '[B2] 极速微创修补 (Hotfix/文案)',
-    sop: '.ai/sop/B2-sop-fasttrack.md',
-    role: '研发/李工',
-    skill: 'quality-verifier',
-    artifacts: ['微创源码直修 (≤20行)', '.ai/tier1_snapshot.md 静默刷新'],
-    desc: '单文件 ≤20 行改动，免状态机免门禁，0 行政成本光速闭环。',
-    gate: '单文件≤20行',
-    status: 'IN_PROGRESS'
-  },
-  {
-    id: 'SOP-B3',
-    code: 'B3',
-    name: '研发自愈',
-    title: '[B3] 研发期自愈 (小黄鸭排错探针)',
-    sop: '.ai/sop/B3-sop-debug.md',
-    role: '研发/李工',
-    skill: 'quality-verifier',
-    artifacts: ['小黄鸭根因诊断报告', '最小化代码修复切口'],
-    desc: '精准抓日志根因，小步反向验证，严禁跨工位盲目改代码。',
-    gate: '根因验证通过',
-    status: 'PENDING'
-  },
-  {
-    id: 'SOP-B4',
-    code: 'B4',
-    name: '应急排错',
-    title: '[B4] 线上事故应急排错与止血',
-    sop: '.ai/sop/B4-sop-troubleshoot.md',
-    role: '运维/李工',
-    skill: 'quality-verifier',
-    artifacts: ['线上止血排障报告', '防御性单测 (Red→Green)'],
-    desc: '止血优先（回滚/降级/限流），保留现场堆栈再查因。',
-    gate: '服务止血恢复',
-    status: 'PENDING'
-  },
-  {
-    id: 'SOP-B5',
-    code: 'B5',
-    name: '资产归档',
-    title: '[B5] 会话清理与资产沉淀',
-    sop: '.ai/sop/B5-sop-archive.md',
-    role: '交付/张工',
-    skill: '-',
-    artifacts: ['.ai/tier3_handover.md', '通用资产沉淀'],
-    desc: '提取通用模块沉淀至基础库，清理临时会话与中间日志。',
-    gate: '资产归档合规',
-    status: 'PENDING'
-  },
-  {
-    id: 'SOP-B6',
-    code: 'B6',
-    name: '断点续传',
-    title: '[B6] 上下文恢复 (断点续传)',
-    sop: '.ai/sop/B6-sop-resume.md',
-    role: '全员',
-    skill: '-',
-    artifacts: ['tier1_snapshot.md 记忆复原'],
-    desc: '读取 tier1_snapshot.md 与 dag_state.json，30秒恢复工作记忆。',
-    gate: '上下文对齐一致',
-    status: 'PENDING'
-  }
-])
+// 纯视觉布局元数据字典 (仅定义画布坐标、色值与四层排版尺寸，不包含任何业务状态与假数据)
+const WORKFLOW_NODE_LAYOUT: Record<string, { x: number; y: number; w: number; h: number; color: string; subLabel?: string }> = {
+  'SOP-00': { x: 38, y: 48, w: 120, h: 52, color: '#94a3b8', subLabel: '规模分流识别' },
+  'SOP-01': { x: 185, y: 48, w: 130, h: 52, color: '#f59e0b', subLabel: '白话澄清与切片' },
+  'SOP-02': { x: 385, y: 48, w: 130, h: 52, color: '#38bdf8', subLabel: '契约与表结构冻结' },
+  'SOP-03': { x: 535, y: 48, w: 130, h: 52, color: '#94a3b8', subLabel: '单焦点红绿单测' },
+  'SOP-04': { x: 685, y: 48, w: 130, h: 52, color: '#ef4444', subLabel: 'gate.py 6项阻断' },
+  'SOP-05': { x: 835, y: 48, w: 130, h: 52, color: '#f59e0b', subLabel: '架构与契约复核' },
+  'TC-GEN': { x: 535, y: 115, w: 280, h: 48, color: '#8b5cf6', subLabel: 'docs/test-cases 冻结' },
+  'SOP-06': { x: 1025, y: 48, w: 135, h: 52, color: '#0284c7', subLabel: '双轨延迟汇合穿透' },
+  'SOP-07': { x: 1185, y: 48, w: 135, h: 52, color: '#ef4444', subLabel: '唯一归档出口' },
+  'SOP-08': { x: 1380, y: 48, w: 135, h: 52, color: '#10b981', subLabel: 'DockerCompose离线' },
+  'SOP-09': { x: 1545, y: 48, w: 135, h: 52, color: '#10b981', subLabel: 'Tag+Release回滚' },
+  'SOP-B2': { x: 1380, y: 115, w: 300, h: 48, color: '#d97706', subLabel: '单文件≤20行免门禁' }
+}
+
+// 合并所有轨道节点 (供三态染色、详情抽屉与连线统一检索)
+const allWorkflowNodes = computed(() => [...pipelineNodes.value, ...fasttrackNodes.value])
 
 // 联动当前选中的需求对象
 const workflowActiveReq = computed(() => {
-  return requirements.value.find(r => r.id === workflowSelectedReqId.value) || requirements.value[0] || currentReq.value
+  return requirements.value.find(r => r.id === workflowSelectedReqId.value) || requirements.value[0] || currentReq.value || {}
 })
 
 // 动态选择展示的 DAG 节点链
@@ -354,9 +142,32 @@ const currentActiveDAGNodes = computed(() => {
   return workflowTrackMode.value === 'FASTTRACK' ? fasttrackNodes.value : pipelineNodes.value
 })
 
-// 联动当前选中的算子节点对象
+// 联动当前选中的算子节点对象 (提供安全占位，避免数据加载前访问 undefined)
 const workflowActiveNodeInfo = computed(() => {
-  return currentActiveDAGNodes.value.find(n => n.id === workflowSelectedNode.value) || currentActiveDAGNodes.value[1]
+  const list = currentActiveDAGNodes.value
+  return (
+    list.find(n => n.id === workflowSelectedNode.value) ||
+    allWorkflowNodes.value.find(n => n.id === workflowSelectedNode.value) ||
+    list[0] || {
+      id: workflowSelectedNode.value || '-',
+      name: workflowLoading.value ? '加载中...' : '未加载工位',
+      role: '—',
+      skill: '-',
+      sop: '-',
+      gate: '—',
+      status: 'PENDING',
+      desc: ''
+    }
+  )
+})
+
+// 当前轨道完成度百分比 (防除零)
+const workflowProgressStats = computed(() => {
+  const list = currentActiveDAGNodes.value
+  const total = list.length
+  const completed = list.filter(n => n.status === 'COMPLETED').length
+  const percent = total > 0 ? Math.round((completed / total) * 100) : 0
+  return { completed, total, percent }
 })
 
 // 画布尺寸契约：可视框高度 480px 由 .wf-viewport 决定；
@@ -409,6 +220,22 @@ const initWorkflowGraph = () => {
     }
   })
 
+  // 仅在画布初始化时绑定一次点击事件，防止重绘导致重复监听
+  workflowGraph.on('node:click', ({ node }) => {
+    const id = node.id
+    if (!id.startsWith('zone_')) {
+      const mappedId = id.startsWith('SKILL-01') || id === 'ART-01' ? 'SOP-01'
+        : (id.startsWith('SKILL-02') || id === 'CTRL-BOARD' || id === 'ART-02' ? 'SOP-02'
+        : (id.startsWith('SKILL-03') || id === 'CTRL-STATUS' || id === 'ART-03' ? 'SOP-03'
+        : (id.startsWith('SKILL-04') || id === 'CTRL-GATE' || id === 'ART-04' ? 'SOP-04'
+        : (id.startsWith('SKILL-06') ? 'SOP-06'
+        : (id === 'ART-05' ? 'SOP-07' : id)))))
+      workflowSelectedNode.value = mappedId
+      renderWorkflowGraphData()
+      openNodeDetailDrawer(id)
+    }
+  })
+
   renderWorkflowGraphData()
 }
 
@@ -428,16 +255,55 @@ onUnmounted(() => {
   window.removeEventListener('resize', handleWorkflowResize)
 })
 
-// 根据当前模式渲染 X6 真实拓扑图元 (完美复刻 .ai/sop 规约 Mermaid 全景拓扑)
-// 渲染 WORKFLOW_GUIDE.md §8 架构节点与物理产物流转全景拓扑 (四层一体化：指令轨 + Skill专家轨 + 控制中枢轨 + 物理产物轨)
+// 100% 数据驱动渲染 X6 拓扑图元 (节点文案/状态/连线均由后端 MySQL t_req_workflow_template & t_req_workflow_node_state 驱动)
 const renderWorkflowGraphData = () => {
   if (!workflowGraph) return
   workflowGraph.clearCells()
 
+  if (workflowLoadError.value || currentActiveDAGNodes.value.length === 0) {
+    return
+  }
+
+  // ========================================================
+  // 分支 A：快轨 / 旁路应急轨道视图 (FASTTRACK: SOP-B1 ~ SOP-B6)
+  // ========================================================
+  if (workflowTrackMode.value === 'FASTTRACK') {
+    workflowGraph.addNode({
+      id: 'zone_fasttrack',
+      x: 20,
+      y: 20,
+      width: 1680,
+      height: 440,
+      label: '【⚡ 旁路应急与极速微创快轨 (FASTTRACK · 数据驱动实时态)】',
+      attrs: {
+        body: { fill: 'rgba(217, 119, 6, 0.04)', stroke: '#d97706', strokeWidth: 1.4, strokeDasharray: '4 4', rx: 10, ry: 10 },
+        label: { refX: 16, refY: 20, textAnchor: 'start', fill: '#f59e0b', fontSize: 13, fontWeight: 700 }
+      }
+    })
+
+    const renderedIds = new Set<string>()
+    fasttrackNodes.value.forEach((node: any, idx: number) => {
+      const x = 50 + idx * 270
+      const y = 120
+      const label = `[${node.code}] ${node.name}\n🛡️ ${node.gate || '免门禁直通'}`
+      const skillTag = node.skill && node.skill !== '-' ? node.skill : undefined
+      createGraphNode(node.id, label, x, y, '#d97706', 230, 82, skillTag, 'instruction')
+      renderedIds.add(node.id)
+    })
+
+    // 渲染数据库 edges_config 中属于当前快轨的真实连线
+    workflowEdges.value.forEach(edge => {
+      if (renderedIds.has(edge.source) && renderedIds.has(edge.target)) {
+        createGraphEdge(edge.source, edge.target, '#f59e0b', false, 'right', 'left', 'smooth')
+      }
+    })
+    return
+  }
+
+  // ========================================================
+  // 分支 B：标准主链四层一体化全景视图 (STANDARD: 0~9 + TC-GEN)
   // ========================================================
   // 1. 四大阶段大区背景底框 (横向延展至 1750px，纵深容纳四层)
-  // ========================================================
-  // 阶段一：【需求发现与规划契约区】
   workflowGraph.addNode({
     id: 'zone_phase1',
     x: 20,
@@ -450,8 +316,6 @@ const renderWorkflowGraphData = () => {
       label: { refX: 14, refY: 16, textAnchor: 'start', fill: '#38bdf8', fontSize: 12, fontWeight: 700 }
     }
   })
-
-  // 阶段二：【研发与测试解耦双轨区】
   workflowGraph.addNode({
     id: 'zone_phase2',
     x: 360,
@@ -464,8 +328,6 @@ const renderWorkflowGraphData = () => {
       label: { refX: 14, refY: 16, textAnchor: 'start', fill: '#f87171', fontSize: 12, fontWeight: 700 }
     }
   })
-
-  // 阶段三：【双轨汇合与终验区】
   workflowGraph.addNode({
     id: 'zone_phase3',
     x: 1000,
@@ -478,8 +340,6 @@ const renderWorkflowGraphData = () => {
       label: { refX: 14, refY: 16, textAnchor: 'start', fill: '#0284c7', fontSize: 12, fontWeight: 700 }
     }
   })
-
-  // 阶段四：【里程碑发布与旁路自愈区】
   workflowGraph.addNode({
     id: 'zone_phase4',
     x: 1360,
@@ -493,52 +353,44 @@ const renderWorkflowGraphData = () => {
     }
   })
 
-  // ========================================================
-  // 2. 第一层：【👤 用户数字 SOP 指令节点】 (y: 40 ~ 130)
-  // ========================================================
-  // 规划阶段
-  createGraphNode('SOP-00', '[0] 体系总览\n规模分流识别', 38, 48, '#94a3b8', 120, 52, undefined, 'instruction')
-  createGraphNode('SOP-01', '[1] 需求规划\n白话澄清与切片', 185, 48, '#f59e0b', 130, 52, undefined, 'instruction')
+  // 2. 第一层：完全基于数据库 nodes_config 动态渲染指令算子
+  const renderedInstructionIds = new Set<string>()
+  const b2Node = fasttrackNodes.value.find((n: any) => n.id === 'SOP-B2')
+  const nodesToRender = b2Node ? [...pipelineNodes.value, b2Node] : [...pipelineNodes.value]
 
-  // 阶段二：上轨 研发主干 (y: 48)
-  createGraphNode('SOP-02', '[2] 方案设计\n契约与表结构冻结', 385, 48, '#38bdf8', 130, 52, undefined, 'instruction')
-  createGraphNode('SOP-03', '[3] TDD编码\n单焦点红绿单测', 535, 48, '#94a3b8', 130, 52, undefined, 'instruction')
-  createGraphNode('SOP-04', '[4] 机器门禁\ngate.py 6项阻断', 685, 48, '#ef4444', 130, 52, undefined, 'instruction')
-  createGraphNode('SOP-05', '[5] 人工评审\n架构与契约复核', 835, 48, '#f59e0b', 130, 52, undefined, 'instruction')
+  nodesToRender.forEach((node: any, idx: number) => {
+    const layout = WORKFLOW_NODE_LAYOUT[node.id] || {
+      x: 40 + (idx % 10) * 165,
+      y: 48,
+      w: 135,
+      h: 52,
+      color: '#38bdf8'
+    }
+    const prefix = node.id === 'SOP-B2' ? '⚡ ' : ''
+    const subText = layout.subLabel || node.gate || node.role || ''
+    const displayLabel = `${prefix}[${node.code}] ${node.name}${subText ? '\n' + subText : ''}`
+    createGraphNode(node.id, displayLabel, layout.x, layout.y, layout.color, layout.w, layout.h, undefined, 'instruction')
+    renderedInstructionIds.add(node.id)
+  })
 
-  // 阶段二：下轨 测试矩阵解耦 (y: 115)
-  createGraphNode('TC-GEN', '[TC] 测试用例矩阵\ndocs/test-cases 冻结', 535, 115, '#8b5cf6', 280, 48, undefined, 'instruction')
+  // 第一层连线：完全基于数据库 edges_config 动态绘制
+  workflowEdges.value.forEach(edge => {
+    if (renderedInstructionIds.has(edge.source) && renderedInstructionIds.has(edge.target)) {
+      const isBranch = edge.target === 'TC-GEN' || edge.source === 'TC-GEN' || edge.source === 'SOP-B2' || edge.target === 'SOP-B2'
+      const isDashed = edge.target === 'TC-GEN' || edge.source === 'SOP-B2' || edge.target === 'SOP-B2' || edge.target === 'SOP-08'
+      createGraphEdge(
+        edge.source,
+        edge.target,
+        '#38bdf8',
+        isDashed,
+        'right',
+        'left',
+        isBranch ? 'smooth' : 'normal'
+      )
+    }
+  })
 
-  // 阶段三：汇合终验 (y: 48)
-  createGraphNode('SOP-06', '[6] 集成测试\n★ 双轨延迟汇合穿透', 1025, 48, '#0284c7', 135, 52, undefined, 'instruction')
-  createGraphNode('SOP-07', '[7] 双向验收\n唯一归档出口 (放行)', 1185, 48, '#ef4444', 135, 52, undefined, 'instruction')
-
-  // 阶段四：离线容器与发布打标 (y: 48)
-  createGraphNode('SOP-08', '[8] 容器部署\nDockerCompose离线', 1380, 48, '#10b981', 135, 52, undefined, 'instruction')
-  createGraphNode('SOP-09', '[9] Git发布\nTag+Release回滚配对', 1545, 48, '#10b981', 135, 52, undefined, 'instruction')
-
-  // 旁路快速通道 (y: 115)
-  createGraphNode('SOP-B2', '⚡ [B2] 极速微创修补\n单文件≤20行免门禁', 1380, 115, '#d97706', 300, 48, undefined, 'instruction')
-
-  // 主轨指令连线
-  createGraphEdge('SOP-00', 'SOP-01', '#94a3b8', false, 'right', 'left', 'normal')
-  createGraphEdge('SOP-01', 'SOP-02', '#38bdf8', false, 'right', 'left', 'smooth')
-  createGraphEdge('SOP-01', 'TC-GEN', '#8b5cf6', true, 'right', 'left', 'smooth')
-  createGraphEdge('SOP-02', 'SOP-03', '#38bdf8', false, 'right', 'left', 'normal')
-  createGraphEdge('SOP-03', 'SOP-04', '#ef4444', false, 'right', 'left', 'normal')
-  createGraphEdge('SOP-04', 'SOP-05', '#f59e0b', false, 'right', 'left', 'normal')
-  createGraphEdge('SOP-05', 'SOP-06', '#0284c7', false, 'right', 'left', 'smooth')
-  createGraphEdge('TC-GEN', 'SOP-06', '#8b5cf6', false, 'right', 'left', 'smooth')
-  createGraphEdge('SOP-06', 'SOP-07', '#ef4444', false, 'right', 'left', 'normal')
-  createGraphEdge('SOP-07', 'SOP-08', '#10b981', true, 'right', 'left', 'normal')
-  createGraphEdge('SOP-08', 'SOP-09', '#10b981', false, 'right', 'left', 'normal')
-  // B2 旁路直通发布
-  createGraphEdge('SOP-00', 'SOP-B2', '#d97706', true, 'bottom', 'left', 'smooth')
-  createGraphEdge('SOP-B2', 'SOP-09', '#d97706', true, 'right', 'bottom', 'smooth')
-
-  // ========================================================
-  // 3. 第二层：【🧩 AI 专属 Skill 技能专家】 (y: 195 ~ 245) - 穿透绑定上游状态
-  // ========================================================
+  // 3. 第二层：【🧩 AI 专属 Skill 技能专家】 - 穿透绑定上游数据库真实状态
   createGraphNode('SKILL-01', '🤖 requirement-discovery\n需求发现与白话澄清专家', 100, 195, '#0284c7', 220, 50, undefined, 'skill', 'SOP-01')
   createGraphNode('SKILL-02', '🤖 design-spec-architect\n概要与详细设计专家', 385, 195, '#38bdf8', 210, 50, undefined, 'skill', 'SOP-02')
   createGraphNode('SKILL-03', '🤖 coding-standards\n代码规范与契约绑定专家', 610, 195, '#10b981', 200, 50, undefined, 'skill', 'SOP-03')
@@ -546,63 +398,38 @@ const renderWorkflowGraphData = () => {
   createGraphNode('SKILL-06', '🤖 quality-verifier\n质量验证与小黄鸭探针专家', 1080, 195, '#8b5cf6', 220, 50, undefined, 'skill', 'SOP-06')
   createGraphNode('SKILL-00', '🏛️ legacy-archaeologist\n老项目逆向考古专家', 1380, 195, '#f59e0b', 210, 50, undefined, 'skill', 'SOP-B1')
 
-  // 指令激活 Skill 连线 (垂直虚线)
-  createGraphEdge('SOP-01', 'SKILL-01', '#0284c7', true, 'bottom', 'top', 'smooth')
-  createGraphEdge('SOP-02', 'SKILL-02', '#38bdf8', true, 'bottom', 'top', 'smooth')
-  createGraphEdge('SOP-03', 'SKILL-03', '#10b981', true, 'bottom', 'top', 'smooth')
-  createGraphEdge('SOP-04', 'SKILL-04', '#ef4444', true, 'bottom', 'top', 'smooth')
-  createGraphEdge('SOP-06', 'SKILL-06', '#8b5cf6', true, 'bottom', 'top', 'smooth')
+  if (renderedInstructionIds.has('SOP-01')) createGraphEdge('SOP-01', 'SKILL-01', '#0284c7', true, 'bottom', 'top', 'smooth')
+  if (renderedInstructionIds.has('SOP-02')) createGraphEdge('SOP-02', 'SKILL-02', '#38bdf8', true, 'bottom', 'top', 'smooth')
+  if (renderedInstructionIds.has('SOP-03')) createGraphEdge('SOP-03', 'SKILL-03', '#10b981', true, 'bottom', 'top', 'smooth')
+  if (renderedInstructionIds.has('SOP-04')) createGraphEdge('SOP-04', 'SKILL-04', '#ef4444', true, 'bottom', 'top', 'smooth')
+  if (renderedInstructionIds.has('SOP-06')) createGraphEdge('SOP-06', 'SKILL-06', '#8b5cf6', true, 'bottom', 'top', 'smooth')
 
-  // ========================================================
-  // 4. 第三层：【🧠 状态与记忆控制中枢 (.ai/)】 (y: 285 ~ 335) - 穿透绑定上游状态
-  // ========================================================
+  // 4. 第三层：【🧠 状态与记忆控制中枢 (.ai/)】
   createGraphNode('CTRL-SNAP', '⚡ tier1_snapshot.md\n极简名片卡 (<30行)', 100, 285, '#eab308', 200, 50, undefined, 'control', 'SOP-00')
   createGraphNode('CTRL-BOARD', '🛠️ board.py 看板脚本\n状态机唯一合法入口', 450, 285, '#f97316', 210, 50, undefined, 'control', 'SOP-02')
   createGraphNode('CTRL-STATUS', '📋 tier3_status.md\nACTIVE/DONE 任务看板', 730, 285, '#06b6d4', 220, 50, undefined, 'control', 'SOP-03')
   createGraphNode('CTRL-GATE', '🔒 gate.py 机器门禁\nLGTM 阻断拦截看门狗', 1030, 285, '#ef4444', 200, 50, undefined, 'control', 'SOP-04')
   createGraphNode('CTRL-HANDOVER', '📦 tier3_handover.md\n历史长效交接黑匣子', 1380, 285, '#a855f7', 220, 50, undefined, 'control', 'SOP-07')
 
-  // Skill 驱动 Control 连线
   createGraphEdge('SKILL-02', 'CTRL-BOARD', '#f97316', false, 'bottom', 'top', 'smooth')
   createGraphEdge('CTRL-BOARD', 'CTRL-STATUS', '#06b6d4', false, 'right', 'left', 'normal')
   createGraphEdge('SKILL-04', 'CTRL-GATE', '#ef4444', false, 'bottom', 'top', 'smooth')
 
-  // ========================================================
-  // 5. 第四层：【📄 确定性物理输出产物 (Artifacts)】 (y: 385 ~ 445) - 穿透绑定产出工位状态
-  // ========================================================
+  // 5. 第四层：【📄 确定性物理输出产物 (Artifacts)】
   createGraphNode('ART-01', '📝 四层清单基线草案\n白话对撞决策列表 (P04)', 80, 385, '#38bdf8', 220, 56, undefined, 'artifact', 'SOP-01')
   createGraphNode('ART-02', '🎨 mockup.html / PRD\n📐 detail.md + service.sql', 360, 385, '#38bdf8', 230, 56, undefined, 'artifact', 'SOP-02')
   createGraphNode('ART-03', '💻 src/ 业务源码工程\n🔌 第三方 API 真实联调日志', 660, 385, '#10b981', 230, 56, undefined, 'artifact', 'SOP-03')
   createGraphNode('ART-04', '🔒 gate.py LGTM 报告\n🧪 E2E 离线穿透验证凭据', 970, 385, '#ef4444', 230, 56, undefined, 'artifact', 'SOP-04')
   createGraphNode('ART-05', '🏁 board.py verify 凭据\n🏷️ Git Tag + Release 文档', 1330, 385, '#10b981', 230, 56, undefined, 'artifact', 'SOP-07')
 
-  // 控制/技能驱动物理产物落盘连线
   createGraphEdge('SKILL-01', 'ART-01', '#38bdf8', true, 'bottom', 'top', 'smooth')
   createGraphEdge('CTRL-BOARD', 'ART-02', '#38bdf8', true, 'bottom', 'top', 'smooth')
   createGraphEdge('SKILL-03', 'ART-03', '#10b981', true, 'bottom', 'top', 'smooth')
   createGraphEdge('CTRL-GATE', 'ART-04', '#ef4444', true, 'bottom', 'top', 'smooth')
-  createGraphEdge('SOP-07', 'ART-05', '#10b981', true, 'bottom', 'top', 'smooth')
-
-  // 绑定节点点击事件：点击任意工位节点或技能专家均可联动查看并唤起右侧深度透视抽屉
-  workflowGraph.on('node:click', ({ node }) => {
-    const id = node.id
-    if (!id.startsWith('zone_')) {
-      // 智能推演点击的实际关联工位ID
-      const mappedId = id.startsWith('SKILL-01') || id === 'ART-01' ? 'SOP-01'
-        : (id.startsWith('SKILL-02') || id === 'CTRL-BOARD' || id === 'ART-02' ? 'SOP-02'
-        : (id.startsWith('SKILL-03') || id === 'CTRL-STATUS' || id === 'ART-03' ? 'SOP-03'
-        : (id.startsWith('SKILL-04') || id === 'CTRL-GATE' || id === 'ART-04' ? 'SOP-04'
-        : (id.startsWith('SKILL-06') ? 'SOP-06'
-        : (id === 'ART-05' ? 'SOP-07' : id)))))
-      workflowSelectedNode.value = mappedId
-      renderWorkflowGraphData()
-      // 🚀 点击任意节点均可打开右侧全景深度透视抽屉
-      openNodeDetailDrawer(id)
-    }
-  })
+  if (renderedInstructionIds.has('SOP-07')) createGraphEdge('SOP-07', 'ART-05', '#10b981', true, 'bottom', 'top', 'smooth')
 }
 
-// 辅助创建工业拓扑风格节点 (支持三态色彩分级：已完成翡翠绿、当前激活电光青发光、未激活暗夜置灰)
+// 辅助创建工业拓扑风格节点 (支持四态色彩分级：当前聚焦电光青强光 / 进行中青蓝微光 / 已完成翡翠绿 / 未激活暗夜置灰)
 const createGraphNode = (
   id: string,
   name: string,
@@ -617,13 +444,14 @@ const createGraphNode = (
 ) => {
   if (!workflowGraph) return null
 
-  // 1. 推演当前节点状态 (COMPLETED / ACTIVE / PENDING)
+  // 1. 统一从数据库驱动的全轨道节点池推演真实状态
   const targetId = parentInstructionId || id
   const isActive = workflowSelectedNode.value === targetId
-  const nodeStatus = pipelineNodes.value.find(n => n.id === targetId)?.status || (id === 'SOP-00' ? 'COMPLETED' : 'PENDING')
+  const nodeStatus = allWorkflowNodes.value.find(n => n.id === targetId)?.status || 'PENDING'
   const isCompleted = nodeStatus === 'COMPLETED'
+  const isInProgress = nodeStatus === 'IN_PROGRESS'
 
-  // 2. 根据三态计算颜色与发光特效
+  // 2. 根据真实状态计算颜色与发光特效
   let strokeColor = defaultColor
   let bgFill = '#151c2c'
   let textColor = '#f1f5f9'
@@ -641,6 +469,12 @@ const createGraphNode = (
     bgFill = '#062d22'
     textColor = '#a7f3d0'
     filterEffect = 'drop-shadow(0 0 6px rgba(16, 185, 129, 0.35))'
+  } else if (isInProgress) {
+    // 进行中但非鼠标选中：琥珀/天蓝高亮
+    strokeColor = '#38bdf8'
+    bgFill = '#132743'
+    textColor = '#bae6fd'
+    filterEffect = 'drop-shadow(0 0 6px rgba(56, 189, 248, 0.35))'
   } else {
     // 未激活：暗夜置灰，全层低调下沉
     strokeColor = '#334155'
@@ -678,7 +512,7 @@ const createGraphNode = (
       body: {
         fill: bgFill,
         stroke: strokeColor,
-        strokeWidth: isActive ? 2.5 : (isCompleted ? 1.8 : 1.2),
+        strokeWidth: isActive ? 2.5 : (isCompleted || isInProgress ? 1.8 : 1.2),
         rx,
         ry,
         filter: filterEffect
@@ -690,7 +524,7 @@ const createGraphNode = (
         textVerticalAnchor: 'middle',
         fill: textColor,
         fontSize: category === 'artifact' ? 10 : 11,
-        fontWeight: (isActive || isCompleted) ? 700 : 500,
+        fontWeight: (isActive || isCompleted || isInProgress) ? 700 : 500,
         lineHeight: 15
       }
     },
@@ -715,7 +549,7 @@ const createGraphNode = (
   })
 }
 
-// 辅助创建带流光指向的连线 (支持已完成高亮绿线、未完成暗灰虚线)
+// 辅助创建带流光指向的连线 (兼容全轨道三态染色：已完成高亮绿线、聚焦电光青、未完成暗灰虚线)
 const createGraphEdge = (
   source: string,
   target: string,
@@ -730,10 +564,9 @@ const createGraphEdge = (
   const isDirect = connectorName === 'normal'
   const isSmooth = connectorName === 'smooth'
 
-  // 连线三态染色：上游已走过则高亮绿色实线，未走过则暗夜置灰虚线
-  const sourceNode = pipelineNodes.value.find(n => n.id === source)
+  const sourceNode = allWorkflowNodes.value.find(n => n.id === source)
   const isLineCompleted = parentStatus === 'COMPLETED' || (sourceNode && sourceNode.status === 'COMPLETED')
-  const isLineActive = source === workflowSelectedNode.value
+  const isLineActive = source === workflowSelectedNode.value || (sourceNode && sourceNode.status === 'IN_PROGRESS')
 
   let lineColor = isLineActive ? '#06b6d4' : (isLineCompleted ? '#10b981' : '#334155')
   let lineWidth = (isLineActive || isLineCompleted) ? 2 : 1.2
@@ -760,70 +593,127 @@ const createGraphEdge = (
   })
 }
 
-// 从后端 API 拉取真实 DAG 运行时状态与拓扑蓝本定义
+// 辅助计算算子短编码 (如 SOP-01 -> 01, TC-GEN -> TC, SOP-B2 -> B2)
+const deriveNodeShortCode = (id: string) => {
+  if (!id) return '-'
+  if (id === 'TC-GEN') return 'TC'
+  return id.replace(/^SOP-/i, '')
+}
+
+// 100% 数据驱动：从后端 MySQL SSOT 拉取拓扑蓝本 (nodes_config & edges_config) + 该需求真实工位运行态
 const syncRealWorkflowDagState = async () => {
+  workflowLoading.value = true
+  workflowLoadError.value = null
   try {
-    const reqCode = workflowActiveReq.value?.reqCode || 'REQ-001'
-    
-    // 1. 同步拉取数据库工作流模板真实拓扑定义
-    try {
-      const tplRes = await getWorkflowTopologyApi({
-        trackMode: workflowTrackMode.value,
-        projectId: currentProject.value?.id
-      })
-      if (tplRes.data?.nodesConfig) {
-        const parsedNodes = JSON.parse(tplRes.data.nodesConfig)
-        if (Array.isArray(parsedNodes) && parsedNodes.length > 0) {
-          parsedNodes.forEach((pn: any) => {
-            const target = (workflowTrackMode.value === 'FASTTRACK' ? fasttrackNodes.value : pipelineNodes.value)
-              .find(n => n.id === pn.id)
-            if (target) {
-              if (pn.name) target.name = pn.name
-              if (pn.role) target.role = pn.role
-              if (pn.skill) target.skill = pn.skill
-              if (pn.gate) target.gate = pn.gate
-              if (pn.sop) target.sop = pn.sop
-            }
-          })
-        }
-      }
-    } catch (e) {
-      console.warn('拉取拓扑模板配置失败:', e)
+    const reqCode = workflowActiveReq.value?.reqCode
+    if (!reqCode) {
+      pipelineNodes.value = []
+      fasttrackNodes.value = []
+      workflowEdges.value = []
+      workflowLoadError.value = '当前项目空间暂无需求记录，请先在需求池创建需求。'
+      return
     }
 
-    // 2. 同步拉取真实工位运行态数据
-    const res = await getWorkflowStateApi({
+    // 1. 拉取数据库工作流模板真实拓扑定义 (nodes_config & edges_config)
+    const tplRes = await getWorkflowTopologyApi({
+      trackMode: workflowTrackMode.value,
+      projectId: currentProject.value?.id
+    })
+
+    const rawNodesStr = tplRes.data?.nodesConfig
+    const rawEdgesStr = tplRes.data?.edgesConfig
+    const parsedNodes = rawNodesStr ? JSON.parse(rawNodesStr) : []
+    const parsedEdges = rawEdgesStr ? JSON.parse(rawEdgesStr) : []
+
+    if (!Array.isArray(parsedNodes) || parsedNodes.length === 0) {
+      pipelineNodes.value = []
+      fasttrackNodes.value = []
+      workflowEdges.value = []
+      workflowLoadError.value = '后端流程模板定义表 (t_req_workflow_template) 为空，无法渲染拓扑。'
+      return
+    }
+
+    const stdList: any[] = []
+    const fastList: any[] = []
+    parsedNodes.forEach((pn: any) => {
+      const normalized = {
+        id: pn.id,
+        code: deriveNodeShortCode(pn.id),
+        name: pn.name || pn.id,
+        role: pn.role || '—',
+        skill: pn.skill || '-',
+        sop: pn.sop || '-',
+        gate: pn.gate || '—',
+        track: pn.track || (String(pn.id).startsWith('SOP-B') ? 'FASTTRACK' : 'STANDARD'),
+        status: 'PENDING'
+      }
+      if (normalized.track === 'FASTTRACK') {
+        fastList.push(normalized)
+      } else {
+        stdList.push(normalized)
+      }
+    })
+
+    pipelineNodes.value = stdList
+    fasttrackNodes.value = fastList
+    workflowEdges.value = Array.isArray(parsedEdges) ? parsedEdges : []
+
+    // 2. 拉取该需求在当前轨道的真实数据库工位状态 (t_req_workflow_node_state)
+    const stateRes = await getWorkflowStateApi({
       reqCode,
       trackMode: workflowTrackMode.value
     })
-    if (res.data) {
-      if (res.data.current_node) {
-        workflowSelectedNode.value = res.data.current_node
-      }
-      if (res.data.nodes && Array.isArray(res.data.nodes)) {
-        res.data.nodes.forEach((dbNode: any) => {
-          const target = (workflowTrackMode.value === 'FASTTRACK' ? fasttrackNodes.value : pipelineNodes.value)
-            .find(n => n.id === dbNode.nodeId)
+    if (stateRes.data) {
+      if (stateRes.data.nodes && Array.isArray(stateRes.data.nodes)) {
+        const targetList = workflowTrackMode.value === 'FASTTRACK' ? fasttrackNodes.value : pipelineNodes.value
+        stateRes.data.nodes.forEach((dbNode: any) => {
+          const target = targetList.find(n => n.id === dbNode.nodeId)
           if (target) {
-            target.status = dbNode.status
-            if (dbNode.operator) target.role = dbNode.operator
+            target.status = dbNode.status || 'PENDING'
+            if (dbNode.operator) target.operator = dbNode.operator
           }
         })
       }
+      // 同步聚焦节点：若后端返回的 current_node 属于当前轨道则直接聚焦，否则聚焦当前轨道第一个 IN_PROGRESS 或首节点
+      const activeList = workflowTrackMode.value === 'FASTTRACK' ? fasttrackNodes.value : pipelineNodes.value
+      const dbCurrent = stateRes.data.current_node
+      if (dbCurrent && activeList.some(n => n.id === dbCurrent)) {
+        workflowSelectedNode.value = dbCurrent
+      } else {
+        const inProgressNode = activeList.find(n => n.status === 'IN_PROGRESS')
+        workflowSelectedNode.value = inProgressNode?.id || activeList[0]?.id || ''
+      }
     }
-  } catch (e) {
-    console.warn('获取真实DAG工位状态失败:', e)
+  } catch (e: any) {
+    pipelineNodes.value = []
+    fasttrackNodes.value = []
+    workflowEdges.value = []
+    workflowLoadError.value = `流水线真实数据加载失败：${e?.message || '后端服务未响应，请检查 8080 端口服务是否启动'}`
+  } finally {
+    workflowLoading.value = false
+    renderWorkflowGraphData()
   }
+}
+
+// 手动切换标准主链 (STANDARD) / 极速快轨 (FASTTRACK)
+const handleSwitchWorkflowTrack = async (mode: 'STANDARD' | 'FASTTRACK') => {
+  if (workflowTrackMode.value === mode) return
+  workflowTrackMode.value = mode
+  await syncRealWorkflowDagState()
 }
 
 // 人工顺推当前需求的 DAG 工位算子 (并持久化落盘至 MySQL 与 .ai 运行时)
 const handleAdvanceWorkflowNode = async () => {
   const req = workflowActiveReq.value
   const currentNode = workflowActiveNodeInfo.value
-  const targetId = currentNode.id
+  const targetId = currentNode?.id
+  if (!req?.reqCode || !targetId || targetId === '-') {
+    ElMessage.warning('请先加载有效需求与工位节点后再执行推进')
+    return
+  }
   try {
     await advanceWorkflowDagApi({
-      reqCode: req.reqCode || 'REQ-001',
+      reqCode: req.reqCode,
       targetNode: targetId,
       nodeName: currentNode.name,
       trackMode: workflowTrackMode.value,
@@ -832,53 +722,21 @@ const handleAdvanceWorkflowNode = async () => {
       status: 'COMPLETED',
       operator: currentOperator.value
     })
-    ElMessage.success(`需求 [${req.reqCode || 'REQ-001'}] 工位 [${targetId}] 成果已核验并持久化落盘至 MySQL 数据库！`)
+    ElMessage.success(`需求 [${req.reqCode}] 工位 [${targetId}] 成果已核验并持久化落盘至 MySQL 数据库！`)
     await syncRealWorkflowDagState()
     await loadWorkflowRecords()
-    renderWorkflowGraphData()
   } catch (e: any) {
     ElMessage.error(`工位 [${targetId}] 推进失败: ${e.message || '网络或后端服务异常'}`)
   }
 }
 
-// 切换选中的需求并动态推演其算子状态
-const handleSelectWorkflowReq = (req: any) => {
+// 切换选中的需求：彻底移除前端假状态推测，100% 拉取 MySQL 真实工位状态
+const handleSelectWorkflowReq = async (req: any) => {
   workflowSelectedReqId.value = req.id
-  // 智能推测：如果需求标题包含 "修复"、"Bug"、"缺陷"、"文案" 或优先级为 P3，自动建议切到快轨
   const isBugOrFasttrack = req.title?.includes('Bug') || req.title?.includes('修复') || req.title?.includes('缺陷') || req.priority === 'P3'
-  if (isBugOrFasttrack) {
-    workflowTrackMode.value = 'FASTTRACK'
-    workflowSelectedNode.value = 'SOP-B2'
-  } else {
-    workflowTrackMode.value = 'STANDARD'
-    if (req.status === 'BASELINED') {
-      workflowSelectedNode.value = 'SOP-03'
-      pipelineNodes.value.forEach((n, idx) => {
-        if (idx <= 3) n.status = 'COMPLETED'
-        else if (idx === 4) n.status = 'IN_PROGRESS'
-        else n.status = 'PENDING'
-      })
-    } else if (req.status === 'PENDING') {
-      workflowSelectedNode.value = 'SOP-02'
-      pipelineNodes.value.forEach((n, idx) => {
-        if (idx <= 1) n.status = 'COMPLETED'
-        else if (idx === 2) n.status = 'IN_PROGRESS'
-        else n.status = 'PENDING'
-      })
-    } else {
-      workflowSelectedNode.value = 'SOP-01'
-      pipelineNodes.value.forEach((n, idx) => {
-        if (idx === 0) n.status = 'COMPLETED'
-        else if (idx === 1) n.status = 'IN_PROGRESS'
-        else n.status = 'PENDING'
-      })
-    }
-  }
-  // 动态同步真实工位状态
-  syncRealWorkflowDagState().then(() => {
-    renderWorkflowGraphData()
-  })
-  loadWorkflowRecords()
+  workflowTrackMode.value = isBugOrFasttrack ? 'FASTTRACK' : 'STANDARD'
+  await syncRealWorkflowDagState()
+  await loadWorkflowRecords()
 }
 
 // 智能向导：动态推演 AI 建议的下一步动作 (Next Best Action)
@@ -1297,22 +1155,22 @@ const availableScriptRegistry = ref<any[]>([
 
 // 节点全景原理与透视知识库已解耦至 ../constants/workflowKnowledge.ts
 
-// 打开节点全景深度透视抽屉 (只读展示，不可在此随意改动工位工艺)
+// 打开节点全景深度透视抽屉 (只读展示，100% 优先对齐数据库真实元数据与状态)
 const openNodeDetailDrawer = (nodeId: string) => {
   const kb = NODE_KNOWLEDGE_BASE[nodeId] || {}
-  const pipelineNode = pipelineNodes.value.find(n => n.id === nodeId)
-  const isCompleted = pipelineNode?.status === 'COMPLETED' || nodeId === 'SOP-00'
-  const isActive = workflowSelectedNode.value === nodeId
+  const dbNode = allWorkflowNodes.value.find(n => n.id === nodeId)
+  const isCompleted = dbNode?.status === 'COMPLETED'
+  const isActive = workflowSelectedNode.value === nodeId || dbNode?.status === 'IN_PROGRESS'
 
   activeDetailNode.value = {
     id: nodeId,
-    name: kb.name || nodeId,
+    name: dbNode?.name || kb.name || nodeId,
     category: kb.category || 'instruction',
     categoryName: kb.categoryName || '工位算子',
-    role: kb.role || pipelineNode?.role || '系统核心',
-    skill: pipelineNode?.skill || kb.skill || '-',
-    sop: kb.sop || pipelineNode?.sop || '-',
-    gate: kb.gate || pipelineNode?.gate || '无门禁阻断',
+    role: dbNode?.role || kb.role || '—',
+    skill: dbNode?.skill || kb.skill || '-',
+    sop: dbNode?.sop || kb.sop || '-',
+    gate: dbNode?.gate || kb.gate || '无门禁阻断',
     principle: kb.principle || '该工位负责工作流的精准流转，确保每一步产物具备确定性与可追溯性。',
     inputArtifacts: kb.inputs || ['上游交付输入物'],
     outputArtifacts: kb.outputs || ['本工位标准产出资产'],
@@ -1324,7 +1182,11 @@ const openNodeDetailDrawer = (nodeId: string) => {
 
 // 加载历史审计履历
 const loadWorkflowRecords = async () => {
-  const reqCode = workflowActiveReq.value?.reqCode || 'REQ-001'
+  const reqCode = workflowActiveReq.value?.reqCode
+  if (!reqCode) {
+    workflowRecords.value = []
+    return
+  }
   try {
     const res = await getWorkflowRecordsApi({ reqCode })
     if (res.data) {
@@ -2067,11 +1929,16 @@ const navigatePage = (pageId: string) => {
   if (targetRoute && route.path !== targetRoute) {
     router.push(targetRoute)
   }
-  // 切换至工程流水线时，初始化并刷新 AntV X6 真实拓扑
+  // 切换至工程流水线时，初始化画布并 100% 从后端数据库同步真实拓扑与工位状态
   if (pageId === 'page-workflow') {
-    setTimeout(() => {
+    setTimeout(async () => {
       initWorkflowGraph()
-    }, 150)
+      await syncRealWorkflowDagState()
+      await loadWorkflowRecords()
+    }, 120)
+  }
+  if (pageId === 'page-releases' || pageId === 'page-timeline') {
+    loadProjectReleases(currentProject.value?.id)
   }
 }
 
@@ -2567,24 +2434,186 @@ const handleThemeColorChange = (val: string) => {
   document.documentElement.style.setProperty('--primary', val)
 }
 
-// 当前选定项目的专属发布计划与版本清单 (严格绑定 MySQL 中的已冻结基线)
-const projectReleases = computed(() => {
-  const pKey = currentProject.value?.projectKey || 'APP'
-  if (baselineList.value && baselineList.value.length > 0) {
-    return baselineList.value.map((b: any) => {
-      const isFrozen = b.status === 'BASELINED'
-      return {
-        ver: `${pKey}-${b.version}`,
-        baseline: b.version,
-        plannedDate: b.createdAt ? b.createdAt.split('T')[0] : '2026-11-01',
-        finishDate: b.frozenAt ? b.frozenAt.split('T')[0] : (isFrozen ? (b.createdAt ? b.createdAt.split('T')[0] : '2026-11-01') : '—'),
-        status: isFrozen ? 'RELEASED' : 'PLANNING',
-        statusText: isFrozen ? '已冻结并发布' : '签字冻结排期中'
-      }
-    })
-  }
-  return []
+// =========================================================================
+// 🚀 发布版本追踪 (P16 / M12) 与演进时间线 (P13) 真实 MySQL 驱动逻辑
+// =========================================================================
+const projectReleases = ref<any[]>([])
+const frozenBaselines = ref<any[]>([])
+const releaseLoading = ref(false)
+const modalNewReleaseOpen = ref(false)
+const modalReleaseDetailOpen = ref(false)
+const activeReleaseDetail = ref<any>(null)
+const newReleaseForm = ref({
+  baselineId: '' as string | number,
+  releaseVersion: '',
+  plannedDate: new Date().toISOString().slice(0, 10),
+  releaseNotes: ''
 })
+
+// 拉取当前项目的真实发布记录与可绑定的已冻结基线
+const loadProjectReleases = async (projectId?: number) => {
+  const pid = projectId || currentProject.value?.id
+  if (!pid) {
+    projectReleases.value = []
+    frozenBaselines.value = []
+    return
+  }
+  releaseLoading.value = true
+  try {
+    const [relRes, blRes] = await Promise.all([
+      getReleasesApi(pid),
+      getFrozenBaselinesApi(pid)
+    ])
+    projectReleases.value = Array.isArray(relRes.data) ? relRes.data : []
+    frozenBaselines.value = Array.isArray(blRes.data) ? blRes.data : []
+  } catch (e: any) {
+    console.warn('加载发布版本列表失败:', e)
+  } finally {
+    releaseLoading.value = false
+  }
+}
+
+// 打开 M12 新建发布计划弹窗
+const handleOpenNewReleaseModal = async () => {
+  await loadProjectReleases(currentProject.value?.id)
+  if (frozenBaselines.value.length === 0) {
+    ElMessage.warning('当前项目尚无「已冻结 (BASELINED)」的基线，请先完成基线三方签署冻结后再创建发布计划！')
+    return
+  }
+  const nextMinor = projectReleases.value.length + 1
+  newReleaseForm.value = {
+    baselineId: frozenBaselines.value[0].id,
+    releaseVersion: `R-1.${nextMinor}.0`,
+    plannedDate: new Date().toISOString().slice(0, 10),
+    releaseNotes: ''
+  }
+  modalNewReleaseOpen.value = true
+}
+
+// 提交新建发布计划至 MySQL
+const handleSubmitNewRelease = async () => {
+  if (!currentProject.value?.id) {
+    ElMessage.warning('未识别到当前项目空间')
+    return
+  }
+  if (!newReleaseForm.value.baselineId || !newReleaseForm.value.releaseVersion.trim()) {
+    ElMessage.warning('请填写发布版本号并选择已冻结基线')
+    return
+  }
+  try {
+    await createReleaseApi({
+      projectId: currentProject.value.id,
+      baselineId: Number(newReleaseForm.value.baselineId),
+      releaseVersion: newReleaseForm.value.releaseVersion.trim(),
+      plannedDate: newReleaseForm.value.plannedDate || undefined,
+      releaseNotes: newReleaseForm.value.releaseNotes.trim()
+    })
+    ElMessage.success(`发布计划 [${newReleaseForm.value.releaseVersion.trim()}] 已成功落库！`)
+    modalNewReleaseOpen.value = false
+    await loadProjectReleases(currentProject.value.id)
+  } catch (e: any) {
+    ElMessage.error(e?.message || '新建发布计划失败')
+  }
+}
+
+// 执行正式发布（自动生成 Git Tag 并联动推进对应需求状态至 RELEASED）
+const handlePublishRelease = async (rel: any) => {
+  try {
+    const res = await publishReleaseApi(rel.id)
+    const tag = res.data?.gitTag || `release/${currentProject.value?.projectKey}/${rel.releaseVersion}`
+    ElMessage.success(`🚀 版本 ${rel.releaseVersion} 已正式发布！已自动打标 Git Tag: ${tag}`)
+    await loadProjectReleases(currentProject.value?.id)
+    await loadInitialData(currentProject.value?.id)
+  } catch (e: any) {
+    ElMessage.error(e?.message || '正式发布执行失败')
+  }
+}
+
+// 查看发布清单详情
+const handleViewReleaseDetail = (rel: any) => {
+  activeReleaseDetail.value = rel
+  modalReleaseDetailOpen.value = true
+}
+
+// 根据需求ID查找其关联的最新真实发布版本
+const getRequirementReleaseInfo = (reqId: number) => {
+  return projectReleases.value.find((r: any) => r.requirementId === reqId)
+}
+
+// P13 演进时间线：视图模式切换 ('ALL' 全量需求 | 'BASELINE_ONLY' 仅看已冻结基线/已发布聚合视图)
+const timelineViewMode = ref<'ALL' | 'BASELINE_ONLY'>('ALL')
+
+const filteredTimelineRequirements = computed(() => {
+  if (timelineViewMode.value === 'BASELINE_ONLY') {
+    return requirements.value.filter((r: any) => r.status === 'BASELINED' || r.status === 'RELEASED')
+  }
+  return requirements.value
+})
+
+const handleToggleTimelineViewMode = () => {
+  timelineViewMode.value = timelineViewMode.value === 'ALL' ? 'BASELINE_ONLY' : 'ALL'
+  ElMessage.info(
+    timelineViewMode.value === 'BASELINE_ONLY'
+      ? '已切换为【基线聚合视图】：仅展示已冻结基线与正式发布里程碑'
+      : '已切换为【全量需求里程碑视图】：展示全部需求演进轨迹'
+  )
+}
+
+// P13 演进时间线：真实客户端生成高清 SVG 演进图表并导出下载
+const handleExportTimelineSvg = () => {
+  const rows = filteredTimelineRequirements.value
+  const width = 1080
+  const rowHeight = 82
+  const headerHeight = 96
+  const height = Math.max(240, headerHeight + rows.length * rowHeight + 40)
+  const projLabel = `${currentProject.value?.name || '项目'} (${currentProject.value?.projectKey || ''})`
+  const modeLabel = timelineViewMode.value === 'BASELINE_ONLY' ? '基线聚合视图' : '全量里程碑视图'
+  const esc = (s: string) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
+  let bodySvg = ''
+  rows.forEach((item: any, idx: number) => {
+    const y = headerHeight + idx * rowHeight
+    const isFrozen = item.status === 'BASELINED' || item.status === 'RELEASED'
+    const rel = getRequirementReleaseInfo(item.id)
+    const isReleased = item.status === 'RELEASED' || rel?.status === 'RELEASED'
+    const lineEndX = isReleased ? 900 : (isFrozen ? 680 : 420)
+    bodySvg += `
+      <g transform="translate(0, ${y})">
+        <rect x="20" y="6" width="1040" height="68" rx="8" fill="#ffffff" stroke="#e2e8f0" />
+        <text x="36" y="34" font-size="13" font-weight="700" fill="#0f172a">${esc(item.reqCode)} · ${esc(item.title).slice(0, 22)}</text>
+        <text x="36" y="56" font-size="11" fill="#64748b">责任人: ${esc(item.ownerName || item.owner || '—')} ｜ ${esc(item.cost || '—')} ｜ ${esc(item.statusText || item.status)}</text>
+        <line x1="340" y1="40" x2="980" y2="40" stroke="#e2e8f0" stroke-width="3" />
+        <line x1="360" y1="40" x2="${lineEndX}" y2="40" stroke="#10b981" stroke-width="3.5" />
+        <circle cx="360" cy="40" r="12" fill="#e0f2fe" stroke="#0284c7" stroke-width="2" />
+        <text x="360" y="66" text-anchor="middle" font-size="10" fill="#334155">原型/录入</text>
+        <circle cx="620" cy="40" r="12" fill="${isFrozen ? '#dcfce7' : '#fef3c7'}" stroke="${isFrozen ? '#16a34a' : '#d97706'}" stroke-width="2" />
+        <text x="620" y="66" text-anchor="middle" font-size="10" fill="${isFrozen ? '#16a34a' : '#d97706'}">${esc(item.baselineCode && item.baselineCode !== '—' ? item.baselineCode : '待冻结')}</text>
+        ${(isFrozen || rel) ? `
+          <circle cx="900" cy="40" r="12" fill="${isReleased ? '#0f766e' : '#f1f5f9'}" stroke="${isReleased ? '#0f766e' : '#64748b'}" stroke-width="2" />
+          <text x="900" y="66" text-anchor="middle" font-size="10" fill="${isReleased ? '#0f766e' : '#64748b'}">${esc(rel ? rel.releaseVersion : '待排期发布')}</text>
+        ` : ''}
+      </g>`
+  })
+
+  const svgStr = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <rect width="100%" height="100%" fill="#f8fafc" />
+  <text x="24" y="38" font-size="18" font-weight="700" fill="#0f172a">${esc(projLabel)} · 需求与基线演进时间线</text>
+  <text x="24" y="62" font-size="12" fill="#64748b">视图模式：${esc(modeLabel)} ｜ 导出时间：${new Date().toLocaleString()} ｜ 共 ${rows.length} 条演进泳道</text>
+  ${bodySvg}
+</svg>`
+
+  const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${currentProject.value?.projectKey || 'apex'}-timeline-${new Date().toISOString().slice(0, 10)}.svg`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+  ElMessage.success('已导出高清演进时间线图表 (SVG)')
+}
 
 // 初始化拉取项目与需求数据 (直连后端 MySQL)
 const loadInitialData = async (targetProjectId?: number) => {
@@ -2713,6 +2742,9 @@ const loadInitialData = async (targetProjectId?: number) => {
     } catch (e) {
       console.warn('获取系统用户库失败', e)
     }
+
+    // 5. 同步加载当前项目的真实发布版本列表 (t_req_release)
+    await loadProjectReleases(currentProject.value?.id)
   } catch (err) {
     console.warn('动态加载失败，保持优雅降级', err)
   } finally {
@@ -2725,9 +2757,11 @@ onMounted(async () => {
   await loadWorkflowTemplates()
   await loadSkillsAndScriptsAssets()
   if (route.path === '/req/workflow') {
-    setTimeout(() => {
+    setTimeout(async () => {
       initWorkflowGraph()
-    }, 200)
+      await syncRealWorkflowDagState()
+      await loadWorkflowRecords()
+    }, 150)
   }
 
   // 🔍 自动化视口与溢出探测探针：精准定位右侧黑条与溢出元素
@@ -2905,16 +2939,16 @@ onMounted(async () => {
             <div class="card" style="padding:16px; border-left:4px solid var(--primary-color);">
               <div style="font-size:12px; color:var(--text-muted);">正在透视需求</div>
               <div style="font-size:16px; font-weight:700; color:var(--text-main); margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                {{ workflowActiveReq.reqCode || 'REQ-001' }} · {{ workflowActiveReq.title }}
+                {{ workflowActiveReq.reqCode || '—' }} · {{ workflowActiveReq.title || '未选中需求' }}
               </div>
-              <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">优先级: {{ workflowActiveReq.priority || 'P1' }} ｜ 代价: {{ workflowActiveReq.cost || '4.0 人天' }}</div>
+              <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">优先级: {{ workflowActiveReq.priority || '—' }} ｜ 代价: {{ workflowActiveReq.cost || '—' }}</div>
             </div>
             <div class="card" style="padding:16px; border-left:4px solid #16A34A;">
               <div style="font-size:12px; color:var(--text-muted);">当前责任人</div>
               <div style="font-size:16px; font-weight:700; color:#16A34A; margin-top:4px;">
                 👤 {{ workflowActiveReq.ownerName || workflowActiveReq.owner || '未指派' }}
               </div>
-              <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">角色: 核心研发 / 责任担当</div>
+              <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">工位角色: {{ workflowActiveNodeInfo.role || '—' }}</div>
             </div>
             <div class="card" style="padding:16px; border-left:4px solid #F59E0B;">
               <div style="font-size:12px; color:var(--text-muted);">当前微观算子工位</div>
@@ -2924,11 +2958,13 @@ onMounted(async () => {
               <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">门禁规则: {{ workflowActiveNodeInfo.gate }}</div>
             </div>
             <div class="card" style="padding:16px; border-left:4px solid #3B82F6;">
-              <div style="font-size:12px; color:var(--text-muted);">流水线全局进度</div>
+              <div style="font-size:12px; color:var(--text-muted);">当前轨道进度 ({{ workflowTrackMode === 'FASTTRACK' ? '快轨 S' : '标准主链 L' }})</div>
               <div style="font-size:16px; font-weight:700; color:#1D4ED8; margin-top:4px;">
-                {{ Math.round((pipelineNodes.filter(n => n.status === 'COMPLETED').length / pipelineNodes.length) * 100) }}% ({{ pipelineNodes.filter(n => n.status === 'COMPLETED').length }}/{{ pipelineNodes.length }} 算子)
+                {{ workflowProgressStats.percent }}% ({{ workflowProgressStats.completed }}/{{ workflowProgressStats.total }} 算子)
               </div>
-              <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">门禁扫描: 🟢 全绿通过</div>
+              <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">
+                数据源: {{ workflowLoadError ? '🔴 同步异常' : '🟢 MySQL SSOT 实时驱动' }}
+              </div>
             </div>
           </div>
 
@@ -3042,10 +3078,34 @@ onMounted(async () => {
                     </span>
                   </div>
                   <!-- 控制工具栏 -->
-                  <div style="display:flex; gap:8px; align-items:center;">
-                    <span style="font-size:11px; color:#94a3b8;">
-                      按住左键可平移漫游 ｜ Ctrl+滚轮缩放
-                    </span>
+                  <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <!-- L/S 双轨实时切换 -->
+                    <div style="display:inline-flex; background:#1e293b; border:1px solid #334155; border-radius:6px; padding:2px;">
+                      <button
+                        class="btn btn-sm"
+                        :style="workflowTrackMode !== 'FASTTRACK' ? 'background:#0284c7; color:#fff; border:none;' : 'background:transparent; color:#94a3b8; border:none;'"
+                        style="padding:3px 10px; font-size:11px; font-weight:600;"
+                        @click="handleSwitchWorkflowTrack('STANDARD')"
+                      >
+                        🏛️ 标准主链 (0~9)
+                      </button>
+                      <button
+                        class="btn btn-sm"
+                        :style="workflowTrackMode === 'FASTTRACK' ? 'background:#d97706; color:#fff; border:none;' : 'background:transparent; color:#94a3b8; border:none;'"
+                        style="padding:3px 10px; font-size:11px; font-weight:600;"
+                        @click="handleSwitchWorkflowTrack('FASTTRACK')"
+                      >
+                        ⚡ 极速快轨 (B1~B6)
+                      </button>
+                    </div>
+                    <button
+                      class="btn btn-sm btn-outline"
+                      style="background:#1e293b; color:#cbd5e1; border-color:#334155;"
+                      title="从 MySQL 重新同步拓扑与真实状态"
+                      @click="syncRealWorkflowDagState()"
+                    >
+                      🔄 同步
+                    </button>
                     <button
                       class="btn btn-sm btn-outline"
                       style="background:#1e293b; color:#cbd5e1; border-color:#334155;"
@@ -3065,13 +3125,39 @@ onMounted(async () => {
                   </div>
                 </div>
 
-                <!-- 视口高度提升至 510px，完美呈现四层流转 -->
-                <div class="wf-viewport">
+                <!-- 视口高度提升至 510px，完美呈现四层流转 (支持显式 Loading 与错误态重试) -->
+                <div class="wf-viewport" style="position:relative;">
                   <div
                     ref="workflowGraphContainer"
                     class="wf-graph-host"
                     :style="{ width: '100%', height: workflowHostHeight + 'px' }"
                   ></div>
+
+                  <!-- 加载中态 -->
+                  <div
+                    v-if="workflowLoading"
+                    style="position:absolute; inset:0; background:rgba(11,19,32,0.72); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; z-index:20; color:#38bdf8;"
+                  >
+                    <div style="font-size:24px;">⏳</div>
+                    <div style="font-size:13px; font-weight:600;">正在从 MySQL 单一事实源加载拓扑与真实工位进度...</div>
+                  </div>
+
+                  <!-- 显式错误态 (绝不静默展示假图) -->
+                  <div
+                    v-else-if="workflowLoadError"
+                    style="position:absolute; inset:0; background:rgba(11,19,32,0.92); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; z-index:20; padding:24px; text-align:center;"
+                  >
+                    <div style="font-size:28px;">⚠️</div>
+                    <div style="font-size:14px; font-weight:700; color:#f87171;">拓扑数据同步异常 (已禁止静默假数据降级)</div>
+                    <div style="font-size:12px; color:#cbd5e1; max-width:520px; line-height:1.6;">{{ workflowLoadError }}</div>
+                    <button
+                      class="btn btn-sm btn-primary"
+                      style="background:#0284c7; color:#fff; border:none; padding:6px 18px; font-weight:600;"
+                      @click="syncRealWorkflowDagState()"
+                    >
+                      🔄 立即重试连接
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -3974,9 +4060,12 @@ onMounted(async () => {
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
             <div>
               <h2 style="font-size:20px; font-weight:700;">{{ currentProject.name }} ({{ currentProject.projectKey }}) · 发布版本追踪 (P16)</h2>
-              <p style="color:var(--text-muted); font-size:13px;">一个发布版本必须严格绑定一个已冻结基线，当前项目专属发版流水线</p>
+              <p style="color:var(--text-muted); font-size:13px;">一个发布版本必须严格绑定一个已冻结基线 (MySQL t_req_release 实时持久化)，正式发布自动打 Git Tag 并联动推进需求状态</p>
             </div>
-            <button class="btn btn-primary" @click="ElMessage.success('已模拟调起新建发布窗口 (M12)')">+ 新建发布计划 (M12)</button>
+            <div style="display:flex; gap:10px;">
+              <button class="btn btn-outline" @click="loadProjectReleases(currentProject.id)">🔄 刷新列表</button>
+              <button class="btn btn-primary" @click="handleOpenNewReleaseModal">+ 新建发布计划 (M12)</button>
+            </div>
           </div>
 
           <div class="card">
@@ -3986,32 +4075,109 @@ onMounted(async () => {
                   <tr>
                     <th>发布版本号</th>
                     <th>绑定已冻结基线</th>
+                    <th>关联需求</th>
+                    <th>Git Tag</th>
                     <th>计划发布日期</th>
-                    <th>实际完成日期</th>
+                    <th>实际发布时间</th>
                     <th>当前状态</th>
                     <th>操作</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-if="projectReleases.length === 0">
-                    <td colspan="6" style="text-align:center; padding:36px; color:var(--text-muted);">
+                  <tr v-if="releaseLoading">
+                    <td colspan="8" style="text-align:center; padding:32px; color:var(--text-muted);">⏳ 正在从 MySQL 加载发布版本列表...</td>
+                  </tr>
+                  <tr v-else-if="projectReleases.length === 0">
+                    <td colspan="8" style="text-align:center; padding:36px; color:var(--text-muted);">
                       <div style="font-size:24px; margin-bottom:6px;">🚀</div>
-                      当前需求暂无已冻结基线对应的发版记录，基线集齐签字并冻结后将自动接入发版流水线
+                      当前项目暂无发版计划，请点击右上角【+ 新建发布计划 (M12)】绑定已冻结基线
                     </td>
                   </tr>
-                  <tr v-for="rel in projectReleases" :key="rel.ver">
-                    <td><strong>{{ rel.ver }}</strong></td>
-                    <td><span style="color:var(--primary); font-weight:600;">{{ rel.baseline }}</span></td>
-                    <td>{{ rel.plannedDate }}</td>
-                    <td>{{ rel.finishDate }}</td>
+                  <tr v-for="rel in projectReleases" :key="rel.id">
+                    <td><strong>{{ rel.releaseVersion }}</strong></td>
+                    <td><span style="color:var(--primary); font-weight:600;">{{ rel.baselineVersion }}</span></td>
+                    <td>
+                      <span class="tag tag-clarifying" style="font-size:11px; padding:1px 5px; margin-right:4px;">{{ rel.reqCode }}</span>
+                      <span style="font-size:12px;">{{ rel.reqTitle }}</span>
+                    </td>
+                    <td>
+                      <code v-if="rel.gitTag" style="font-size:11px; background:#F1F5F9; padding:2px 6px; border-radius:4px; color:#0F766E;">{{ rel.gitTag }}</code>
+                      <span v-else style="color:var(--text-muted);">待发布打标</span>
+                    </td>
+                    <td>{{ rel.plannedDate || '—' }}</td>
+                    <td>{{ rel.releasedAt ? String(rel.releasedAt).replace('T', ' ').slice(0, 16) : '—' }}</td>
                     <td><span class="tag" :class="rel.status === 'RELEASED' ? 'tag-baselined' : 'tag-clarifying'">{{ rel.statusText }}</span></td>
                     <td>
-                      <button v-if="rel.status !== 'RELEASED'" class="btn btn-primary btn-sm" style="margin-right:6px;" @click="ElMessage.success(`执行发布动作，为 ${rel.ver} 自动打 Git Tag`)">🚀 正式发布</button>
-                      <button class="btn btn-outline btn-sm">查看发布清单</button>
+                      <button v-if="rel.status !== 'RELEASED'" class="btn btn-primary btn-sm" style="margin-right:6px;" @click="handlePublishRelease(rel)">🚀 正式发布</button>
+                      <button class="btn btn-outline btn-sm" @click="handleViewReleaseDetail(rel)">查看发布清单</button>
                     </td>
                   </tr>
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          <!-- M12 新建发布计划弹窗 -->
+          <div v-if="modalNewReleaseOpen" class="modal-overlay active" @click.self="modalNewReleaseOpen = false">
+            <div class="modal-content" style="max-width:520px; width:92%; background:#FFF; border-radius:10px; padding:24px; box-shadow:0 20px 50px rgba(0,0,0,0.2);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+                <h3 style="font-size:16px; font-weight:700;">🚀 新建发布计划 (M12)</h3>
+                <button class="btn btn-outline btn-sm" @click="modalNewReleaseOpen = false">✕</button>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:14px;">
+                <div>
+                  <label style="display:block; font-size:12px; font-weight:600; margin-bottom:6px;">绑定已冻结基线 (强约束：仅限 BASELINED)</label>
+                  <select v-model="newReleaseForm.baselineId" class="form-control" style="width:100%;">
+                    <option v-for="bl in frozenBaselines" :key="bl.id" :value="bl.id">
+                      {{ bl.version }} · {{ bl.reqCode }} {{ bl.reqTitle }} ({{ bl.totalCostDays || 0 }}人天)
+                    </option>
+                  </select>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                  <div>
+                    <label style="display:block; font-size:12px; font-weight:600; margin-bottom:6px;">发布版本号 *</label>
+                    <input v-model="newReleaseForm.releaseVersion" class="form-control" placeholder="例如 R-1.1.0" style="width:100%;" />
+                  </div>
+                  <div>
+                    <label style="display:block; font-size:12px; font-weight:600; margin-bottom:6px;">计划发布日期</label>
+                    <input v-model="newReleaseForm.plannedDate" type="date" class="form-control" style="width:100%;" />
+                  </div>
+                </div>
+                <div>
+                  <label style="display:block; font-size:12px; font-weight:600; margin-bottom:6px;">发布清单与变更摘要</label>
+                  <textarea v-model="newReleaseForm.releaseNotes" class="form-control" rows="3" placeholder="填写本次发版包含的核心特性、数据库迁移脚本及回滚要点..." style="width:100%;"></textarea>
+                </div>
+              </div>
+              <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                <button class="btn btn-outline" @click="modalNewReleaseOpen = false">取消</button>
+                <button class="btn btn-primary" @click="handleSubmitNewRelease">确认创建发布计划</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 发布清单详情弹窗 -->
+          <div v-if="modalReleaseDetailOpen && activeReleaseDetail" class="modal-overlay active" @click.self="modalReleaseDetailOpen = false">
+            <div class="modal-content" style="max-width:560px; width:92%; background:#FFF; border-radius:10px; padding:24px; box-shadow:0 20px 50px rgba(0,0,0,0.2);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+                <h3 style="font-size:16px; font-weight:700;">📦 发布清单与防伪证据 · {{ activeReleaseDetail.releaseVersion }}</h3>
+                <button class="btn btn-outline btn-sm" @click="modalReleaseDetailOpen = false">✕</button>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:10px; font-size:13px;">
+                <div><strong>所属项目：</strong>{{ activeReleaseDetail.projectKey || currentProject.projectKey }}</div>
+                <div><strong>绑定已冻结基线：</strong><span style="color:var(--primary); font-weight:700;">{{ activeReleaseDetail.baselineVersion }}</span>（关联需求：{{ activeReleaseDetail.reqCode }} · {{ activeReleaseDetail.reqTitle }}）</div>
+                <div><strong>状态：</strong><span class="tag" :class="activeReleaseDetail.status === 'RELEASED' ? 'tag-baselined' : 'tag-clarifying'">{{ activeReleaseDetail.statusText }}</span></div>
+                <div><strong>Git Tag：</strong><code>{{ activeReleaseDetail.gitTag || '尚未正式发布打标' }}</code></div>
+                <div><strong>Manifest SHA256：</strong><code style="word-break:break-all; font-size:11px;">{{ activeReleaseDetail.manifestHash || '—' }}</code></div>
+                <div><strong>计划/发布时间：</strong>{{ activeReleaseDetail.plannedDate || '—' }} ｜ {{ activeReleaseDetail.releasedAt ? String(activeReleaseDetail.releasedAt).replace('T', ' ') : '待发布' }}</div>
+                <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:6px; padding:12px; margin-top:4px;">
+                  <div style="font-weight:600; margin-bottom:4px;">发布清单与变更摘要：</div>
+                  <div style="white-space:pre-wrap; color:var(--text-secondary);">{{ activeReleaseDetail.releaseNotes || '暂无附加说明' }}</div>
+                </div>
+              </div>
+              <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:18px;">
+                <button v-if="activeReleaseDetail.status !== 'RELEASED'" class="btn btn-primary" @click="handlePublishRelease(activeReleaseDetail); modalReleaseDetailOpen = false">🚀 立即正式发布</button>
+                <button class="btn btn-outline" @click="modalReleaseDetailOpen = false">关闭</button>
+              </div>
             </div>
           </div>
         </div>
@@ -4021,11 +4187,13 @@ onMounted(async () => {
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
             <div>
               <h2 style="font-size:20px; font-weight:700;">{{ currentProject.name }} ({{ currentProject.projectKey }}) · 需求与基线演进时间线 (P13)</h2>
-              <p style="color:var(--text-muted); font-size:13px;">当前项目轻量级里程碑演进总览：一眼洞悉原型迭代 ➔ 基线冻结 ➔ 发布上线全生命周期（非工时拖拽）</p>
+              <p style="color:var(--text-muted); font-size:13px;">当前项目轻量级里程碑演进总览：一眼洞悉原型迭代 ➔ 基线冻结 ➔ 发布上线全生命周期（当前模式：{{ timelineViewMode === 'BASELINE_ONLY' ? '基线聚合视图' : '全量里程碑视图' }}）</p>
             </div>
             <div style="display:flex; gap:10px;">
-              <button class="btn btn-outline" @click="ElMessage.success('已模拟切换视图模式：当前为基线聚合视图')">👁️ 切换聚合视图</button>
-              <button class="btn btn-outline" @click="ElMessage.success('已导出时间线演进图表 (PNG/SVG)')">📥 导出图片</button>
+              <button class="btn btn-outline" @click="handleToggleTimelineViewMode">
+                {{ timelineViewMode === 'BASELINE_ONLY' ? '👁️ 切回全量视图' : '👁️ 切换基线聚合视图' }}
+              </button>
+              <button class="btn btn-outline" @click="handleExportTimelineSvg">📥 导出 SVG 图表</button>
             </div>
           </div>
 
@@ -4040,25 +4208,27 @@ onMounted(async () => {
             </div>
 
             <div class="timeline-axis-header">
-              <div class="axis-tick">10-26 (原型草拟)</div>
-              <div class="axis-tick">11-02 (BL-v1.0冻结)</div>
-              <div class="axis-tick">11-09 (BL-v1.1变更)</div>
-              <div class="axis-tick">11-20 (R-1.2.0发布)</div>
-              <div class="axis-tick">12-05 (后续演进)</div>
+              <div class="axis-tick">阶段一 · 原型草拟</div>
+              <div class="axis-tick">阶段二 · 清单对撞</div>
+              <div class="axis-tick">阶段三 · 基线三方冻结</div>
+              <div class="axis-tick">阶段四 · 正式发版打标</div>
+              <div class="axis-tick">阶段五 · 持续演进</div>
             </div>
 
             <!-- 空状态 -->
-            <div v-if="requirements.length === 0" style="padding: 46px 20px; text-align: center; color: var(--text-muted); background: var(--bg-app); border: 1px dashed var(--border); border-radius: var(--radius-sm); margin: 20px 0;">
+            <div v-if="filteredTimelineRequirements.length === 0" style="padding: 46px 20px; text-align: center; color: var(--text-muted); background: var(--bg-app); border: 1px dashed var(--border); border-radius: var(--radius-sm); margin: 20px 0;">
               <div style="font-size: 28px; margin-bottom: 8px;">📈</div>
-              <div style="font-weight: 600; color: var(--text);">当前项目 [{{ currentProject.name }}] 暂无演进需求</div>
-              <div style="font-size: 13px; margin-top: 4px;">可在项目工作台快速录入需求，并固化原型与基线生成里程碑节点</div>
+              <div style="font-weight: 600; color: var(--text);">
+                {{ timelineViewMode === 'BASELINE_ONLY' ? '当前项目暂无已冻结基线/已发布的需求' : `当前项目 [${currentProject.name}] 暂无演进需求` }}
+              </div>
+              <div style="font-size: 13px; margin-top: 4px;">可在项目工作台录入需求、冻结基线，或切换回全量视图查看全部泳道</div>
             </div>
 
             <!-- 动态需求泳道 -->
-            <div v-for="reqItem in requirements" :key="reqItem.id" class="timeline-row">
+            <div v-for="reqItem in filteredTimelineRequirements" :key="reqItem.id" class="timeline-row">
               <div class="timeline-row-label">
                 <div class="timeline-row-req-title" style="cursor:pointer;" @click="openReqDetail(reqItem, true)">
-                  <span class="tag" :class="reqItem.status === 'BASELINED' ? 'tag-baselined' : (reqItem.status === 'PENDING' ? 'tag-pending' : 'tag-clarifying')" style="padding:1px 5px; font-size:11px;">
+                  <span class="tag" :class="(reqItem.status === 'BASELINED' || reqItem.status === 'RELEASED') ? 'tag-baselined' : (reqItem.status === 'PENDING' ? 'tag-pending' : 'tag-clarifying')" style="padding:1px 5px; font-size:11px;">
                     {{ reqItem.reqCode }}
                   </span>
                   <span style="font-weight:600;">{{ reqItem.title }}</span>
@@ -4067,7 +4237,7 @@ onMounted(async () => {
               </div>
               <div class="timeline-track-wrap">
                 <div class="timeline-track-line"></div>
-                <div class="timeline-connection-line" :style="{ left: '10%', width: reqItem.status === 'BASELINED' ? '65%' : '30%' }"></div>
+                <div class="timeline-connection-line" :style="{ left: '10%', width: reqItem.status === 'RELEASED' ? '72%' : (reqItem.status === 'BASELINED' ? '65%' : '30%') }"></div>
 
                 <div class="timeline-node" style="left: 10%;" @click="openReqDetail(reqItem, true)">
                   <span class="timeline-date-marker">{{ reqItem.updatedAt }}</span>
@@ -4076,19 +4246,23 @@ onMounted(async () => {
                 </div>
 
                 <div class="timeline-node" style="left: 45%;" @click="handleOpenChecklist(reqItem)">
-                  <span class="timeline-date-marker">{{ reqItem.status === 'BASELINED' ? '已冻结' : '细化中' }}</span>
-                  <div class="node-icon-circle" :class="reqItem.status === 'BASELINED' ? 'baseline' : 'pending-baseline'">
-                    {{ reqItem.status === 'BASELINED' ? '🔒' : '⏳' }}
+                  <span class="timeline-date-marker">{{ (reqItem.status === 'BASELINED' || reqItem.status === 'RELEASED') ? '已冻结' : '细化中' }}</span>
+                  <div class="node-icon-circle" :class="(reqItem.status === 'BASELINED' || reqItem.status === 'RELEASED') ? 'baseline' : 'pending-baseline'">
+                    {{ (reqItem.status === 'BASELINED' || reqItem.status === 'RELEASED') ? '🔒' : '⏳' }}
                   </div>
-                  <span class="node-title-badge" :style="{ color: reqItem.status === 'BASELINED' ? '#16A34A' : '#D97706' }">
+                  <span class="node-title-badge" :style="{ color: (reqItem.status === 'BASELINED' || reqItem.status === 'RELEASED') ? '#16A34A' : '#D97706' }">
                     {{ reqItem.baselineCode !== '—' ? reqItem.baselineCode : '待冻结基线' }}
                   </span>
                 </div>
 
-                <div v-if="reqItem.status === 'BASELINED'" class="timeline-node" style="left: 75%;" @click="navigatePage('page-releases')">
-                  <span class="timeline-date-marker">正式发布</span>
+                <div v-if="reqItem.status === 'BASELINED' || reqItem.status === 'RELEASED'" class="timeline-node" style="left: 78%;" @click="navigatePage('page-releases')">
+                  <span class="timeline-date-marker">
+                    {{ getRequirementReleaseInfo(reqItem.id)?.status === 'RELEASED' ? '已正式发布' : (getRequirementReleaseInfo(reqItem.id) ? '已排期发版' : '待排期发布') }}
+                  </span>
                   <div class="node-icon-circle release">🚀</div>
-                  <span class="node-title-badge" style="background:#14535B; color:#FFF;">Release</span>
+                  <span class="node-title-badge" style="background:#14535B; color:#FFF;">
+                    {{ getRequirementReleaseInfo(reqItem.id)?.releaseVersion || 'Release' }}
+                  </span>
                 </div>
               </div>
             </div>

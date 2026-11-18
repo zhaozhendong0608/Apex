@@ -8,23 +8,27 @@ import subprocess
 import os
 
 def run_sql(sql_content: str):
-    # 优先尝试 docker 容器 mysql8
-    try:
-        cmd = [
-            "docker", "exec", "-i", "mysql8",
-            "mysql", "-u", "root", "-proot", "--default-character-set=utf8mb4", "apex"
-        ]
-        proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        out, err = proc.communicate(input=sql_content)
-        if proc.returncode == 0:
-            print("✅ SQL 执行成功 (via Docker mysql8):")
-            if out.strip():
-                print(out.strip())
-            return True
-        else:
-            print(f"⚠️ Docker mysql8 执行警告/错误: {err}")
-    except Exception as e:
-        print(f"Docker 执行异常: {e}")
+    # 优先尝试 docker 容器 mysql-server / mysql8
+    docker_candidates = [
+        ("mysql-server", "JNyk2026."),
+        ("mysql8", "root"),
+        ("mysql-server", "root")
+    ]
+    for container, password in docker_candidates:
+        try:
+            cmd = [
+                "docker", "exec", "-i", container,
+                "mysql", "-u", "root", f"-p{password}", "--default-character-set=utf8mb4", "apex"
+            ]
+            proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            out, err = proc.communicate(input=sql_content)
+            if proc.returncode == 0:
+                print(f"✅ SQL 执行成功 (via Docker {container}):")
+                if out.strip():
+                    print(out.strip())
+                return True
+        except Exception:
+            pass
 
     # 备选：尝试系统本地 mysql 客户端
     try:
