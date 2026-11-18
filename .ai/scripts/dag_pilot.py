@@ -128,8 +128,8 @@ def fetch_dag_status(req_code="REQ-001"):
     return current_node, nodes
 
 
-def advance_dag_node(req_code, target_node, status="COMPLETED", track_mode="STANDARD", operator="admin"):
-    """一键推进需求工位并持久化至 MySQL (SSOT)，触发大屏实时点亮"""
+def advance_dag_node(req_code, target_node, status="COMPLETED", track_mode="STANDARD", operator="admin", next_nodes=None):
+    """一键推进需求工位并持久化至 MySQL (SSOT)，自动顺推点亮后继工位并触发大屏实时点亮"""
     _, nodes = fetch_dag_status(req_code)
     node_map = {n["id"]: n for n in nodes}
     info = node_map.get(target_node, {})
@@ -137,7 +137,7 @@ def advance_dag_node(req_code, target_node, status="COMPLETED", track_mode="STAN
     skill_name = info.get("skill", "")
     resolved_track = info.get("track", track_mode)
 
-    params = urllib.parse.urlencode({
+    form_data = {
         "reqCode": req_code,
         "targetNode": target_node,
         "nodeName": node_name,
@@ -146,7 +146,11 @@ def advance_dag_node(req_code, target_node, status="COMPLETED", track_mode="STAN
         "actionType": "ADVANCE",
         "status": status,
         "operator": operator,
-    }).encode("utf-8")
+    }
+    if next_nodes:
+        form_data["nextNodes"] = next_nodes
+
+    params = urllib.parse.urlencode(form_data).encode("utf-8")
 
     req = urllib.request.Request(f"{BASE_URL}/advance", data=params, method="POST")
     req.add_header("Content-Type", "application/x-www-form-urlencoded")
@@ -154,7 +158,8 @@ def advance_dag_node(req_code, target_node, status="COMPLETED", track_mode="STAN
         with LOCAL_OPENER.open(req, timeout=3.0) as resp:
             payload = json.loads(resp.read().decode("utf-8"))
             if payload.get("code") == 200:
-                print(f"✅ [MySQL SSOT 已落库] 需求 [{req_code}] 工位 [{target_node} {node_name}] 状态已更新为 {status}！")
+                msg = payload.get("message") or f"需求 [{req_code}] 工位 [{target_node} {node_name}] 状态已更新为 {status}"
+                print(f"✅ [MySQL SSOT 已落库] {msg}")
                 return True
             else:
                 print(f"❌ 推进失败: {payload.get('message', payload)}")
@@ -199,12 +204,13 @@ def render_breadcrumbs(req_code, current_node, nodes):
 def main():
     req_code = get_current_req_code()
 
-    # 支持子命令: python3 dag_pilot.py advance <NODE_ID> [REQ_CODE] [--status COMPLETED|IN_PROGRESS] [--track STANDARD|FASTTRACK]
+    # 支持子命令: python3 dag_pilot.py advance <NODE_ID> [REQ_CODE] [--status COMPLETED] [--next SOP-02,TC-GEN] [--track STANDARD|FASTTRACK]
     if len(sys.argv) >= 3 and sys.argv[1] == "advance":
         target_node = sys.argv[2]
         status = "COMPLETED"
         track_mode = "STANDARD"
         operator = "admin"
+        next_nodes = None
         rest = sys.argv[3:]
         i = 0
         while i < len(rest):
@@ -217,12 +223,15 @@ def main():
             elif rest[i] == "--operator" and i + 1 < len(rest):
                 operator = rest[i + 1]
                 i += 2
+            elif rest[i] == "--next" and i + 1 < len(rest):
+                next_nodes = rest[i + 1]
+                i += 2
             elif not rest[i].startswith("--"):
                 req_code = rest[i]
                 i += 1
             else:
                 i += 1
-        ok = advance_dag_node(req_code, target_node, status=status, track_mode=track_mode, operator=operator)
+        ok = advance_dag_node(req_code, target_node, status=status, track_mode=track_mode, operator=operator, next_nodes=next_nodes)
         if not ok:
             return 1
         curr_node, nodes = fetch_dag_status(req_code)

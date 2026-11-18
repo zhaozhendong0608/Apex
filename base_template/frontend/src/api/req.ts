@@ -80,6 +80,7 @@ export function advanceWorkflowDagApi(params: {
   overrideReason?: string
   artifactsJson?: string
   status?: string
+  nextNodes?: string
   operator?: string
 }): Promise<ApiResponse<any>> {
   return request({

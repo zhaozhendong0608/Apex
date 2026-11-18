@@ -1,10 +1,9 @@
 {
   "reqCode" : "REQ-001",
-  "current_node" : "SOP-04",
+  "current_node" : "SOP-01",
   "nodes" : {
     "SOP-01" : {
-      "actionType" : "ADVANCE",
-      "overrideReason" : null,
+      "actionType" : "AUTO_ACTIVATE",
       "operator" : "admin",
       "status" : "IN_PROGRESS"
     },
@@ -31,9 +30,17 @@
       "overrideReason" : null,
       "operator" : "admin",
       "status" : "COMPLETED"
+    },
+    "SOP-00" : {
+      "actionType" : "ADVANCE",
+      "overrideReason" : null,
+      "operator" : "admin",
+      "status" : "COMPLETED"
     }
   },
   "last_operator" : "admin",
-  "updated_at" : "Wed Nov 18 15:58:18 CST 2026",
-  "track_mode" : "STANDARD"
+  "updated_at" : "Wed Nov 18 19:08:58 CST 2026",
+  "track_mode" : "STANDARD",
+  "completed_node" : "SOP-00",
+  "activated_next_nodes" : [ "SOP-01" ]
 }

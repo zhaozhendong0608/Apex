@@ -702,8 +702,37 @@ const handleSwitchWorkflowTrack = async (mode: 'STANDARD' | 'FASTTRACK') => {
   await syncRealWorkflowDagState()
 }
 
-// 人工顺推当前需求的 DAG 工位算子 (并持久化落盘至 MySQL 与 .ai 运行时)
-const handleAdvanceWorkflowNode = async () => {
+// 多分支顺推选路弹窗状态 (当下一跳存在 ≥2 个候选分支时触发，支持并行全启或单选分流)
+const modalBranchSelectOpen = ref(false)
+const branchCandidates = ref<any[]>([])
+const selectedNextBranchIds = ref<string[]>([])
+
+// 查询当前节点在当前轨道下的真实后继分支列表 (100% 来自 MySQL edges_config)
+const getOutgoingNextNodes = (nodeId: string) => {
+  const isFast = workflowTrackMode.value === 'FASTTRACK'
+  const nextIds = workflowEdges.value
+    .filter(e => e.source === nodeId)
+    .map(e => e.target)
+    .filter(tgt => {
+      const tgtIsFast = tgt.startsWith('SOP-B')
+      return tgtIsFast === isFast
+    })
+  const uniqueIds = Array.from(new Set(nextIds))
+  return uniqueIds.map(id => {
+    const meta = allWorkflowNodes.value.find(n => n.id === id)
+    return {
+      id,
+      name: meta?.name || id,
+      role: meta?.role || '—',
+      skill: meta?.skill || '-',
+      gate: meta?.gate || '—',
+      status: meta?.status || 'PENDING'
+    }
+  })
+}
+
+// 真正执行顺推 API 调用（支持单分支直推 / 多分支并行或指定分流）
+const executeAdvanceWorkflowNode = async (nextNodeIds: string[]) => {
   const req = workflowActiveReq.value
   const currentNode = workflowActiveNodeInfo.value
   const targetId = currentNode?.id
@@ -712,7 +741,7 @@ const handleAdvanceWorkflowNode = async () => {
     return
   }
   try {
-    await advanceWorkflowDagApi({
+    const res = await advanceWorkflowDagApi({
       reqCode: req.reqCode,
       targetNode: targetId,
       nodeName: currentNode.name,
@@ -720,21 +749,133 @@ const handleAdvanceWorkflowNode = async () => {
       skillName: currentNode.skill || '',
       actionType: 'ADVANCE',
       status: 'COMPLETED',
+      nextNodes: nextNodeIds.length > 0 ? nextNodeIds.join(',') : undefined,
       operator: currentOperator.value
     })
-    ElMessage.success(`需求 [${req.reqCode}] 工位 [${targetId}] 成果已核验并持久化落盘至 MySQL 数据库！`)
+    const resMsg = (res as any)?.message || (res as any)?.msg
+    ElMessage.success(resMsg || `需求 [${req.reqCode}] 工位 [${targetId}] 已完成并顺推落库！`)
+    modalBranchSelectOpen.value = false
     await syncRealWorkflowDagState()
     await loadWorkflowRecords()
+    if (drawerWorkflowDetailVisible.value && workflowSelectedNode.value) {
+      openNodeDetailDrawer(workflowSelectedNode.value)
+    }
   } catch (e: any) {
     ElMessage.error(`工位 [${targetId}] 推进失败: ${e.message || '网络或后端服务异常'}`)
   }
 }
+
+// 人工顺推入口：0~1个后继直接零打扰顺推；≥2个后继弹窗支持「并行全启」或「指定分支」
+const handleAdvanceWorkflowNode = async () => {
+  const req = workflowActiveReq.value
+  const currentNode = workflowActiveNodeInfo.value
+  const targetId = currentNode?.id
+  if (!req?.reqCode || !targetId || targetId === '-') {
+    ElMessage.warning('请先加载有效需求与工位节点后再执行推进')
+    return
+  }
+  const candidates = getOutgoingNextNodes(targetId)
+  if (candidates.length >= 2) {
+    branchCandidates.value = candidates
+    // 默认全选（推荐并行双轨启动，例如方案设计与测试用例矩阵同时点亮）
+    selectedNextBranchIds.value = candidates.map(c => c.id)
+    modalBranchSelectOpen.value = true
+    return
+  }
+  await executeAdvanceWorkflowNode(candidates.map(c => c.id))
+}
+
+const toggleBranchSelection = (nodeId: string) => {
+  if (selectedNextBranchIds.value.includes(nodeId)) {
+    selectedNextBranchIds.value = selectedNextBranchIds.value.filter(id => id !== nodeId)
+  } else {
+    selectedNextBranchIds.value = [...selectedNextBranchIds.value, nodeId]
+  }
+}
+
+const handleConfirmBranchAdvance = async () => {
+  if (selectedNextBranchIds.value.length === 0) {
+    ElMessage.warning('请至少勾选一个要激活的下一跳工位')
+    return
+  }
+  await executeAdvanceWorkflowNode(selectedNextBranchIds.value)
+}
+
+// 从工位抽屉跳转至「对应需求清单 (P04)」：先自动收起右侧抽屉再跳转
+const handleJumpToReqDetailFromDrawer = () => {
+  drawerWorkflowDetailVisible.value = false
+  openReqDetail(workflowActiveReq.value, true)
+}
+
+// 静默自动同步探针：停留在流水线大屏时每 5 秒检查 MySQL 最新工位，实现“对话框推进 ➔ 大屏自动亮灯”
+let workflowAutoPollTimer: ReturnType<typeof setInterval> | null = null
+let lastWorkflowStateSignature = ''
+
+const syncWorkflowStateSilently = async () => {
+  if (
+    currentPage.value !== 'page-workflow' ||
+    document.visibilityState !== 'visible' ||
+    workflowLoading.value ||
+    modalBranchSelectOpen.value
+  ) {
+    return
+  }
+  const reqCode = workflowActiveReq.value?.reqCode
+  if (!reqCode) return
+  try {
+    const stateRes = await getWorkflowStateApi({
+      reqCode,
+      trackMode: workflowTrackMode.value
+    })
+    if (!stateRes.data) return
+    const dbNodes = Array.isArray(stateRes.data.nodes) ? stateRes.data.nodes : []
+    const signature = `${reqCode}|${workflowTrackMode.value}|${stateRes.data.current_node || ''}|${dbNodes.map((n: any) => `${n.nodeId}:${n.status}`).join(',')}`
+    if (signature === lastWorkflowStateSignature) {
+      return
+    }
+    lastWorkflowStateSignature = signature
+
+    const targetList = workflowTrackMode.value === 'FASTTRACK' ? fasttrackNodes.value : pipelineNodes.value
+    if (targetList.length === 0) {
+      await syncRealWorkflowDagState()
+      return
+    }
+    dbNodes.forEach((dbNode: any) => {
+      const target = targetList.find(n => n.id === dbNode.nodeId)
+      if (target) {
+        target.status = dbNode.status || 'PENDING'
+        if (dbNode.operator) target.operator = dbNode.operator
+      }
+    })
+    const dbCurrent = stateRes.data.current_node
+    if (dbCurrent && targetList.some(n => n.id === dbCurrent)) {
+      workflowSelectedNode.value = dbCurrent
+    }
+    workflowLoadError.value = null
+    renderWorkflowGraphData()
+    await loadWorkflowRecords()
+  } catch {
+    // 静默轮询不打断用户当前操作
+  }
+}
+
+onMounted(() => {
+  workflowAutoPollTimer = setInterval(syncWorkflowStateSilently, 5000)
+})
+
+onUnmounted(() => {
+  if (workflowAutoPollTimer) {
+    clearInterval(workflowAutoPollTimer)
+    workflowAutoPollTimer = null
+  }
+})
 
 // 切换选中的需求：彻底移除前端假状态推测，100% 拉取 MySQL 真实工位状态
 const handleSelectWorkflowReq = async (req: any) => {
   workflowSelectedReqId.value = req.id
   const isBugOrFasttrack = req.title?.includes('Bug') || req.title?.includes('修复') || req.title?.includes('缺陷') || req.priority === 'P3'
   workflowTrackMode.value = isBugOrFasttrack ? 'FASTTRACK' : 'STANDARD'
+  lastWorkflowStateSignature = ''
   await syncRealWorkflowDagState()
   await loadWorkflowRecords()
 }
@@ -2615,6 +2756,215 @@ const handleExportTimelineSvg = () => {
   ElMessage.success('已导出高清演进时间线图表 (SVG)')
 }
 
+// =========================================================================
+// 🧩 全局码表配置中心 (P17 / M14 / M15) 响应式状态与交互逻辑
+// =========================================================================
+interface EnumItem {
+  code: string
+  label: string
+  colorClass: string
+  colorText: string
+  sort: number
+  permissions: string
+}
+
+interface EnumGroup {
+  key: string
+  name: string
+  desc: string
+  items: EnumItem[]
+}
+
+const DEFAULT_ENUM_GROUPS: EnumGroup[] = [
+  {
+    key: 'REQ_STATUS',
+    name: '需求状态',
+    desc: '需求全生命周期主状态机（对齐 t_req_requirement.status）',
+    items: [
+      { code: 'DRAFT', label: '草稿', colorClass: 'tag-draft', colorText: '● 灰色', sort: 1, permissions: '编辑 / 删除' },
+      { code: 'CLARIFYING', label: '澄清中', colorClass: 'tag-clarifying', colorText: '● 蓝色', sort: 2, permissions: '编辑 / 录入四层清单 / 上传原型' },
+      { code: 'PENDING', label: '待确认', colorClass: 'tag-pending', colorText: '● 橙色', sort: 3, permissions: '发起三方免登签字 / 撤回修改' },
+      { code: 'BASELINED', label: '已基线', colorClass: 'tag-baselined', colorText: '● 绿色', sort: 4, permissions: '只读存证 / 差异对比 / 创建发布计划' },
+      { code: 'RELEASED', label: '已发布', colorClass: 'tag-baselined', colorText: '● 深绿', sort: 5, permissions: '查看发版 Git Tag / 审计回溯' },
+      { code: 'REJECTED', label: '已驳回', colorClass: 'tag-pending', colorText: '● 红色', sort: 6, permissions: '查看驳回意见 / 重新澄清' },
+      { code: 'ARCHIVED', label: '已归档', colorClass: 'tag-draft', colorText: '● 暗灰', sort: 7, permissions: '只读归档检索' },
+      { code: 'CANCELLED', label: '已取消', colorClass: 'tag-draft', colorText: '● 灰色', sort: 8, permissions: '只读留痕' }
+    ]
+  },
+  {
+    key: 'BASELINE_STATUS',
+    name: '基线状态',
+    desc: '需求基线不可变存证状态（对齐 t_req_baseline.status）',
+    items: [
+      { code: 'DRAFT', label: '草案待提交', colorClass: 'tag-draft', colorText: '● 灰色', sort: 1, permissions: '补充附件 / 绑定原型' },
+      { code: 'PENDING', label: '三方待签字', colorClass: 'tag-pending', colorText: '● 橙色', sort: 2, permissions: '分发免登链接 / 查看签字进度' },
+      { code: 'BASELINED', label: '已冻结存证', colorClass: 'tag-baselined', colorText: '● 绿色', sort: 3, permissions: '不可篡改 / 绑定发版 / 基线对比' },
+      { code: 'SUPERSEDED', label: '已被新基线替代', colorClass: 'tag-clarifying', colorText: '● 蓝色', sort: 4, permissions: '历史追溯 / 与新版 Diff 对比' },
+      { code: 'REJECTED', label: '签署被驳回', colorClass: 'tag-pending', colorText: '● 红色', sort: 5, permissions: '查看驳回原因 / 发起新基线' }
+    ]
+  },
+  {
+    key: 'RELEASE_STATUS',
+    name: '发布状态',
+    desc: '发版流水线状态机（对齐 t_req_release.status）',
+    items: [
+      { code: 'PLANNED', label: '计划排期中', colorClass: 'tag-clarifying', colorText: '● 蓝色', sort: 1, permissions: '查看发布清单 / 执行正式发布' },
+      { code: 'TESTING', label: '预发验证中', colorClass: 'tag-pending', colorText: '● 橙色', sort: 2, permissions: '核验集成穿透报告 / 准予放行' },
+      { code: 'RELEASED', label: '已正式发布', colorClass: 'tag-baselined', colorText: '● 绿色', sort: 3, permissions: '查看 Git Tag / 导出发版清单' },
+      { code: 'ROLLBACK', label: '已紧急回滚', colorClass: 'tag-draft', colorText: '● 红色', sort: 4, permissions: '执行回滚 SQL 核验 / 复盘归档' }
+    ]
+  },
+  {
+    key: 'CONFIRM_CATEGORY',
+    name: '清单类别',
+    desc: '四层确认清单 + 不做项五类维度（对齐 t_req_confirm_item.category）',
+    items: [
+      { code: 'SCOPE', label: '范围清单 (R)', colorClass: 'tag-clarifying', colorText: '● 蓝色', sort: 1, permissions: '增删改 / 折算人天代价' },
+      { code: 'RULE', label: '业务规则 (B)', colorClass: 'tag-clarifying', colorText: '● 靛蓝', sort: 2, permissions: '增删改 / 锁定硬性阈值' },
+      { code: 'EXCEPTION', label: '异常与边界 (E)', colorClass: 'tag-pending', colorText: '● 橙色', sort: 3, permissions: '增删改 / 制定降级兜底策略' },
+      { code: 'ACCEPTANCE', label: '验收标准 (A)', colorClass: 'tag-baselined', colorText: '● 绿色', sort: 4, permissions: '增删改 / 绑定终验门禁' },
+      { code: 'SKIP', label: '本期不做 (N)', colorClass: 'tag-draft', colorText: '● 灰色', sort: 5, permissions: '防范围蔓延边界声明' }
+    ]
+  },
+  {
+    key: 'CLIENT_DECISION',
+    name: '客户决定',
+    desc: '四层清单白话对撞决策档位（对齐 t_req_confirm_item.decision）',
+    items: [
+      { code: 'CURRENT', label: '本期做', colorClass: 'tag-baselined', colorText: '● 绿色', sort: 1, permissions: '计入本期总人天代价' },
+      { code: 'NEXT', label: '延期下期', colorClass: 'tag-clarifying', colorText: '● 蓝色', sort: 2, permissions: '不计入本期 / 转入迭代池' },
+      { code: 'SKIP', label: '明确不做', colorClass: 'tag-draft', colorText: '● 灰色', sort: 3, permissions: '0 人天 / 写入免责边界清单' },
+      { code: 'PENDING', label: '待客户拍板', colorClass: 'tag-pending', colorText: '● 橙色', sort: 4, permissions: '阻塞基线冻结，需澄清收敛' }
+    ]
+  },
+  {
+    key: 'SIGN_ROLE',
+    name: '签字角色',
+    desc: '外部免登客户三方签字法定角色（对齐 t_req_approval.role_type）',
+    items: [
+      { code: 'BIZ_OWNER', label: '业务拍板人', colorClass: 'tag-baselined', colorText: '● 绿色', sort: 1, permissions: '范围边界与预算最终裁决签字' },
+      { code: 'ACCEPTOR', label: '验收责任人', colorClass: 'tag-clarifying', colorText: '● 蓝色', sort: 2, permissions: '验收指标与终验基准确认签字' },
+      { code: 'USER_REP', label: '使用者代表', colorClass: 'tag-pending', colorText: '● 橙色', sort: 3, permissions: '原型交互体验与现场操作流签字' }
+    ]
+  }
+]
+
+const loadSavedEnumGroups = (): EnumGroup[] => {
+  try {
+    const raw = localStorage.getItem('apex_req_enum_groups_v1')
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed
+    }
+  } catch (e) {
+    console.warn('读取本地码表配置失败，使用默认字典', e)
+  }
+  return JSON.parse(JSON.stringify(DEFAULT_ENUM_GROUPS))
+}
+
+const enumGroups = ref<EnumGroup[]>(loadSavedEnumGroups())
+const activeEnumGroupKey = ref<string>('REQ_STATUS')
+const modalNewEnumItemOpen = ref(false)
+const newEnumItemForm = ref<EnumItem>({
+  code: '',
+  label: '',
+  colorClass: 'tag-clarifying',
+  colorText: '● 蓝色',
+  sort: 1,
+  permissions: ''
+})
+
+const activeEnumGroup = computed<EnumGroup>(() => {
+  return enumGroups.value.find(g => g.key === activeEnumGroupKey.value) || enumGroups.value[0]
+})
+
+const handleSelectEnumGroup = (groupKey: string) => {
+  activeEnumGroupKey.value = groupKey
+}
+
+const handleOpenNewEnumModal = () => {
+  const currentItems = activeEnumGroup.value?.items || []
+  newEnumItemForm.value = {
+    code: '',
+    label: '',
+    colorClass: 'tag-clarifying',
+    colorText: '● 蓝色',
+    sort: currentItems.length + 1,
+    permissions: '编辑 / 查看'
+  }
+  modalNewEnumItemOpen.value = true
+}
+
+const handleSubmitNewEnumItem = () => {
+  const code = newEnumItemForm.value.code.trim().toUpperCase()
+  const label = newEnumItemForm.value.label.trim()
+  if (!code || !label) {
+    ElMessage.warning('请填写状态 Code 与中文展示名')
+    return
+  }
+  const group = activeEnumGroup.value
+  if (group.items.some(i => i.code === code)) {
+    ElMessage.warning(`当前分组 [${group.name}] 中已存在 Code: ${code}`)
+    return
+  }
+  const colorLabelMap: Record<string, string> = {
+    'tag-draft': '● 灰色',
+    'tag-clarifying': '● 蓝色',
+    'tag-pending': '● 橙色',
+    'tag-baselined': '● 绿色'
+  }
+  group.items.push({
+    code,
+    label,
+    colorClass: newEnumItemForm.value.colorClass,
+    colorText: colorLabelMap[newEnumItemForm.value.colorClass] || '● 蓝色',
+    sort: Number(newEnumItemForm.value.sort) || group.items.length + 1,
+    permissions: newEnumItemForm.value.permissions.trim() || '查看'
+  })
+  group.items.sort((a, b) => a.sort - b.sort)
+  modalNewEnumItemOpen.value = false
+  ElMessage.success(`已向 [${group.name}] 新增取值 ${code} (${label})，请点击右上角发布生效`)
+}
+
+const handleDeleteEnumItem = (code: string) => {
+  const group = activeEnumGroup.value
+  group.items = group.items.filter(i => i.code !== code)
+  ElMessage.success(`已移除取值 ${code}，点击右上角【发布码表变更】可持久化保存`)
+}
+
+const handlePublishEnumChanges = () => {
+  localStorage.setItem('apex_req_enum_groups_v1', JSON.stringify(enumGroups.value))
+  ElMessage.success(`🚀 码表配置已发布并持久化生效（共 ${enumGroups.value.length} 组字典）`)
+}
+
+const handleExportEnumsYaml = () => {
+  const lines: string[] = [
+    '# Apex 需求治理平台 - 全局码表规范 (enums.yaml)',
+    `# 导出时间: ${new Date().toLocaleString()}`,
+    'enums:'
+  ]
+  enumGroups.value.forEach(group => {
+    lines.push(`  ${group.key}: # ${group.name}`)
+    group.items.forEach(item => {
+      lines.push(`    - code: "${item.code}"`)
+      lines.push(`      label: "${item.label}"`)
+      lines.push(`      style: "${item.colorClass}"`)
+      lines.push(`      sort: ${item.sort}`)
+      lines.push(`      permissions: "${item.permissions}"`)
+    })
+  })
+  const blob = new Blob([lines.join('\n') + '\n'], { type: 'text/yaml;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `apex-enums-${new Date().toISOString().slice(0, 10)}.yaml`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+  ElMessage.success('已导出标准 apex-enums.yaml 规则文件')
+}
+
 // 初始化拉取项目与需求数据 (直连后端 MySQL)
 const loadInitialData = async (targetProjectId?: number) => {
   loading.value = true
@@ -3098,6 +3448,9 @@ onMounted(async () => {
                         ⚡ 极速快轨 (B1~B6)
                       </button>
                     </div>
+                    <span style="font-size:11px; color:#34d399; background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.3); padding:3px 8px; border-radius:4px;" title="停留在流水线大屏时每 5 秒静默同步 MySQL，对话中推进后自动亮灯">
+                      🟢 实时同步
+                    </span>
                     <button
                       class="btn btn-sm btn-outline"
                       style="background:#1e293b; color:#cbd5e1; border-color:#334155;"
@@ -3161,6 +3514,65 @@ onMounted(async () => {
                 </div>
               </div>
 
+            </div>
+          </div>
+
+          <!-- 🔀 多分支顺推选路弹窗 (当下一跳存在 ≥2 个候选分支时触发：默认全选并行启动，也支持单选分流) -->
+          <div v-if="modalBranchSelectOpen" class="modal-overlay active" style="z-index: 2200;" @click.self="modalBranchSelectOpen = false">
+            <div class="modal-content" style="max-width:520px; width:92%; background:#0f172a; color:#f8fafc; border:1px solid #334155; border-radius:12px; padding:24px; box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid #1e293b; padding-bottom:12px;">
+                <div>
+                  <h3 style="font-size:16px; font-weight:700; color:#38bdf8;">🔀 选择下一跳流转分支</h3>
+                  <div style="font-size:12px; color:#94a3b8; margin-top:3px;">
+                    工位 <code>[{{ workflowActiveNodeInfo.id }}] {{ workflowActiveNodeInfo.name }}</code> 确认完工后存在 {{ branchCandidates.length }} 个下游分支：
+                  </div>
+                </div>
+                <button class="btn btn-outline btn-sm" style="color:#94a3b8; border-color:#334155; background:transparent;" @click="modalBranchSelectOpen = false">✕</button>
+              </div>
+
+              <div style="display:flex; flex-direction:column; gap:10px; margin:16px 0;">
+                <div
+                  v-for="cand in branchCandidates"
+                  :key="cand.id"
+                  style="display:flex; align-items:flex-start; gap:12px; padding:12px 14px; border-radius:8px; cursor:pointer; transition:all 0.2s;"
+                  :style="selectedNextBranchIds.includes(cand.id)
+                    ? 'background:rgba(2,132,199,0.18); border:1.5px solid #38bdf8;'
+                    : 'background:#1e293b; border:1px solid #334155; opacity:0.75;'"
+                  @click="toggleBranchSelection(cand.id)"
+                >
+                  <input
+                    type="checkbox"
+                    :checked="selectedNextBranchIds.includes(cand.id)"
+                    style="margin-top:3px; accent-color:#38bdf8; width:16px; height:16px; cursor:pointer;"
+                    @click.stop="toggleBranchSelection(cand.id)"
+                  />
+                  <div style="flex:1;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                      <strong style="font-size:14px; color:#f8fafc;">[{{ cand.id }}] {{ cand.name }}</strong>
+                      <span class="tag" style="background:rgba(56,189,248,0.15); color:#38bdf8; font-size:11px; padding:1px 6px;">{{ cand.role }}</span>
+                    </div>
+                    <div style="font-size:12px; color:#94a3b8; margin-top:4px;">
+                      推荐专家: <code>{{ cand.skill }}</code> ｜ 门禁: {{ cand.gate }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:18px; padding-top:12px; border-top:1px solid #1e293b;">
+                <button
+                  class="btn btn-outline btn-sm"
+                  style="color:#38bdf8; border-color:#0284c7; background:rgba(2,132,199,0.1);"
+                  @click="selectedNextBranchIds = branchCandidates.map(c => c.id)"
+                >
+                  ⚡ 全选并行启动（推荐）
+                </button>
+                <div style="display:flex; gap:10px;">
+                  <button class="btn btn-outline btn-sm" style="color:#cbd5e1; border-color:#475569; background:transparent;" @click="modalBranchSelectOpen = false">取消</button>
+                  <button class="btn btn-primary btn-sm" style="background:#0284c7; border:none; font-weight:700; padding:6px 16px;" @click="handleConfirmBranchAdvance">
+                    ✔ 确认完工并激活已选 ({{ selectedNextBranchIds.length }})
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -4281,29 +4693,37 @@ onMounted(async () => {
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
             <div>
               <h2 style="font-size:20px; font-weight:700;">全局码表配置中心 (P17)</h2>
-              <p style="color:var(--text-muted); font-size:13px;">统一全站 10 组业务状态、色彩、排序与操作权限，变更后需显式发布</p>
+              <p style="color:var(--text-muted); font-size:13px;">统一全站 {{ enumGroups.length }} 组核心业务状态、色彩、排序与操作权限，变更后可导出标准 YAML 或显式发布</p>
             </div>
             <div style="display:flex; gap:10px;">
-              <button class="btn btn-outline" @click="ElMessage.success('已导出标准 enums.yaml 规则文件')">📥 导出 YAML</button>
-              <button class="btn btn-primary" @click="ElMessage.success('已发布码表变更，全站状态色彩实时刷新 (M15)')">🚀 发布码表变更 (M15)</button>
+              <button class="btn btn-outline" @click="handleExportEnumsYaml">📥 导出 YAML</button>
+              <button class="btn btn-primary" @click="handlePublishEnumChanges">🚀 发布码表变更 (M15)</button>
             </div>
           </div>
 
-          <div style="display:grid; grid-template-columns: 240px 1fr; gap:20px;">
+          <div style="display:grid; grid-template-columns: 240px 1fr; gap:20px; align-items:start;">
             <div class="card" style="padding:10px;">
-              <div style="font-size:11px; font-weight:700; color:var(--text-muted); padding:8px;">码表分组 (10)</div>
-              <div class="nav-item active" style="border-radius:4px;">● 需求状态 (8)</div>
-              <div class="nav-item" style="border-radius:4px;">● 基线状态 (5)</div>
-              <div class="nav-item" style="border-radius:4px;">● 发布状态 (4)</div>
-              <div class="nav-item" style="border-radius:4px;">● 清单类别 (5)</div>
-              <div class="nav-item" style="border-radius:4px;">● 客户决定 (4)</div>
-              <div class="nav-item" style="border-radius:4px;">● 签字角色 (3)</div>
+              <div style="font-size:11px; font-weight:700; color:var(--text-muted); padding:8px;">码表分组 ({{ enumGroups.length }})</div>
+              <div
+                v-for="group in enumGroups"
+                :key="group.key"
+                class="nav-item"
+                :class="{ active: activeEnumGroupKey === group.key }"
+                style="border-radius:4px; cursor:pointer; display:flex; justify-content:space-between; align-items:center;"
+                @click="handleSelectEnumGroup(group.key)"
+              >
+                <span>● {{ group.name }}</span>
+                <span style="font-size:11px; opacity:0.8;">({{ group.items.length }})</span>
+              </div>
             </div>
 
             <div class="card">
-              <div class="card-header">
-                <div class="card-title">需求状态字典详情</div>
-                <button class="btn btn-outline btn-sm" @click="ElMessage.info('调起新增取值窗口 (M14)')">+ 新增取值</button>
+              <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                  <div class="card-title">{{ activeEnumGroup.name }}字典详情 (<code>{{ activeEnumGroup.key }}</code>)</div>
+                  <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">{{ activeEnumGroup.desc }}</div>
+                </div>
+                <button class="btn btn-outline btn-sm" @click="handleOpenNewEnumModal">+ 新增取值 (M14)</button>
               </div>
               <div class="table-container">
                 <table class="data-table">
@@ -4314,39 +4734,70 @@ onMounted(async () => {
                       <th>渲染色彩</th>
                       <th>排序</th>
                       <th>允许操作权限</th>
+                      <th style="width:90px;">操作</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td><code>DRAFT</code></td>
-                      <td>草稿</td>
-                      <td><span class="tag tag-draft">● 灰色</span></td>
-                      <td>1</td>
-                      <td>编辑 / 删除</td>
+                    <tr v-if="activeEnumGroup.items.length === 0">
+                      <td colspan="6" style="text-align:center; padding:32px; color:var(--text-muted);">当前码表分组暂无取值项，请点击右上角【+ 新增取值】</td>
                     </tr>
-                    <tr>
-                      <td><code>CLARIFYING</code></td>
-                      <td>澄清中</td>
-                      <td><span class="tag tag-clarifying">● 蓝色</span></td>
-                      <td>2</td>
-                      <td>编辑 / 录入清单</td>
-                    </tr>
-                    <tr>
-                      <td><code>PENDING</code></td>
-                      <td>待确认</td>
-                      <td><span class="tag tag-pending">● 橙色</span></td>
-                      <td>3</td>
-                      <td>发起签字</td>
-                    </tr>
-                    <tr>
-                      <td><code>BASELINED</code></td>
-                      <td>已基线</td>
-                      <td><span class="tag tag-baselined">● 绿色</span></td>
-                      <td>4</td>
-                      <td>变更 / 差异对比</td>
+                    <tr v-for="item in activeEnumGroup.items" :key="item.code">
+                      <td><code>{{ item.code }}</code></td>
+                      <td><strong>{{ item.label }}</strong></td>
+                      <td><span class="tag" :class="item.colorClass">{{ item.colorText }}</span></td>
+                      <td>{{ item.sort }}</td>
+                      <td>{{ item.permissions }}</td>
+                      <td>
+                        <button class="btn btn-outline btn-sm" style="color:#DC2626; border-color:#FECACA;" @click="handleDeleteEnumItem(item.code)">移除</button>
+                      </td>
                     </tr>
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- M14 新增码表取值弹窗 -->
+          <div v-if="modalNewEnumItemOpen" class="modal-overlay active" @click.self="modalNewEnumItemOpen = false">
+            <div class="modal-content" style="max-width:480px; width:92%; background:#FFF; border-radius:10px; padding:24px; box-shadow:0 20px 50px rgba(0,0,0,0.2);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+                <h3 style="font-size:16px; font-weight:700;">+ 新增码表取值 (M14) · {{ activeEnumGroup.name }}</h3>
+                <button class="btn btn-outline btn-sm" @click="modalNewEnumItemOpen = false">✕</button>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:14px;">
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                  <div>
+                    <label style="display:block; font-size:12px; font-weight:600; margin-bottom:6px;">状态 Code *</label>
+                    <input v-model="newEnumItemForm.code" class="form-control" placeholder="例如 IN_REVIEW" style="width:100%;" />
+                  </div>
+                  <div>
+                    <label style="display:block; font-size:12px; font-weight:600; margin-bottom:6px;">中文展示名 *</label>
+                    <input v-model="newEnumItemForm.label" class="form-control" placeholder="例如 评审中" style="width:100%;" />
+                  </div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                  <div>
+                    <label style="display:block; font-size:12px; font-weight:600; margin-bottom:6px;">渲染色彩标签</label>
+                    <select v-model="newEnumItemForm.colorClass" class="form-control" style="width:100%;">
+                      <option value="tag-draft">● 灰色 (默认/归档)</option>
+                      <option value="tag-clarifying">● 蓝色 (进行中/澄清)</option>
+                      <option value="tag-pending">● 橙色 (待确认/告警)</option>
+                      <option value="tag-baselined">● 绿色 (已冻结/已发布)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style="display:block; font-size:12px; font-weight:600; margin-bottom:6px;">展示排序</label>
+                    <input v-model.number="newEnumItemForm.sort" type="number" min="1" class="form-control" style="width:100%;" />
+                  </div>
+                </div>
+                <div>
+                  <label style="display:block; font-size:12px; font-weight:600; margin-bottom:6px;">允许操作权限说明</label>
+                  <input v-model="newEnumItemForm.permissions" class="form-control" placeholder="例如 编辑 / 发起评审" style="width:100%;" />
+                </div>
+              </div>
+              <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                <button class="btn btn-outline" @click="modalNewEnumItemOpen = false">取消</button>
+                <button class="btn btn-primary" @click="handleSubmitNewEnumItem">确认添加</button>
               </div>
             </div>
           </div>
@@ -4925,7 +5376,7 @@ onMounted(async () => {
           Node: {{ activeDetailNode.id }} ｜ SSOT: MySQL t_req_workflow_record
         </span>
         <div style="display:flex; gap:10px;">
-          <button class="btn btn-outline btn-sm" style="color:#cbd5e1; border-color:rgba(148, 163, 184, 0.25); background:rgba(30, 41, 59, 0.5); font-weight:600;" @click="openReqDetail(workflowActiveReq, true)">
+          <button class="btn btn-outline btn-sm" style="color:#cbd5e1; border-color:rgba(148, 163, 184, 0.25); background:rgba(30, 41, 59, 0.5); font-weight:600;" @click="handleJumpToReqDetailFromDrawer">
             📄 对应需求清单 (P04)
           </button>
           <button class="btn btn-primary btn-sm" style="background:linear-gradient(135deg, #0284c7 0%, #0369a1 100%); border:none; font-weight:700; box-shadow:0 2px 10px rgba(2,132,199,0.4); padding:6px 16px;" @click="handleAdvanceWorkflowNode">

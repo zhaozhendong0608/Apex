@@ -296,7 +296,7 @@ public class WorkflowController {
 
     /**
      * 推进/更新指定需求的工位状态 (ADVANCE / SET / OVERRIDE)
-     * 核心双驱：写入 MySQL (SSOT) ➔ 实时更新 .ai/ 本地轻量镜像
+     * 核心双驱：写入 MySQL (SSOT) ➔ 自动点亮后继工位(支持并行多分支/指定单分支) ➔ 实时更新 .ai/ 本地轻量镜像
      */
     @PostMapping("/advance")
     public Result<Map<String, Object>> advanceRequirementDag(
@@ -309,14 +309,61 @@ public class WorkflowController {
             @RequestParam(value = "overrideReason", required = false) String overrideReason,
             @RequestParam(value = "artifactsJson", required = false) String artifactsJson,
             @RequestParam(value = "status", defaultValue = "COMPLETED") String status,
+            @RequestParam(value = "nextNodes", required = false) String nextNodes,
             @RequestParam(value = "operator", defaultValue = "admin") String operator) {
 
-        // 1. 核心持久化：更新 MySQL 需求主表 t_req_requirement
+        // 0. 解析需要顺推点亮的后继节点列表 (支持显式指定逗号分隔 nextNodes，或自动从模板 edges_config 推导)
+        List<String> activatedNextList = new ArrayList<>();
+        Map<String, String> tplNodeNameMap = new HashMap<>();
+        if (workflowTemplateMapper != null) {
+            try {
+                LambdaQueryWrapper<ReqWorkflowTemplate> tplQw = new LambdaQueryWrapper<>();
+                tplQw.eq(ReqWorkflowTemplate::getIsSystemDefault, 1);
+                ReqWorkflowTemplate defaultTpl = workflowTemplateMapper.selectOne(tplQw);
+                if (defaultTpl != null) {
+                    if (defaultTpl.getNodesConfig() != null) {
+                        List<Map<String, Object>> parsedNodes = objectMapper.readValue(defaultTpl.getNodesConfig(), List.class);
+                        for (Map<String, Object> n : parsedNodes) {
+                            String nid = String.valueOf(n.getOrDefault("id", ""));
+                            String nname = String.valueOf(n.getOrDefault("name", nid));
+                            tplNodeNameMap.put(nid, nname);
+                        }
+                    }
+                    if ("COMPLETED".equalsIgnoreCase(status) && "ADVANCE".equalsIgnoreCase(actionType)) {
+                        if (nextNodes != null && !nextNodes.isBlank()) {
+                            for (String part : nextNodes.split(",")) {
+                                String trimmed = part.trim();
+                                if (!trimmed.isEmpty() && !activatedNextList.contains(trimmed)) {
+                                    activatedNextList.add(trimmed);
+                                }
+                            }
+                        } else if (defaultTpl.getEdgesConfig() != null) {
+                            List<Map<String, Object>> parsedEdges = objectMapper.readValue(defaultTpl.getEdgesConfig(), List.class);
+                            for (Map<String, Object> edge : parsedEdges) {
+                                String src = String.valueOf(edge.getOrDefault("source", ""));
+                                String tgt = String.valueOf(edge.getOrDefault("target", ""));
+                                if (targetNode.equals(src) && !tgt.isEmpty() && !activatedNextList.contains(tgt)) {
+                                    boolean tgtIsFast = tgt.startsWith("SOP-B");
+                                    boolean reqIsFast = "FASTTRACK".equalsIgnoreCase(trackMode);
+                                    if (tgtIsFast == reqIsFast) {
+                                        activatedNextList.add(tgt);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+        // 顺推后的新主焦点节点 (有后继则指向首个后继，无后继则停留在当前终点节点)
+        String nextFocusNode = activatedNextList.isEmpty() ? targetNode : activatedNextList.get(0);
+
+        // 1. 核心持久化：更新 MySQL 需求主表 t_req_requirement (焦点推进至 nextFocusNode)
         if (requirementMapper != null) {
             try {
                 LambdaUpdateWrapper<ReqRequirement> updateWrapper = new LambdaUpdateWrapper<>();
                 updateWrapper.eq(ReqRequirement::getReqCode, reqCode)
-                        .set(ReqRequirement::getCurrentNodeId, targetNode)
+                        .set(ReqRequirement::getCurrentNodeId, nextFocusNode)
                         .set(ReqRequirement::getCurrentTrackMode, trackMode)
                         .set(ReqRequirement::getUpdatedAt, LocalDateTime.now());
                 requirementMapper.update(null, updateWrapper);
@@ -328,10 +375,11 @@ public class WorkflowController {
         // 2. 插入 MySQL 全生命周期审计子表 t_req_workflow_record
         if (workflowRecordMapper != null) {
             try {
+                String resolvedNodeName = !nodeName.isEmpty() ? nodeName : tplNodeNameMap.getOrDefault(targetNode, targetNode);
                 ReqWorkflowRecord record = ReqWorkflowRecord.builder()
                         .reqCode(reqCode)
                         .nodeId(targetNode)
-                        .nodeName(nodeName.isEmpty() ? targetNode : nodeName)
+                        .nodeName(resolvedNodeName)
                         .trackMode(trackMode)
                         .skillName(skillName)
                         .operator(operator)
@@ -367,7 +415,7 @@ public class WorkflowController {
                             .reqCode(reqCode)
                             .trackMode(trackMode)
                             .nodeId(targetNode)
-                            .nodeName(nodeName.isEmpty() ? targetNode : nodeName)
+                            .nodeName(!nodeName.isEmpty() ? nodeName : tplNodeNameMap.getOrDefault(targetNode, targetNode))
                             .status(status)
                             .operator(operator)
                             .completedAt("COMPLETED".equalsIgnoreCase(status) ? LocalDateTime.now() : null)
@@ -375,6 +423,35 @@ public class WorkflowController {
                             .updatedAt(LocalDateTime.now())
                             .build();
                     workflowNodeStateMapper.insert(newState);
+                }
+
+                // 2.2 自动顺推：将选中的后继工位从 PENDING 点亮为 IN_PROGRESS (不覆盖已 COMPLETED 的节点)
+                for (String nxtId : activatedNextList) {
+                    LambdaQueryWrapper<com.apex.req.domain.entity.ReqWorkflowNodeState> nxtQw = new LambdaQueryWrapper<>();
+                    nxtQw.eq(com.apex.req.domain.entity.ReqWorkflowNodeState::getReqCode, reqCode)
+                         .eq(com.apex.req.domain.entity.ReqWorkflowNodeState::getTrackMode, trackMode)
+                         .eq(com.apex.req.domain.entity.ReqWorkflowNodeState::getNodeId, nxtId);
+                    com.apex.req.domain.entity.ReqWorkflowNodeState nxtExist = workflowNodeStateMapper.selectOne(nxtQw);
+                    if (nxtExist != null) {
+                        if (!"COMPLETED".equalsIgnoreCase(nxtExist.getStatus())) {
+                            nxtExist.setStatus("IN_PROGRESS");
+                            nxtExist.setOperator(operator);
+                            nxtExist.setUpdatedAt(LocalDateTime.now());
+                            workflowNodeStateMapper.updateById(nxtExist);
+                        }
+                    } else {
+                        com.apex.req.domain.entity.ReqWorkflowNodeState nxtNew = com.apex.req.domain.entity.ReqWorkflowNodeState.builder()
+                                .reqCode(reqCode)
+                                .trackMode(trackMode)
+                                .nodeId(nxtId)
+                                .nodeName(tplNodeNameMap.getOrDefault(nxtId, nxtId))
+                                .status("IN_PROGRESS")
+                                .operator(operator)
+                                .createdAt(LocalDateTime.now())
+                                .updatedAt(LocalDateTime.now())
+                                .build();
+                        workflowNodeStateMapper.insert(nxtNew);
+                    }
                 }
             } catch (Exception ex) {
                 System.err.println("更新 MySQL 工位状态表异常: " + ex.getMessage());
@@ -389,7 +466,9 @@ public class WorkflowController {
                 state = objectMapper.readValue(reqDagFile, Map.class);
             }
             state.put("reqCode", reqCode);
-            state.put("current_node", targetNode);
+            state.put("current_node", nextFocusNode);
+            state.put("completed_node", targetNode);
+            state.put("activated_next_nodes", activatedNextList);
             state.put("last_operator", operator);
             state.put("track_mode", trackMode);
             state.put("updated_at", new Date().toString());
@@ -401,6 +480,13 @@ public class WorkflowController {
             nodeDetail.put("actionType", actionType);
             nodeDetail.put("overrideReason", overrideReason);
             nodes.put(targetNode, nodeDetail);
+            for (String nxtId : activatedNextList) {
+                Map<String, Object> nxtDetail = new HashMap<>();
+                nxtDetail.put("status", "IN_PROGRESS");
+                nxtDetail.put("operator", operator);
+                nxtDetail.put("actionType", "AUTO_ACTIVATE");
+                nodes.put(nxtId, nxtDetail);
+            }
             state.put("nodes", nodes);
 
             objectMapper.writerWithDefaultPrettyPrinter().writeValue(reqDagFile, state);
@@ -410,10 +496,13 @@ public class WorkflowController {
                 objectMapper.writerWithDefaultPrettyPrinter().writeValue(globalDag, state);
             }
 
-            // 同步刷新本地名片卡投影
-            syncTier1SnapshotProjection(reqCode, targetNode, trackMode, operator);
+            // 同步刷新本地名片卡投影 (推进至新焦点工位)
+            syncTier1SnapshotProjection(reqCode, nextFocusNode, trackMode, operator);
 
-            return Result.success(state, "需求 [" + reqCode + "] 工位已持久化更新至: " + targetNode);
+            String msg = activatedNextList.isEmpty()
+                    ? "需求 [" + reqCode + "] 工位 [" + targetNode + "] 已完成并落库"
+                    : "需求 [" + reqCode + "] 工位 [" + targetNode + "] 已完成，并自动顺推点亮: " + String.join(", ", activatedNextList);
+            return Result.success(state, msg);
         } catch (IOException e) {
             return Result.error(500, "持久化工位状态失败: " + e.getMessage());
         }
