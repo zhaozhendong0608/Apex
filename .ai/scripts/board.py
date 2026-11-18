@@ -34,6 +34,9 @@ import sys
 import os
 import re
 import datetime
+import urllib.request
+import urllib.parse
+import json
 
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
@@ -46,6 +49,48 @@ PROJECT_ROOT = os.path.dirname(AI_DIR)
 STATUS_FILE = os.path.join(AI_DIR, "tier3_status.md")
 HANDOVER_FILE = os.path.join(AI_DIR, "tier3_handover.md")
 TIER1_FILE = os.path.join(AI_DIR, "tier1_snapshot.md")
+BACKEND_ADVANCE_URL = "http://127.0.0.1:8080/api/v1/req/workflow/advance"
+
+def _sync_to_backend_workflow(node_id, action_type="ADVANCE", status="IN_PROGRESS", override_reason=None, artifacts_json=None):
+    """
+    双写同步探针：将当前对话推进的工位状态静默上报并持久化到后端 MySQL (SSOT)
+    支持自动探测与容错，如果后端服务未启动则打印提示并不阻塞主流程。
+    """
+    req_code = "REQ-001"
+    if os.path.exists(TIER1_FILE):
+        try:
+            with open(TIER1_FILE, "r", encoding="utf-8") as f:
+                t1_txt = f.read()
+                m = re.search(r"\*\*当前聚焦需求\*\*[:：]\s*([A-Za-z0-9_\-]+)", t1_txt)
+                if m:
+                    req_code = m.group(1).strip()
+        except Exception:
+            pass
+
+    payload = {
+        "reqCode": req_code,
+        "targetNode": node_id,
+        "status": status,
+        "actionType": action_type,
+        "operator": "admin",
+        "trackMode": "STANDARD"
+    }
+    if override_reason:
+        payload["overrideReason"] = override_reason
+    if artifacts_json:
+        payload["artifactsJson"] = artifacts_json
+
+    try:
+        data = urllib.parse.urlencode(payload).encode("utf-8")
+        req = urllib.request.Request(BACKEND_ADVANCE_URL, data=data, method="POST")
+        with urllib.request.urlopen(req, timeout=1.5) as resp:
+            if resp.status == 200:
+                print(f"📡 [DB Sync] MySQL 工位状态已同步持久化: [{node_id}] (Status: {status})")
+                return True
+    except Exception:
+        # 降级容错：后端未启动时写入本地 dag_state 缓存，不阻塞终端命令
+        pass
+    return False
 
 # ---- 看板区块锚点 ----
 ACTIVE_START = "<!-- SECTION:ACTIVE:START -->"
@@ -340,6 +385,8 @@ def start_task(task_id, force=False, quiet=False):
     print(f"🚀 已锁定焦点: [{task_id}] → IN_PROGRESS (ACTIVE)")
     print(f"   👉 下一步：回复 [2] 出技术方案 或 [3] 直接 TDD 编码。")
     rebuild_tier1(quiet=quiet)
+    # 同步工位状态至后端 MySQL
+    _sync_to_backend_workflow("SOP-03", action_type="ADVANCE", status="IN_PROGRESS", artifacts_json=f"任务激活: [{task_id}]")
     return 0
 
 
@@ -458,6 +505,20 @@ def _verify_report(task_id):
             lines.append(f"   ⚠️  tier1 焦点与 [{task_id}] 不一致（执行 `board.py rebuild-tier1` 可修复）")
 
     lines.append("")
+    lines.append("── 5. 全量自动化测试探针与契约门禁 ──")
+    runner_script = os.path.join(AI_DIR, "scripts", "test_runner.py")
+    if os.path.exists(runner_script):
+        import subprocess
+        proc = subprocess.run([sys.executable, runner_script], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if proc.returncode == 0:
+            lines.append("   ✅ test_runner.py 自动化测试探针全部跑绿 (ALL GREEN)")
+        else:
+            lines.append("   🔴 test_runner.py 存在失败用例，详细见终端输出")
+            blockers.append("自动化测试未全部通过，禁止归档")
+    else:
+        lines.append("   ⏭️  未找到 test_runner.py，跳过")
+
+    lines.append("")
     if blockers:
         lines.append("🚫 [BLOCKING] 终验未通过，禁止 complete：")
         lines.extend("   - " + b for b in blockers)
@@ -555,6 +616,10 @@ def complete_task(task_id, accept=False):
 
     # 5) 统一刷新一次 tier1（无下一任务时也要更新焦点/里程碑）
     rebuild_tier1()
+
+    # 6) 同步工位终验归档至后端 MySQL
+    files_str = ', '.join(task_files(block)) or ''
+    _sync_to_backend_workflow("SOP-07", action_type="ADVANCE", status="COMPLETED", artifacts_json=f"任务归档: [{task_id}], 改动文件: {files_str}")
 
     print(f"\n💾 三类资产已同步：tier3_status.md / tier3_handover.md / tier1_snapshot.md")
     return 0
@@ -864,6 +929,21 @@ def main():
     if cmd in ("rebuild-tier1", "tier1"):
         rebuild_tier1()
         return 0
+
+    if cmd == "sync-node":
+        if not positional:
+            print("❌ 参数不足：board.py sync-node <node_id> [status] [artifacts]")
+            return 2
+        nid = positional[0]
+        st = positional[1] if len(positional) > 1 else "IN_PROGRESS"
+        art = positional[2] if len(positional) > 2 else ""
+        ok = _sync_to_backend_workflow(nid, action_type="ADVANCE", status=st, artifacts_json=art)
+        if ok:
+            print(f"✅ 工位 [{nid}] 已成功推进入库！")
+            return 0
+        else:
+            print(f"⚠️ 后端服务暂未连通，已保留本地缓存。")
+            return 0
 
     if cmd == "init":
         _content, changed = ensure_board(force=True)

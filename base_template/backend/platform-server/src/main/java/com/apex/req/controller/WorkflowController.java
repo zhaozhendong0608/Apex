@@ -80,10 +80,28 @@ public class WorkflowController {
         try {
             File aiDir = getAiDirectory();
             File snapshotFile = new File(aiDir, "tier1_snapshot.md");
+            
+            // 保留原有的 TIER1-ACTIVE 锚点与当前焦点（避免覆盖丢失）
+            String activeSection = "<!-- TIER1-ACTIVE:START -->\n" +
+                    "- **当前焦点**：无（没有 ACTIVE 任务）\n" +
+                    "- **下一待办**：暂无 —— 需回复 `[1]` 规划新需求\n" +
+                    "<!-- TIER1-ACTIVE:END -->\n";
+            if (snapshotFile.exists()) {
+                try {
+                    String existing = new String(java.nio.file.Files.readAllBytes(snapshotFile.toPath()), java.nio.charset.StandardCharsets.UTF_8);
+                    int sIdx = existing.indexOf("<!-- TIER1-ACTIVE:START -->");
+                    int eIdx = existing.indexOf("<!-- TIER1-ACTIVE:END -->");
+                    if (sIdx != -1 && eIdx != -1) {
+                        activeSection = existing.substring(sIdx, eIdx + "<!-- TIER1-ACTIVE:END -->".length()) + "\n";
+                    }
+                } catch (Exception ignored) {}
+            }
+
             String content = "<!-- 【三层记忆金字塔 - 第一层：极简快照名片 (<30行)】 -->\n" +
                     "# ⚡ tier1_snapshot.md · 极简工作区名片\n\n" +
                     "- **项目空间**: NET-SIM (全景工业网络仿真与拓扑排版系统)\n" +
                     "- **当前聚焦需求**: " + reqCode + "\n" +
+                    activeSection +
                     "- **当前工位**: [" + targetNode + "] (模式: " + trackMode + ")\n" +
                     "- **责任操作人**: " + operator + "\n" +
                     "- **单一事实源 (SSOT)**: MySQL `t_req_requirement` / `t_req_workflow_record`\n" +

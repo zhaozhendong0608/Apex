@@ -27,16 +27,18 @@ Apex/                                      # 🚀 顶层工作区 (IDE 打开的
 │       └── 📁 requirement-discovery/       # Requirement-Discovery
 ├── 🧠 .ai/                                 # ⚙️ 统一工作流控制中心（三层记忆金字塔）
 │   ├── 📄 dag_state.json
+│   ├── 📁 dags/
+│   │   └── 📄 dag_REQ-001.json
 │   ├── 🛠️ scripts/                        # 🛠️ 自动化控制与分析脚本库
+│   │   ├── 📄 apply_sql.py
 │   │   ├── 📄 arch.py                      # 🏛️ 老项目拓扑图谱分析脚本
 │   │   ├── 📄 board.py                     # 📊 确定性看板与任务状态控制脚本
+│   │   ├── 📄 contract_guard.py
 │   │   ├── 📄 dag_chain.py
+│   │   ├── 📄 dag_pilot.py
 │   │   ├── 📄 gate.py                      # 🚦 统一质量门禁（6 项看门狗 + SQL 配对 + 元门禁）
-│   │   ├── 📄 install_hooks.py
-│   │   ├── 📄 linter_js.py
-│   │   ├── 📄 linter_py.py
-│   │   └── 📄 pre_commit.py
-│   │   └── …(另有 1 项)
+│   │   └── 📄 install_hooks.py
+│   │   └── …(另有 5 项)
 │   ├── 📜 sop/                             # 📜 全套 16 篇 SOP（主链 0~9 · 旁路 B1~B6）
 │   │   ├── 📄 00-sop-overview.md           # [0] 体系总览 · 16 篇 SOP 全景
 │   │   ├── 📄 01-sop-planning.md           # [1] 需求规划与任务拆解
@@ -50,8 +52,8 @@ Apex/                                      # 🚀 顶层工作区 (IDE 打开的
 │   ├── 📄 tier1_snapshot.md                # ① 极简快照名片（<30 行，[B6] 复活只读它）
 │   ├── 📄 tier2_legacy_arch.md             # ② 老项目切片与拓扑图谱元数据池
 │   ├── 📄 tier2_modules.md                 # ② 大模块矩阵索引
-│   ├── 📄 tier3_handover.md                # ③ 交接黑匣子（append-only 事件日志）
-│   └── 📄 tier3_status.md                  # ③ 任务看板状态机（仅 board.py 可写）
+│   └── 📄 tier3_handover.md                # ③ 交接黑匣子（append-only 事件日志）
+│   └── …(另有 1 项)
 ├── 🧠 .cursorrules                         # 🧠 AI 行为约束与数字路由表
 ├── 🧠 .windsurfrules                       # 🧠 IDE 规则适配文件
 ├── 📄 AI 时代的全流程工程实践：一个需求的生命周期.pptx

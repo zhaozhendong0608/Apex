@@ -26,6 +26,11 @@
 
 <!-- SECTION:DONE:START -->
 
+[Task-518] 闭环打通验证任务 (Done: 2026-11-17)
+- **Status**: DONE
+- **功能目标**: 打通对话状态落库与全自动契约测试门禁
+- **涉及文件**: .ai/scripts/board.py,.ai/scripts/contract_guard.py,.ai/scripts/test_runner.py
+
 [Task-517] 拓扑图元连线动态驱动与消灭兜底数据 (Done: 2026-11-10)
 - **Status**: DONE
 - **功能目标**: 从后端模板读取拓扑定义并清除张工/固定日期等兜底假数据

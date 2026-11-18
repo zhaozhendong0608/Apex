@@ -64,8 +64,9 @@ public class NetTopologyController {
 
     /**
      * 触发端到端连通性仿真测试 (基于 BFS 寻路与 ACL 规则拦截)
+     * 同时兼容标准 DLD 契约路径 (/simulate/connectivity) 与简写路径 (/simulate)
      */
-    @PostMapping("/simulate")
+    @PostMapping({"/simulate", "/simulate/connectivity"})
     public Result<SimResultVO> runSimulation(@Valid @RequestBody SimRequestDTO req) {
         log.info("收到拓扑连通性测试请求: 拓扑ID={}, 源={}, 目标={}, 端口={}, 协议={}",
                 req.getTopologyId(), req.getSourceNodeId(), req.getTargetNodeId(), req.getDestPort(), req.getProtocol());

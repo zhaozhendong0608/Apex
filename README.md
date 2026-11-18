@@ -27,6 +27,7 @@ Apex/                                                # 🚀 顶层工作区 (IDE
 │   └── 📁 skills/
 ├── 🧠 .ai/                                           # ⚙️ 统一工作流控制中心（三层记忆金字塔）
 │   ├── 📄 dag_state.json
+│   ├── 📁 dags/
 │   ├── 🛠️ scripts/                                  # 🛠️ 自动化控制与分析脚本库
 │   ├── 📜 sop/                                       # 📜 全套 16 篇 SOP（主链 0~9 · 旁路 B1~B6）
 │   ├── 📄 tier1_snapshot.md                          # ① 极简快照名片（<30 行，[B6] 复活只读它）
@@ -67,12 +68,14 @@ Apex/                                                # 🚀 顶层工作区 (IDE
 │   ├── 📦 modules/                                   # 业务大模块 PRD 与交互原型库
 │   ├── 📁 plans/
 │   ├── 📁 playbooks/
+│   ├── 📁 srs/
 │   ├── 📁 templates/                                 # 文档与原型外壳模板库
 │   ├── 📁 test-cases/
 │   ├── 📄 user-manual.md                             # 项目产品使用手册
 │   └── 📁 相关文件/
 ├── 🛠️ scripts/                                      # 🛠️ 自动化控制与分析脚本库
-│   └── 📄 req_agent_flow.py
+│   ├── 📄 req_agent_flow.py
+│   └── 📁 tests/
 ├── 📁 station-device-simulator/
 │   ├── 📁 simulator-core/
 │   ├── 📁 simulator-metadata-mysql/

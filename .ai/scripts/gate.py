@@ -902,6 +902,18 @@ def main():
     elif inputs:
         results["LINT"] = (True, ["⏭️  本次变更不含可 lint 的代码文件，跳过"])
 
+    # 2.1 DLD 契约与代码对齐核验 (Contract Guard)
+    if "--contract" in args or do_build or staged:
+        contract_script = AI_DIR / "scripts" / "contract_guard.py"
+        if contract_script.exists():
+            import subprocess
+            res = subprocess.run([sys.executable, str(contract_script), "--check"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            if res.returncode == 0:
+                results["CONTRACT"] = (True, ["✅ DLD 契约与真实业务代码对齐率 100% (未检测到设计漂移)"])
+            else:
+                out_lines = [l for l in res.stdout.splitlines() if l.strip()]
+                results["CONTRACT"] = (False, out_lines[-8:] if out_lines else ["🔴 DLD 契约与代码存在漂移"])
+
     # 3. SQL 回滚配对
     if track_mode == "FASTTRACK" and not sql_only:
         results["SQL"] = (True, ["⏭️  [FASTTRACK 快轨] 自动免除严格 DDL 回滚配对检查"])

@@ -4732,6 +4732,9 @@ onMounted(async () => {
                 <span v-if="rec.overrideReason" style="color:#fbbf24; font-style:italic;">
                   原因: “{{ rec.overrideReason }}”
                 </span>
+                <span v-if="rec.artifactsJson" style="color:#a7f3d0; font-size:11px; background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3); padding:1px 6px; border-radius:4px; margin-left:4px;">
+                  📦 交付物: {{ rec.artifactsJson }}
+                </span>
               </div>
               <div style="display:flex; align-items:center; gap:12px; color:#94a3b8; font-size:11px;">
                 <span>操作人: <strong style="color:#38bdf8;">{{ rec.operator }}</strong></span>
