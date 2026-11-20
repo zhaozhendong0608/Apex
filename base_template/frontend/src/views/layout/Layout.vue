@@ -4,7 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore, type ThemeType } from '@/stores/theme'
-import { Fold, Expand, DocumentCopy, Cpu, Tickets } from '@element-plus/icons-vue'
+import { Fold, Expand, DocumentCopy, Cpu, Tickets, QuestionFilled } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -111,6 +111,10 @@ const themeOptions: { label: string; value: ThemeType }[] = [
             <el-menu-item index="/req/scripts">
               <el-icon><Tickets /></el-icon>
               <span>自动化脚本中心</span>
+            </el-menu-item>
+            <el-menu-item index="/req/faq">
+              <el-icon><QuestionFilled /></el-icon>
+              <span>工作流常见问答 (FAQ)</span>
             </el-menu-item>
           </el-sub-menu>
 

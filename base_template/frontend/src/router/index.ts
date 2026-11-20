@@ -67,6 +67,12 @@ const routes = [
         meta: { title: '自动化脚本资产中心' }
       },
       {
+        path: '/req/faq',
+        name: 'ReqFaq',
+        component: () => import('@/modules/req-management/views/ReqManagementView.vue'),
+        meta: { title: '工作流 FAQ 知识中心' }
+      },
+      {
         path: '/req/dashboard',
         name: 'ReqDashboard',
         component: () => import('@/modules/req-management/views/ReqManagementView.vue'),

@@ -11,6 +11,7 @@ const routeToPageMap: Record<string, string> = {
   '/req/templates': 'page-templates',
   '/req/skills': 'page-skills',
   '/req/scripts': 'page-scripts',
+  '/req/faq': 'page-faq',
   '/req/dashboard': 'page-dashboard',
   '/req/detail': 'page-req-detail',
   '/req/prototypes': 'page-prototypes',
@@ -28,6 +29,7 @@ const pageToRouteMap: Record<string, string> = {
   'page-templates': '/req/templates',
   'page-skills': '/req/skills',
   'page-scripts': '/req/scripts',
+  'page-faq': '/req/faq',
   'page-dashboard': '/req/dashboard',
   'page-req-detail': '/req/detail',
   'page-prototypes': '/req/prototypes',
@@ -40,6 +42,7 @@ const pageToRouteMap: Record<string, string> = {
 }
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { NODE_KNOWLEDGE_BASE } from '../constants/workflowKnowledge'
+import { WORKFLOW_FAQ_DATA, WORKFLOW_FAQ_CATEGORIES } from '../constants/workflowFaq'
 import {
   getProjectListApi,
   getProjectStatsApi,
@@ -462,19 +465,19 @@ const createGraphNode = (
     strokeColor = '#06b6d4'
     bgFill = '#0f2942'
     textColor = '#38bdf8'
-    filterEffect = 'drop-shadow(0 0 12px rgba(6, 182, 212, 0.6))'
+    filterEffect = 'drop-shadow(0 0 14px rgba(6, 182, 212, 0.75))'
+  } else if (isInProgress) {
+    // 处于进行中 (执行焦点工位)：醒目天蓝 + 动态微光
+    strokeColor = '#38bdf8'
+    bgFill = '#132743'
+    textColor = '#bae6fd'
+    filterEffect = 'drop-shadow(0 0 10px rgba(56, 189, 248, 0.55))'
   } else if (isCompleted) {
     // 已完成：翡翠绿微光
     strokeColor = '#10b981'
     bgFill = '#062d22'
     textColor = '#a7f3d0'
     filterEffect = 'drop-shadow(0 0 6px rgba(16, 185, 129, 0.35))'
-  } else if (isInProgress) {
-    // 进行中但非鼠标选中：琥珀/天蓝高亮
-    strokeColor = '#38bdf8'
-    bgFill = '#132743'
-    textColor = '#bae6fd'
-    filterEffect = 'drop-shadow(0 0 6px rgba(56, 189, 248, 0.35))'
   } else {
     // 未激活：暗夜置灰，全层低调下沉
     strokeColor = '#334155'
@@ -501,6 +504,159 @@ const createGraphNode = (
 
   const displayText = skillTag ? `${name}\n🤖 ${skillTag}` : name
 
+  // 4. 针对于“当前具体执行到哪一个节点”以及“当前选中透视节点”定制显式徽章与高亮
+  const isExecutionFocus = isInProgress && (category === 'instruction' || !parentInstructionId)
+  const isCurrentInspected = isActive && (category === 'instruction' || !parentInstructionId)
+
+  const nodeAttrs: any = {
+    body: {
+      fill: bgFill,
+      stroke: strokeColor,
+      strokeWidth: isActive ? 2.8 : (isInProgress ? 2.2 : (isCompleted ? 1.8 : 1.2)),
+      rx,
+      ry,
+      filter: filterEffect
+    },
+    label: {
+      refX: '50%',
+      refY: '50%',
+      textAnchor: 'middle',
+      textVerticalAnchor: 'middle',
+      fill: textColor,
+      fontSize: category === 'artifact' ? 10 : 11,
+      fontWeight: (isActive || isCompleted || isInProgress) ? 700 : 500,
+      lineHeight: 15
+    }
+  }
+
+  const nodeMarkup: any[] = [
+    { tagName: 'rect', selector: 'body' }
+  ]
+
+  // 跑马灯流光外边框 (Marquee Running Border)
+  // 当工位处于进行中 (isExecutionFocus) 或被激活聚焦 (isActive) 时，生成跑马灯流体外层
+  if (isExecutionFocus || (isActive && !isCompleted)) {
+    nodeMarkup.push({
+      tagName: 'rect',
+      selector: 'marqueeBorder'
+    })
+    nodeAttrs.marqueeBorder = {
+      x: -4,
+      y: -4,
+      width: width + 8,
+      height: height + 8,
+      rx: rx + 4,
+      ry: ry + 4,
+      fill: 'none',
+      stroke: isExecutionFocus ? '#00f2fe' : '#38bdf8',
+      strokeWidth: 2,
+      strokeDasharray: '8 6',
+      class: 'node-marquee-border',
+      style: {
+        animation: 'workflow-marquee 1.2s linear infinite',
+        pointerEvents: 'none'
+      }
+    }
+  }
+
+  nodeMarkup.push({ tagName: 'text', selector: 'label' })
+
+  // 如果是当前正在进行中的执行焦点，在节点左上角打上醒目的【⚡ 进行中】极光发光徽章
+  if (isExecutionFocus) {
+    nodeMarkup.push({
+      tagName: 'rect',
+      selector: 'badgeBody'
+    })
+    nodeMarkup.push({
+      tagName: 'text',
+      selector: 'badgeText'
+    })
+    nodeAttrs.badgeBody = {
+      x: 8,
+      y: -8,
+      width: 64,
+      height: 16,
+      rx: 4,
+      ry: 4,
+      fill: '#0284c7',
+      stroke: '#38bdf8',
+      strokeWidth: 1,
+      filter: 'drop-shadow(0 2px 4px rgba(2, 132, 199, 0.4))'
+    }
+    nodeAttrs.badgeText = {
+      x: 40,
+      y: 3,
+      text: '⚡ 进行中',
+      textAnchor: 'middle',
+      textVerticalAnchor: 'middle',
+      fill: '#ffffff',
+      fontSize: 9,
+      fontWeight: 700
+    }
+  } else if (isCurrentInspected && !isCompleted) {
+    // 若用户点击选中了某个待办节点透视
+    nodeMarkup.push({
+      tagName: 'rect',
+      selector: 'badgeBody'
+    })
+    nodeMarkup.push({
+      tagName: 'text',
+      selector: 'badgeText'
+    })
+    nodeAttrs.badgeBody = {
+      x: 8,
+      y: -8,
+      width: 58,
+      height: 16,
+      rx: 4,
+      ry: 4,
+      fill: '#0f2942',
+      stroke: '#06b6d4',
+      strokeWidth: 1
+    }
+    nodeAttrs.badgeText = {
+      x: 37,
+      y: 3,
+      text: '🔍 透视中',
+      textAnchor: 'middle',
+      textVerticalAnchor: 'middle',
+      fill: '#38bdf8',
+      fontSize: 9,
+      fontWeight: 700
+    }
+  } else if (isCompleted && (category === 'instruction' || !parentInstructionId)) {
+    // 已完工节点显示右上角精致勾选徽章
+    nodeMarkup.push({
+      tagName: 'rect',
+      selector: 'doneBadgeBody'
+    })
+    nodeMarkup.push({
+      tagName: 'text',
+      selector: 'doneBadgeText'
+    })
+    nodeAttrs.doneBadgeBody = {
+      x: width - 20,
+      y: -6,
+      width: 14,
+      height: 14,
+      rx: 3,
+      ry: 3,
+      fill: '#062d22',
+      stroke: '#10b981',
+      strokeWidth: 1
+    }
+    nodeAttrs.doneBadgeText = {
+      x: width - 13,
+      y: 2,
+      text: '✓',
+      textAnchor: 'middle',
+      textVerticalAnchor: 'middle',
+      fill: '#34d399',
+      fontSize: 9,
+      fontWeight: 700
+    }
+  }
+
   return workflowGraph.addNode({
     id,
     x,
@@ -508,26 +664,7 @@ const createGraphNode = (
     width,
     height,
     label: displayText,
-    attrs: {
-      body: {
-        fill: bgFill,
-        stroke: strokeColor,
-        strokeWidth: isActive ? 2.5 : (isCompleted || isInProgress ? 1.8 : 1.2),
-        rx,
-        ry,
-        filter: filterEffect
-      },
-      label: {
-        refX: '50%',
-        refY: '50%',
-        textAnchor: 'middle',
-        textVerticalAnchor: 'middle',
-        fill: textColor,
-        fontSize: category === 'artifact' ? 10 : 11,
-        fontWeight: (isActive || isCompleted || isInProgress) ? 700 : 500,
-        lineHeight: 15
-      }
-    },
+    attrs: nodeAttrs,
     ports: {
       groups: {
         top: { position: 'top', attrs: { circle: { r: 0, magnet: true } } },
@@ -542,10 +679,7 @@ const createGraphNode = (
         { id: 'right', group: 'right' }
       ]
     },
-    markup: [
-      { tagName: 'rect', selector: 'body' },
-      { tagName: 'text', selector: 'label' }
-    ]
+    markup: nodeMarkup
   })
 }
 
@@ -1522,6 +1656,16 @@ const handleOpenTemplateDagEditor = (tpl: any) => {
     currentEditingTemplate.value.parsedNodes = []
   }
 
+  try {
+    if (typeof currentEditingTemplate.value.edgesConfig === 'string') {
+      currentEditingTemplate.value.parsedEdges = JSON.parse(currentEditingTemplate.value.edgesConfig)
+    } else {
+      currentEditingTemplate.value.parsedEdges = currentEditingTemplate.value.edgesConfig || []
+    }
+  } catch (e) {
+    currentEditingTemplate.value.parsedEdges = []
+  }
+
   templateDagEditorOpen.value = true
 
   // 延迟挂载 AntV X6 真实画板
@@ -1695,82 +1839,49 @@ const renderTemplateDagGraphData = () => {
   }
 
   // ========================================================
-  // 2. 第一层：【👤 SOP 数字指令主轨】 (y: 48 ~ 115)
+  // 2. 纯动态数据驱动渲染模板 DAG：优先读取模板库自身的 parsedNodes 与 parsedEdges
+  // 告别任何前端硬编码，支持用户在数据库自由增删改工位算子与连接拓扑
   // ========================================================
-  addTplNode('SOP-00', '[0] 体系总览\n规模分流识别', 38, 48, '#94a3b8', 120, 52, 'instruction')
-  addTplNode('SOP-01', '[1] 需求规划\n白话澄清与切片', 185, 48, '#f59e0b', 130, 52, 'instruction')
-  addTplNode('SOP-02', '[2] 方案设计\n契约与表结构冻结', 385, 48, '#38bdf8', 130, 52, 'instruction')
-  addTplNode('SOP-03', '[3] TDD编码\n单焦点红绿单测', 535, 48, '#94a3b8', 130, 52, 'instruction')
-  addTplNode('SOP-04', '[4] 机器门禁\ngate.py 6项阻断', 685, 48, '#ef4444', 130, 52, 'instruction')
-  addTplNode('SOP-05', '[5] 人工评审\n架构与契约复核', 835, 48, '#f59e0b', 130, 52, 'instruction')
-  addTplNode('TC-GEN', '[TC] 测试用例矩阵\ndocs/test-cases 冻结', 535, 115, '#8b5cf6', 280, 48, 'instruction')
-  addTplNode('SOP-06', '[6] 集成测试\n★ 双轨延迟汇合穿透', 1025, 48, '#0284c7', 135, 52, 'instruction')
-  addTplNode('SOP-07', '[7] 双向验收\n唯一归档出口', 1185, 48, '#ef4444', 135, 52, 'instruction')
-  addTplNode('SOP-08', '[8] 容器部署\nDockerCompose离线', 1380, 48, '#10b981', 135, 52, 'instruction')
-  addTplNode('SOP-09', '[9] Git发布\nTag+Release回滚配对', 1545, 48, '#10b981', 135, 52, 'instruction')
-  addTplNode('SOP-B2', '⚡ [B2] 极速微创修补\n单文件≤20行免门禁', 1380, 115, '#d97706', 300, 48, 'instruction')
+  const renderedNodeIds = new Set<string>()
 
-  // 指令轨连线
-  addTplEdge('SOP-00', 'SOP-01', '#94a3b8')
-  addTplEdge('SOP-01', 'SOP-02', '#38bdf8', false, 'right', 'left', 'smooth')
-  addTplEdge('SOP-01', 'TC-GEN', '#8b5cf6', true, 'right', 'left', 'smooth')
-  addTplEdge('SOP-02', 'SOP-03', '#38bdf8')
-  addTplEdge('SOP-03', 'SOP-04', '#ef4444')
-  addTplEdge('SOP-04', 'SOP-05', '#f59e0b')
-  addTplEdge('SOP-05', 'SOP-06', '#0284c7', false, 'right', 'left', 'smooth')
-  addTplEdge('TC-GEN', 'SOP-06', '#8b5cf6', false, 'right', 'left', 'smooth')
-  addTplEdge('SOP-06', 'SOP-07', '#ef4444')
-  addTplEdge('SOP-07', 'SOP-08', '#10b981')
-  addTplEdge('SOP-08', 'SOP-09', '#10b981')
-  addTplEdge('SOP-00', 'SOP-B2', '#d97706', true, 'bottom', 'left', 'smooth')
-  addTplEdge('SOP-B2', 'SOP-09', '#d97706', true, 'right', 'bottom', 'smooth')
+  // A. 动态遍历渲染模板中配置的全部节点
+  if (nodes.length > 0) {
+    nodes.forEach((n: any, idx: number) => {
+      const nid = n.id
+      const nname = n.name || nid
+      const defaultLayout = WORKFLOW_NODE_LAYOUT[nid]
+      const nx = n.x !== undefined ? n.x : (defaultLayout ? defaultLayout.x : (40 + (idx % 8) * 160))
+      const ny = n.y !== undefined ? n.y : (defaultLayout ? defaultLayout.y : (48 + Math.floor(idx / 8) * 90))
+      const nw = n.width || (defaultLayout ? defaultLayout.w : 130)
+      const nh = n.height || (defaultLayout ? defaultLayout.h : 52)
+      const ncolor = n.color || (defaultLayout ? defaultLayout.color : (nid.startsWith('SKILL-') ? '#0284c7' : (nid.startsWith('CTRL-') ? '#f97316' : (nid.startsWith('ART-') ? '#10b981' : '#38bdf8'))))
+      const ncategory = n.category || (nid.startsWith('SKILL-') ? 'skill' : (nid.startsWith('CTRL-') ? 'control' : (nid.startsWith('ART-') ? 'artifact' : 'instruction')))
 
-  // ========================================================
-  // 3. 第二层：【🧩 AI 专属 Skill 技能专家】 (y: 195 ~ 245)
-  // ========================================================
-  addTplNode('SKILL-01', '🤖 requirement-discovery\n需求发现与白话澄清专家', 100, 195, '#0284c7', 220, 50, 'skill')
-  addTplNode('SKILL-02', '🤖 design-spec-architect\n概要与详细设计专家', 385, 195, '#38bdf8', 210, 50, 'skill')
-  addTplNode('SKILL-03', '🤖 coding-standards\n代码规范与契约绑定专家', 610, 195, '#10b981', 200, 50, 'skill')
-  addTplNode('SKILL-04', '🤖 code-quality-reviewer\n静态质量审查与门禁专家', 825, 195, '#ef4444', 210, 50, 'skill')
-  addTplNode('SKILL-06', '🤖 quality-verifier\n质量验证与小黄鸭探针专家', 1080, 195, '#8b5cf6', 220, 50, 'skill')
-  addTplNode('SKILL-00', '🏛️ legacy-archaeologist\n老项目逆向考古专家', 1380, 195, '#f59e0b', 210, 50, 'skill')
+      addTplNode(nid, nname, nx, ny, ncolor, nw, nh, ncategory)
+      renderedNodeIds.add(nid)
+    })
+  }
 
-  // 指令激活 Skill 连线
-  addTplEdge('SOP-01', 'SKILL-01', '#0284c7', true, 'bottom', 'top', 'smooth')
-  addTplEdge('SOP-02', 'SKILL-02', '#38bdf8', true, 'bottom', 'top', 'smooth')
-  addTplEdge('SOP-03', 'SKILL-03', '#10b981', true, 'bottom', 'top', 'smooth')
-  addTplEdge('SOP-04', 'SKILL-04', '#ef4444', true, 'bottom', 'top', 'smooth')
-  addTplEdge('SOP-06', 'SKILL-06', '#8b5cf6', true, 'bottom', 'top', 'smooth')
-
-  // ========================================================
-  // 4. 第三层：【🧠 状态与记忆控制中枢 (.ai/)】 (y: 285 ~ 335)
-  // ========================================================
-  addTplNode('CTRL-SNAP', '⚡ tier1_snapshot.md\n极简名片卡 (<30行)', 100, 285, '#eab308', 200, 50, 'control')
-  addTplNode('CTRL-BOARD', '🛠️ board.py 看板脚本\n状态机唯一合法入口', 450, 285, '#f97316', 210, 50, 'control')
-  addTplNode('CTRL-STATUS', '📋 tier3_status.md\nACTIVE/DONE 任务看板', 730, 285, '#06b6d4', 220, 50, 'control')
-  addTplNode('CTRL-GATE', '🔒 gate.py 机器门禁\nLGTM 阻断拦截看门狗', 1030, 285, '#ef4444', 200, 50, 'control')
-  addTplNode('CTRL-HANDOVER', '📦 tier3_handover.md\n历史长效交接黑匣子', 1380, 285, '#a855f7', 220, 50, 'control')
-
-  // Skill 驱动 Control 连线
-  addTplEdge('SKILL-02', 'CTRL-BOARD', '#f97316', false, 'bottom', 'top', 'smooth')
-  addTplEdge('CTRL-BOARD', 'CTRL-STATUS', '#06b6d4', false, 'right', 'left', 'normal')
-  addTplEdge('SKILL-04', 'CTRL-GATE', '#ef4444', false, 'bottom', 'top', 'smooth')
-
-  // ========================================================
-  // 5. 第四层：【📄 确定性物理输出产物 (Artifacts)】 (y: 385 ~ 445)
-  // ========================================================
-  addTplNode('ART-01', '📝 四层清单基线草案\n白话对撞决策列表 (P04)', 80, 385, '#38bdf8', 220, 56, 'artifact')
-  addTplNode('ART-02', '🎨 mockup.html / PRD\n📐 detail.md + service.sql', 360, 385, '#38bdf8', 230, 56, 'artifact')
-  addTplNode('ART-03', '💻 src/ 业务源码工程\n🔌 第三方 API 真实联调日志', 660, 385, '#10b981', 230, 56, 'artifact')
-  addTplNode('ART-04', '🔒 gate.py LGTM 报告\n🧪 E2E 离线穿透验证凭据', 970, 385, '#ef4444', 230, 56, 'artifact')
-  addTplNode('ART-05', '🏁 board.py verify 凭据\n🏷️ Git Tag + Release 文档', 1330, 385, '#10b981', 230, 56, 'artifact')
-
-  // 控制/技能驱动物理产物连线
-  addTplEdge('SKILL-01', 'ART-01', '#38bdf8', true, 'bottom', 'top', 'smooth')
-  addTplEdge('CTRL-BOARD', 'ART-02', '#38bdf8', true, 'bottom', 'top', 'smooth')
-  addTplEdge('SKILL-03', 'ART-03', '#10b981', true, 'bottom', 'top', 'smooth')
-  addTplEdge('CTRL-GATE', 'ART-04', '#ef4444', true, 'bottom', 'top', 'smooth')
-  addTplEdge('SOP-07', 'ART-05', '#10b981', true, 'bottom', 'top', 'smooth')
+  // B. 动态遍历渲染模板中配置的全部连线
+  const edges = currentEditingTemplate.value?.parsedEdges || []
+  if (edges.length > 0) {
+    edges.forEach((e: any) => {
+      if (renderedNodeIds.has(e.source) && renderedNodeIds.has(e.target)) {
+        const isSmooth = e.connector === 'smooth' || e.source.startsWith('SKILL-') || e.target.startsWith('SKILL-') || e.target === 'TC-GEN' || e.source === 'SOP-B2'
+        const isDashed = e.dashed || e.target === 'TC-GEN' || e.source === 'SOP-B2' || e.source.startsWith('SKILL-')
+        const color = e.color || (e.source.startsWith('SKILL-') ? '#0284c7' : (e.source.startsWith('CTRL-') ? '#f97316' : '#38bdf8'))
+        addTplEdge(
+          e.source,
+          e.target,
+          color,
+          isDashed,
+          e.sourcePort || (e.source.startsWith('SKILL-') ? 'bottom' : 'right'),
+          e.targetPort || (e.target.startsWith('SKILL-') || e.target.startsWith('CTRL-') || e.target.startsWith('ART-') ? 'top' : 'left'),
+          isSmooth ? 'smooth' : 'normal'
+        )
+      }
+    })
+  }
 }
 
   // 保存节点配置到当前编辑中的模板
@@ -1843,7 +1954,44 @@ const handleDeleteTemplate = async (tpl: any) => {
 // 视角与路由状态
 const currentPerspective = ref<'internal' | 'client'>('internal')
 const currentPage = ref('page-dashboard')
-const isWorkflowAssetPage = computed(() => ['page-templates', 'page-skills', 'page-scripts'].includes(currentPage.value))
+const isWorkflowAssetPage = computed(() => ['page-templates', 'page-skills', 'page-scripts', 'page-faq'].includes(currentPage.value))
+
+// 工作流 FAQ 页面交互状态
+const faqSearchQuery = ref('')
+const selectedFaqCategory = ref('all')
+const expandedFaqIds = ref<string[]>(['FAQ-001', 'FAQ-002']) // 默认展开前两项
+
+const filteredFaqList = computed(() => {
+  return WORKFLOW_FAQ_DATA.filter(item => {
+    const matchCategory = selectedFaqCategory.value === 'all' || item.category === selectedFaqCategory.value
+    if (!matchCategory) return false
+    if (!faqSearchQuery.value.trim()) return true
+    const q = faqSearchQuery.value.trim().toLowerCase()
+    return (
+      item.question.toLowerCase().includes(q) ||
+      item.summary.toLowerCase().includes(q) ||
+      item.answer.toLowerCase().includes(q) ||
+      item.tags.some(t => t.toLowerCase().includes(q))
+    )
+  })
+})
+
+const toggleFaqExpand = (faqId: string) => {
+  const idx = expandedFaqIds.value.indexOf(faqId)
+  if (idx > -1) {
+    expandedFaqIds.value.splice(idx, 1)
+  } else {
+    expandedFaqIds.value.push(faqId)
+  }
+}
+
+const expandAllFaqs = () => {
+  expandedFaqIds.value = filteredFaqList.value.map(i => i.id)
+}
+
+const collapseAllFaqs = () => {
+  expandedFaqIds.value = []
+}
 const clientSubPage = ref<'e02' | 'e03'>('e02')
 const selectedProject = ref('NET-SIM')
 const selectedPrototypeVer = ref('v3')
@@ -3428,7 +3576,25 @@ onMounted(async () => {
                     </span>
                   </div>
                   <!-- 控制工具栏 -->
-                  <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                  <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                    <!-- 当前工位状态专业级极光流体胶囊 (Cyberpunk Aurora Status Capsule) -->
+                    <div class="wf-current-status-capsule">
+                      <div class="capsule-live-beacon">
+                        <span class="beacon-core"></span>
+                        <span class="beacon-halo"></span>
+                      </div>
+                      <div class="capsule-meta">
+                        <span class="capsule-label">ACTIVE NODE</span>
+                        <div class="capsule-val">
+                          <span class="capsule-code">[{{ workflowActiveNodeInfo.id }}]</span>
+                          <span class="capsule-name">{{ workflowActiveNodeInfo.name }}</span>
+                        </div>
+                      </div>
+                      <div class="capsule-track-badge">
+                        {{ workflowTrackMode === 'FASTTRACK' ? '⚡ 极速快轨' : '🏛️ 标准主轨' }}
+                      </div>
+                    </div>
+
                     <!-- L/S 双轨实时切换 -->
                     <div style="display:inline-flex; background:#1e293b; border:1px solid #334155; border-radius:6px; padding:2px;">
                       <button
@@ -3870,6 +4036,115 @@ onMounted(async () => {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+
+        <!-- ================= 💡 专门治理菜单：工作流 FAQ 知识中心 ================= -->
+        <div id="page-faq" class="view-page" :class="{ active: currentPage === 'page-faq' }">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+            <div>
+              <h2 style="font-size:20px; font-weight:700; display:flex; align-items:center; gap:8px;">
+                <span>💡 工作流常见问题与权威解答 (FAQ)</span>
+                <span class="tag" style="background:#6366f1; color:#fff;">工程规范与避坑宝典</span>
+              </h2>
+              <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">
+                系统化整理工程落地过程中的高频疑难杂症：自适应分流、质量门禁 BLOCKING、看板状态机流转、AI Skills 契约与线上排障铁律。
+              </p>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <button class="btn btn-outline btn-sm" @click="expandAllFaqs">📂 展开全部</button>
+              <button class="btn btn-outline btn-sm" @click="collapseAllFaqs">📁 折叠全部</button>
+            </div>
+          </div>
+
+          <!-- 搜索与分类胶囊工具栏 -->
+          <div class="faq-toolbar-card">
+            <div class="faq-search-wrapper">
+              <span class="faq-search-icon">🔍</span>
+              <input
+                v-model="faqSearchQuery"
+                type="text"
+                class="faq-search-input"
+                placeholder="搜索问题、SOP、门禁命令、报错关键词 (如: gate.py / 锚点 / B4 / 快轨 / 单焦点)..."
+              />
+              <button v-if="faqSearchQuery" class="faq-search-clear" @click="faqSearchQuery = ''">✕</button>
+            </div>
+
+            <div class="faq-category-tabs">
+              <button
+                v-for="cat in WORKFLOW_FAQ_CATEGORIES"
+                :key="cat.key"
+                class="faq-cat-btn"
+                :class="{ active: selectedFaqCategory === cat.key }"
+                @click="selectedFaqCategory = cat.key"
+              >
+                <span>{{ cat.icon }}</span>
+                <span>{{ cat.label }}</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- FAQ 问答卡片列表 -->
+          <div v-if="filteredFaqList.length > 0" class="faq-list-container">
+            <div
+              v-for="faq in filteredFaqList"
+              :key="faq.id"
+              class="faq-accordion-card"
+              :class="{ 'is-expanded': expandedFaqIds.includes(faq.id) }"
+            >
+              <!-- 折叠头部 -->
+              <div class="faq-accordion-header" @click="toggleFaqExpand(faq.id)">
+                <div class="faq-header-left">
+                  <span class="faq-badge-id">{{ faq.id }}</span>
+                  <span class="faq-badge-cat">{{ faq.categoryName }}</span>
+                  <h3 class="faq-question-title">{{ faq.question }}</h3>
+                </div>
+                <div class="faq-header-right">
+                  <div class="faq-tags-group">
+                    <span v-for="tag in faq.tags" :key="tag" class="faq-tag-chip">{{ tag }}</span>
+                  </div>
+                  <span class="faq-toggle-arrow" :class="{ 'is-rotated': expandedFaqIds.includes(faq.id) }">▼</span>
+                </div>
+              </div>
+
+              <!-- 展开内容区 -->
+              <div v-show="expandedFaqIds.includes(faq.id)" class="faq-accordion-body">
+                <div class="faq-summary-banner">
+                  <span class="faq-summary-icon">💡</span>
+                  <span class="faq-summary-text">{{ faq.summary }}</span>
+                </div>
+
+                <!-- 详细答案文本区 -->
+                <div class="faq-answer-block">
+                  <div class="faq-answer-title">📌 权威解析与指引：</div>
+                  <div class="faq-answer-text">{{ faq.answer }}</div>
+                </div>
+
+                <!-- 最佳实践与关联 SOP 脚注 -->
+                <div class="faq-footer-meta">
+                  <div v-if="faq.bestPractice" class="faq-meta-item">
+                    <span class="meta-label">🏆 最佳工程实践：</span>
+                    <span class="meta-val">{{ faq.bestPractice }}</span>
+                  </div>
+                  <div v-if="faq.relatedSop" class="faq-meta-item">
+                    <span class="meta-label">🔗 对应工程规约：</span>
+                    <code class="meta-code">{{ faq.relatedSop }}</code>
+                  </div>
+                  <div v-if="faq.commandExample" class="faq-meta-item">
+                    <span class="meta-label">💻 推荐调试命令：</span>
+                    <code class="meta-cli">$ {{ faq.commandExample }}</code>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 空态提示 -->
+          <div v-else class="faq-empty-state">
+            <div style="font-size:36px; margin-bottom:10px;">🔍</div>
+            <div style="font-size:15px; font-weight:600; color:#475569;">未匹配到任何工作流相关问答</div>
+            <div style="font-size:12px; color:#94a3b8; margin-top:4px;">请尝试更换搜索关键词或重置分类筛选</div>
+            <button class="btn btn-outline btn-sm" style="margin-top:14px;" @click="faqSearchQuery = ''; selectedFaqCategory = 'all'">重置搜索条件</button>
           </div>
         </div>
 
@@ -6330,9 +6605,9 @@ onMounted(async () => {
 }
 
 /* 工程流水线拓扑画布可视区 (FR-REQ-WFC-01 / Task-510)
-   可视框尺寸只由这里的 360px 决定；X6 挂载点在内层，尺寸回写不会触及外层。 */
+   高度与内层画布容器保持严格一致 520px，避免多余纵向滚动条或高度塌陷 */
 .wf-viewport {
-  height: 610px;
+  height: 520px;
   width: 100%;
   overflow: auto;
   border-radius: var(--radius-sm);
@@ -6350,6 +6625,20 @@ onMounted(async () => {
 }
 .wf-viewport::-webkit-scrollbar-thumb:hover { background: #5b7396; }
 .wf-graph-host { background: #0e1726; overflow: hidden; }
+
+/* 🌟 X6 当前节点跑马灯流动光效 (Marquee animation) */
+@keyframes workflow-marquee {
+  0% {
+    stroke-dashoffset: 28;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+:deep(.node-marquee-border) {
+  animation: workflow-marquee 1.2s linear infinite !important;
+  filter: drop-shadow(0 0 6px rgba(0, 242, 254, 0.7));
+}
 
 .req-app-container {
   --primary: #14535B;
@@ -7547,5 +7836,357 @@ table.data-table tr:hover td {
 }
 .script-action-btn:hover .arrow-icon {
   transform: translateX(3px);
+}
+
+/* ================= 💡 工作流 FAQ 知识中心样式 ================= */
+.faq-toolbar-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.faq-search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.faq-search-icon {
+  position: absolute;
+  left: 14px;
+  font-size: 14px;
+  color: #94a3b8;
+  pointer-events: none;
+}
+.faq-search-input {
+  width: 100%;
+  padding: 10px 36px 10px 38px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #1e293b;
+  outline: none;
+  background: #f8fafc;
+  transition: all 0.2s;
+}
+.faq-search-input:focus {
+  background: #ffffff;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+.faq-search-clear {
+  position: absolute;
+  right: 12px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 12px;
+}
+.faq-category-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.faq-cat-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #475569;
+  background: #f1f5f9;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.faq-cat-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+.faq-cat-btn.active {
+  background: #6366f1;
+  color: #ffffff;
+  border-color: #4f46e5;
+  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.3);
+}
+
+.faq-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.faq-accordion-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+}
+.faq-accordion-card:hover {
+  border-color: #c7d2fe;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.08);
+}
+.faq-accordion-card.is-expanded {
+  border-color: #818cf8;
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.1);
+}
+.faq-accordion-header {
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+  background: #ffffff;
+  gap: 14px;
+}
+.faq-accordion-card.is-expanded .faq-accordion-header {
+  background: #f8faff;
+  border-bottom: 1px solid #e0e7ff;
+}
+.faq-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.faq-badge-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  background: #ede9fe;
+  color: #6d28d9;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid #ddd6fe;
+}
+.faq-badge-cat {
+  font-size: 11px;
+  font-weight: 600;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+.faq-question-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+  line-height: 1.4;
+}
+.faq-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.faq-tags-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.faq-tag-chip {
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+.faq-toggle-arrow {
+  font-size: 11px;
+  color: #94a3b8;
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+.faq-toggle-arrow.is-rotated {
+  transform: rotate(180deg);
+  color: #6366f1;
+}
+
+.faq-accordion-body {
+  padding: 20px;
+  background: #ffffff;
+}
+.faq-summary-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #f0fdf4;
+  border-left: 4px solid #10b981;
+  border-radius: 0 8px 8px 0;
+  margin-bottom: 16px;
+}
+.faq-summary-icon {
+  font-size: 14px;
+}
+.faq-summary-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #166534;
+  line-height: 1.5;
+}
+.faq-answer-block {
+  margin-bottom: 16px;
+}
+.faq-answer-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 8px;
+}
+.faq-answer-text {
+  font-size: 13px;
+  color: #334155;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  background: #f8fafc;
+  padding: 14px 18px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+.faq-footer-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px dashed #e2e8f0;
+  font-size: 12px;
+}
+.faq-meta-item {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.meta-label {
+  font-weight: 600;
+  color: #475569;
+}
+.meta-val {
+  color: #0f172a;
+}
+.meta-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: #f1f5f9;
+  color: #2563eb;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+.meta-cli {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: #090d16;
+  color: #38bdf8;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+.faq-empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+}
+
+/* ================= 🌌 专业级极光流体执行工位胶囊样式 (Aurora Status Capsule) ================= */
+.wf-current-status-capsule {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(14, 34, 61, 0.9) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 30px;
+  padding: 4px 14px 4px 12px;
+  box-shadow: 0 4px 16px rgba(6, 182, 212, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  position: relative;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.wf-current-status-capsule:hover {
+  border-color: #38bdf8;
+  box-shadow: 0 6px 20px rgba(6, 182, 212, 0.3), inset 0 1px 2px rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+.capsule-live-beacon {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.beacon-core {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #38bdf8;
+  box-shadow: 0 0 8px #38bdf8;
+}
+.beacon-halo {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid #06b6d4;
+  opacity: 0.8;
+  animation: beacon-pulse 2s infinite ease-out;
+}
+@keyframes beacon-pulse {
+  0% { transform: scale(0.6); opacity: 1; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+.capsule-meta {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+.capsule-label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 8.5px;
+  font-weight: 700;
+  color: #06b6d4;
+  letter-spacing: 0.8px;
+}
+.capsule-val {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.capsule-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+.capsule-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #38bdf8;
+}
+.capsule-track-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: rgba(56, 189, 248, 0.12);
+  color: #bae6fd;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  white-space: nowrap;
 }
 </style>
