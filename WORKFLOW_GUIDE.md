@@ -60,7 +60,7 @@ Apex/                                      # 🚀 顶层工作区 (IDE 打开的
 ├── 📄 AI_WORKFLOW_TRAINING_PPT_OUTLINE.md  # AI 时代的全流程工程实践：一个需求的生命周期》培训 PPT 方案与逐页演讲稿
 ├── 📄 BEGINNER_HANDBOOK.md                 # 🚀 新手辅助开发手册（保姆级上手）
 └── 📄 CODESENTINEL_BUSINESS_PLAN.md        # 商业计划书】CodeSentinel（哨兵工程）：面向 AI 时代的受控研发与需求基…
-└── …(另有 14 项)
+└── …(另有 13 项)
 ```
 <!-- AUTO-TREE-FULL:END -->
 

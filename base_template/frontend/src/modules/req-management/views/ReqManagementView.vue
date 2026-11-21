@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
@@ -1954,7 +1954,8 @@ const handleDeleteTemplate = async (tpl: any) => {
 // 视角与路由状态
 const currentPerspective = ref<'internal' | 'client'>('internal')
 const currentPage = ref('page-dashboard')
-const isWorkflowAssetPage = computed(() => ['page-templates', 'page-skills', 'page-scripts', 'page-faq'].includes(currentPage.value))
+// 判断是否显示顶栏（工艺资产页面与项目大厅均隐藏顶栏，保持通透大气；需求大厅通过智能悬浮球一键调度）
+const isWorkflowAssetPage = computed(() => ['page-projects', 'page-templates', 'page-skills', 'page-scripts', 'page-faq'].includes(currentPage.value))
 
 // 工作流 FAQ 页面交互状态
 const faqSearchQuery = ref('')
@@ -2117,10 +2118,23 @@ const currentCost = computed(() => {
 
 watch(
   () => route.path,
-  (newPath) => {
+  async (newPath) => {
     if (routeToPageMap[newPath]) {
       currentPage.value = routeToPageMap[newPath]
       currentPerspective.value = 'internal'
+
+      // 当从左侧菜单点击 /req/workflow 时，触发自愈激活机制
+      if (newPath === '/req/workflow') {
+        await nextTick()
+        setTimeout(async () => {
+          if (!workflowGraph) {
+            initWorkflowGraph()
+          }
+          await syncRealWorkflowDagState()
+          await loadWorkflowRecords()
+          resetWorkflowView()
+        }, 120)
+      }
     }
   },
   { immediate: true }
@@ -2464,6 +2478,7 @@ const handleOpenNewReqDrawer = () => {
     || userList.value[0]?.username 
     || '张工 (产品负责人)'
   newReqForm.value = {
+    projectId: currentProject.value?.id || projectList.value[0]?.id || 1,
     title: '',
     quote: '',
     owner: defaultOwner,
@@ -2478,11 +2493,12 @@ const handleSubmitNewReq = async () => {
     ElMessage.warning('请填写需求标题')
     return
   }
+  const targetProjectId = newReqForm.value.projectId || currentProject.value?.id || 1
   try {
     const nextCode = `REQ-00${requirements.value.length + 1}`
     const finalOwner = newReqForm.value.owner || (userList.value[0]?.nickname || '张工 (产品负责人)')
     await createRequirementApi({
-      projectId: currentProject.value.id || 1,
+      projectId: targetProjectId,
       reqCode: nextCode,
       title: newReqForm.value.title,
       rawQuote: newReqForm.value.quote || newReqForm.value.title,
@@ -2491,7 +2507,12 @@ const handleSubmitNewReq = async () => {
     })
     ElMessage.success(`需求 [${newReqForm.value.title}] 录入成功！责任人: ${finalOwner}，已写入 MySQL。`)
     drawerNewReqOpen.value = false
-    await loadInitialData(currentProject.value.id)
+    // 切换到录入的目标项目并刷新
+    const targetProj = projectList.value.find(p => p.id === targetProjectId)
+    if (targetProj) {
+      selectedProject.value = targetProj.projectKey
+    }
+    await loadInitialData(targetProjectId)
     navigatePage('page-req-detail')
   } catch (err: any) {
     ElMessage.error(err.message || '录入需求失败')
@@ -3250,16 +3271,61 @@ const loadInitialData = async (targetProjectId?: number) => {
   }
 }
 
+// 智能调度悬浮球状态与拖拽控制
+const floatingBallPos = ref({ x: window.innerWidth - 72, y: window.innerHeight - 180 })
+const floatingPanelVisible = ref(false)
+const isDraggingBall = ref(false)
+const dragStartOffset = ref({ x: 0, y: 0 })
+const dragHasMoved = ref(false)
+
+const handleBallMouseDown = (e: MouseEvent) => {
+  isDraggingBall.value = true
+  dragHasMoved.value = false
+  dragStartOffset.value = {
+    x: e.clientX - floatingBallPos.value.x,
+    y: e.clientY - floatingBallPos.value.y
+  }
+  window.addEventListener('mousemove', handleBallMouseMove)
+  window.addEventListener('mouseup', handleBallMouseUp)
+}
+
+const handleBallMouseMove = (e: MouseEvent) => {
+  if (!isDraggingBall.value) return
+  dragHasMoved.value = true
+  const newX = Math.max(16, Math.min(window.innerWidth - 64, e.clientX - dragStartOffset.value.x))
+  const newY = Math.max(16, Math.min(window.innerHeight - 64, e.clientY - dragStartOffset.value.y))
+  floatingBallPos.value = { x: newX, y: newY }
+}
+
+const handleBallMouseUp = () => {
+  isDraggingBall.value = false
+  window.removeEventListener('mousemove', handleBallMouseMove)
+  window.removeEventListener('mouseup', handleBallMouseUp)
+  // 自动吸边优化（离哪侧近吸附到哪侧边缘）
+  if (dragHasMoved.value) {
+    const midX = window.innerWidth / 2
+    floatingBallPos.value.x = floatingBallPos.value.x > midX ? window.innerWidth - 68 : 16
+  }
+}
+
+const handleBallClick = () => {
+  if (!dragHasMoved.value) {
+    floatingPanelVisible.value = !floatingPanelVisible.value
+  }
+}
+
 onMounted(async () => {
   await loadInitialData()
   await loadWorkflowTemplates()
   await loadSkillsAndScriptsAssets()
   if (route.path === '/req/workflow') {
+    await nextTick()
     setTimeout(async () => {
       initWorkflowGraph()
       await syncRealWorkflowDagState()
       await loadWorkflowRecords()
-    }, 150)
+      resetWorkflowView()
+    }, 200)
   }
 
   // 🔍 自动化视口与溢出探测探针：精准定位右侧黑条与溢出元素
@@ -3296,56 +3362,7 @@ onMounted(async () => {
 
 <template>
   <div class="req-app-container">
-    <!-- 顶部导航 (仅在需求治理具体业务页面展示；在全局工作流工艺资产页面隐藏，保持全局沉浸与权责独立) -->
-    <header class="app-header" v-if="!isWorkflowAssetPage">
-      <div class="header-left">
-        <span class="logo-badge">APEX</span>
-        <div class="app-title">
-          <span>需求与版本管理平台</span>
-        </div>
-        <select class="project-selector" v-model="selectedProject" @change="handleProjectChange">
-          <option v-for="p in projectList" :key="p.id" :value="p.projectKey">
-            {{ p.projectKey }} · {{ p.name }}
-          </option>
-        </select>
-      </div>
-      <div class="header-right">
-        <div class="view-mode-toggle">
-          <button
-            class="view-mode-btn"
-            :class="{ active: currentPerspective === 'internal' }"
-            @click="switchPerspective('internal')"
-          >
-            内部管理端 (P01~P18)
-          </button>
-          <button
-            class="view-mode-btn"
-            :class="{ active: currentPerspective === 'client' }"
-            @click="switchPerspective('client')"
-          >
-            外部客户免登录端 (E01~E03)
-          </button>
-        </div>
-        <button
-          v-if="currentPerspective === 'internal'"
-          class="btn btn-primary btn-sm"
-          style="margin-left: 10px; display: inline-flex; align-items: center; gap: 4px;"
-          @click="handleOpenNewReqDrawer"
-        >
-          <span>➕ 快速录入需求</span>
-        </button>
-        <select 
-          class="project-selector" 
-          v-model="currentOperator" 
-          title="切换当前登录与操作身份"
-          style="margin-left: 10px; border-color: #3B82F6; color: #1D4ED8; font-weight: 600;"
-        >
-          <option value="admin">👑 超级管理员 (admin)</option>
-          <option value="zhanggong">👤 张工 (产品负责人)</option>
-        </select>
-      </div>
-    </header>
-
+    <!-- 顶部导航已彻底隐退收敛至智能调度小球，全面移除了所有业务子页面的突兀二级顶栏，与项目中心/工艺资产保持 100% 极简通透风格 -->
     <!-- 主体工作区 -->
     <div class="app-body">
 
@@ -5664,11 +5681,24 @@ onMounted(async () => {
     <CommonFormModal
       v-model="drawerNewReqOpen"
       mode="drawer"
-      width="500px"
+      width="520px"
       title="➕ 快速录入新需求 (M02)"
       confirm-text="创建并进入清单细化"
       @confirm="handleSubmitNewReq"
     >
+      <!-- 目标项目空间选择 -->
+      <div class="form-group">
+        <label class="form-label required">归属项目空间</label>
+        <select class="form-control" v-model="newReqForm.projectId" style="font-weight:600; color:#0284c7; background:#f8fafc;">
+          <option v-for="p in projectList" :key="p.id" :value="p.id">
+            📁 {{ p.projectKey }} · {{ p.name }} ({{ p.clientName || '通用客户' }})
+          </option>
+        </select>
+        <div style="font-size:11px; color:#64748b; margin-top:4px;">
+          默认关联当前激活的项目空间，支持随时切换归属
+        </div>
+      </div>
+
       <div class="form-group">
         <label class="form-label required">需求标题</label>
         <input type="text" class="form-control" placeholder="简述核心功能，例如：OT机房交换机拓扑告警" v-model="newReqForm.title">
@@ -6046,15 +6076,15 @@ onMounted(async () => {
 
     <!-- ================= 抽屉面板：AI Skill 专家 SKILL.md 实体规约透视 ================= -->
     <div class="drawer-overlay" :class="{ active: drawerSkillDetailVisible }" @click="drawerSkillDetailVisible = false"></div>
-    <div class="drawer-panel" :class="{ open: drawerSkillDetailVisible }" style="width:780px; max-width:94vw;">
-      <div class="drawer-header" style="background:#0b1320; border-bottom:1px solid #1e293b; color:#fff;">
+    <div class="drawer-panel" :class="{ open: drawerSkillDetailVisible }" style="width:780px; max-width:94vw; background:#ffffff;">
+      <div class="drawer-header" style="background:#f8fafc; border-bottom:1px solid #e2e8f0; color:#0f172a;">
         <div style="display:flex; align-items:center; gap:8px;">
           <span class="tag" style="background:#0284c7; color:#fff;">{{ selectedSkillDetail?.icon || '🤖' }} {{ selectedSkillDetail?.id }}</span>
-          <span style="font-size:15px; font-weight:700; color:#f8fafc;">{{ selectedSkillDetail?.name }} · 规约透视</span>
+          <span style="font-size:15px; font-weight:700; color:#0f172a;">{{ selectedSkillDetail?.name }} · 规约透视</span>
         </div>
         <div style="display:flex; align-items:center; gap:8px;">
           <!-- 切换渲染模式 vs 原始代码模式 -->
-          <div class="view-mode-toggle" style="background:#1e293b; padding:2px; border-radius:6px;">
+          <div class="view-mode-toggle" style="background:#e2e8f0; padding:2px; border-radius:6px;">
             <button
               class="view-mode-btn"
               :class="{ active: skillViewMode === 'rendered' }"
@@ -6072,16 +6102,16 @@ onMounted(async () => {
               📝 原始 Markdown
             </button>
           </div>
-          <button class="btn btn-outline btn-sm" style="color:#94a3b8; border-color:#334155;" @click="drawerSkillDetailVisible = false">✕</button>
+          <button class="btn btn-outline btn-sm" style="color:#64748b; border-color:#cbd5e1;" @click="drawerSkillDetailVisible = false">✕</button>
         </div>
       </div>
-      <div class="drawer-body" style="background:#0f172a; color:#cbd5e1; font-size:13px; padding:20px; overflow-y:auto;">
-        <div style="background:#1e293b; padding:12px; border-radius:6px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
+      <div class="drawer-body" style="background:#f8fafc; color:#334155; font-size:13px; padding:20px; overflow-y:auto;">
+        <div style="background:#ffffff; border:1px solid #e2e8f0; padding:12px; border-radius:6px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; box-shadow:0 1px 2px rgba(0,0,0,0.03);">
           <div>
-            <div style="font-size:11px; color:#94a3b8; margin-bottom:2px;">规范文件物理路径：</div>
-            <div style="font-family:monospace; color:#38bdf8; font-size:12px;">{{ selectedSkillDetail?.path }}</div>
+            <div style="font-size:11px; color:#64748b; margin-bottom:2px;">规范文件物理路径：</div>
+            <div style="font-family:monospace; color:#0284c7; font-size:12px; font-weight:600;">{{ selectedSkillDetail?.path }}</div>
           </div>
-          <span class="tag" style="background:#064e3b; color:#34d399; font-size:11px;">
+          <span class="tag" style="background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; font-size:11px;">
             {{ skillViewMode === 'rendered' ? '✨ 富文本优雅阅读模式' : '💻 原始源码模式' }}
           </span>
         </div>
@@ -6093,37 +6123,37 @@ onMounted(async () => {
 
         <!-- 模式二：原始 Markdown 文本视图 -->
         <div v-else>
-          <pre style="background:#020617; border:1px solid #1e293b; border-radius:8px; padding:16px; font-family:Consolas, Monaco, monospace; font-size:12px; color:#f1f5f9; line-height:1.6; white-space:pre-wrap; word-break:break-word; max-height:650px; overflow-y:auto;">{{ selectedSkillDetail?.content || '暂无内容或正在加载...' }}</pre>
+          <pre style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:16px; font-family:Consolas, Monaco, monospace; font-size:12px; color:#1e293b; line-height:1.6; white-space:pre-wrap; word-break:break-word; max-height:650px; overflow-y:auto; box-shadow:0 1px 3px rgba(0,0,0,0.04);">{{ selectedSkillDetail?.content || '暂无内容或正在加载...' }}</pre>
         </div>
       </div>
-      <div class="drawer-footer" style="background:#0b1320; border-top:1px solid #1e293b;">
-        <button class="btn btn-outline btn-sm" style="color:#94a3b8; border-color:#334155;" @click="drawerSkillDetailVisible = false">关闭</button>
+      <div class="drawer-footer" style="background:#f8fafc; border-top:1px solid #e2e8f0;">
+        <button class="btn btn-outline btn-sm" style="color:#64748b; border-color:#cbd5e1;" @click="drawerSkillDetailVisible = false">关闭</button>
       </div>
     </div>
 
     <!-- ================= 抽屉面板：自动化脚本源码与看门狗透视 ================= -->
     <div class="drawer-overlay" :class="{ active: drawerScriptDetailVisible }" @click="drawerScriptDetailVisible = false"></div>
-    <div class="drawer-panel" :class="{ open: drawerScriptDetailVisible }" style="width:780px; max-width:94vw;">
-      <div class="drawer-header" style="background:#0b1320; border-bottom:1px solid #1e293b; color:#fff;">
+    <div class="drawer-panel" :class="{ open: drawerScriptDetailVisible }" style="width:780px; max-width:94vw; background:#ffffff;">
+      <div class="drawer-header" style="background:#f8fafc; border-bottom:1px solid #e2e8f0; color:#0f172a;">
         <div style="display:flex; align-items:center; gap:8px;">
-          <span class="tag" style="background:#10b981; color:#fff;">{{ selectedScriptDetail?.icon || '🛠️' }} {{ selectedScriptDetail?.id }}</span>
-          <span style="font-size:15px; font-weight:700; color:#f8fafc;">{{ selectedScriptDetail?.name }} · 脚本源码透视</span>
+          <span class="tag" style="background:#059669; color:#fff;">{{ selectedScriptDetail?.icon || '🛠️' }} {{ selectedScriptDetail?.id }}</span>
+          <span style="font-size:15px; font-weight:700; color:#0f172a;">{{ selectedScriptDetail?.name }} · 脚本源码透视</span>
         </div>
-        <button class="btn btn-outline btn-sm" style="color:#94a3b8; border-color:#334155;" @click="drawerScriptDetailVisible = false">✕</button>
+        <button class="btn btn-outline btn-sm" style="color:#64748b; border-color:#cbd5e1;" @click="drawerScriptDetailVisible = false">✕</button>
       </div>
-      <div class="drawer-body" style="background:#0f172a; color:#cbd5e1; font-size:13px; padding:20px; overflow-y:auto;">
-        <div style="background:#1e293b; padding:12px; border-radius:6px; margin-bottom:16px;">
+      <div class="drawer-body" style="background:#f8fafc; color:#334155; font-size:13px; padding:20px; overflow-y:auto;">
+        <div style="background:#ffffff; border:1px solid #e2e8f0; padding:12px; border-radius:6px; margin-bottom:16px; box-shadow:0 1px 2px rgba(0,0,0,0.03);">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-            <span style="font-size:11px; color:#94a3b8;">脚本物理路径：</span>
-            <span class="tag" style="background:#064e3b; color:#34d399; font-size:10px;">{{ selectedScriptDetail?.runtime }}</span>
+            <span style="font-size:11px; color:#64748b;">脚本物理路径：</span>
+            <span class="tag" style="background:#ecfdf5; color:#059669; border:1px solid #a7f3d0; font-size:10px;">{{ selectedScriptDetail?.runtime }}</span>
           </div>
-          <div style="font-family:monospace; color:#38bdf8; font-size:12px; margin-bottom:6px;">{{ selectedScriptDetail?.path }}</div>
-          <div style="background:#020617; padding:4px 8px; border-radius:4px; font-family:monospace; color:#34d399; font-size:11px;">$ {{ selectedScriptDetail?.cmd }}</div>
+          <div style="font-family:monospace; color:#0284c7; font-size:12px; margin-bottom:6px; font-weight:600;">{{ selectedScriptDetail?.path }}</div>
+          <div style="background:#f1f5f9; border:1px solid #e2e8f0; padding:6px 10px; border-radius:4px; font-family:monospace; color:#0f766e; font-size:11px;">$ {{ selectedScriptDetail?.cmd }}</div>
         </div>
         <div>
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <div style="font-size:12px; font-weight:700; color:#94a3b8;">💻 脚本源码全文（语法高亮 & 行号）：</div>
-            <span class="tag" style="background:rgba(56, 189, 248, 0.15); color:#38bdf8; font-size:10px;">IDE 代码视图</span>
+            <div style="font-size:12px; font-weight:700; color:#475569;">💻 脚本源码全文（语法高亮 & 行号）：</div>
+            <span class="tag" style="background:#e0f2fe; color:#0284c7; border:1px solid #bae6fd; font-size:10px;">IDE 代码视图</span>
           </div>
           <!-- 语法高亮代码编辑器视窗 -->
           <div class="code-editor-viewport">
@@ -6131,8 +6161,8 @@ onMounted(async () => {
           </div>
         </div>
       </div>
-      <div class="drawer-footer" style="background:#0b1320; border-top:1px solid #1e293b;">
-        <button class="btn btn-outline btn-sm" style="color:#94a3b8; border-color:#334155;" @click="drawerScriptDetailVisible = false">关闭</button>
+      <div class="drawer-footer" style="background:#f8fafc; border-top:1px solid #e2e8f0;">
+        <button class="btn btn-outline btn-sm" style="color:#64748b; border-color:#cbd5e1;" @click="drawerScriptDetailVisible = false">关闭</button>
       </div>
     </div>
     <div class="modal-overlay" :class="{ active: modalGenSignLinkOpen }">
@@ -6421,36 +6451,289 @@ onMounted(async () => {
         </div>
       </div>
     </div>
+    <!-- ================= 🔮 全局智能调度悬浮球 (Smart Floating Ball) ================= -->
+    <div
+      class="smart-floating-ball-wrapper"
+      :style="{ left: `${floatingBallPos.x}px`, top: `${floatingBallPos.y}px` }"
+      @mousedown="handleBallMouseDown"
+    >
+      <!-- 悬浮小球主体 -->
+      <div
+        class="smart-ball"
+        :class="{ active: floatingPanelVisible, dragging: isDraggingBall }"
+        title="点击展开智能快捷调度，按住可任意拖拽"
+        @click="handleBallClick"
+      >
+        <span class="smart-ball-icon">⚡</span>
+        <span class="smart-ball-pulse"></span>
+      </div>
+
+      <!-- 点击展开的高端毛玻璃快捷调度浮层 -->
+      <transition name="pop-scale">
+        <div
+          v-if="floatingPanelVisible"
+          class="smart-floating-panel"
+          :class="floatingBallPos.x > 300 ? 'align-left' : 'align-right'"
+          @mousedown.stop
+        >
+          <div class="panel-header">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:14px;">✨</span>
+              <span style="font-weight:700; font-size:13px; color:#0f172a;">智能快捷调度台</span>
+            </div>
+            <button class="panel-close-btn" @click="floatingPanelVisible = false">✕</button>
+          </div>
+
+          <div class="panel-body">
+            <!-- 快速切换项目空间 -->
+            <div style="padding:4px 6px; margin-bottom:4px; background:#f8fafc; border:1px solid #f1f5f9; border-radius:8px;">
+              <div style="font-size:11px; color:#64748b; margin-bottom:4px; font-weight:600;">📁 当前聚焦项目空间</div>
+              <select
+                class="form-control"
+                style="width:100%; font-size:12px; height:32px; padding:2px 8px; font-weight:600; color:#0284c7; background:#ffffff;"
+                v-model="selectedProject"
+                @change="handleProjectChange"
+              >
+                <option v-for="p in projectList" :key="p.id" :value="p.projectKey">
+                  {{ p.projectKey }} · {{ p.name }}
+                </option>
+              </select>
+            </div>
+
+            <!-- 快捷录入需求 -->
+            <div
+              class="quick-action-item"
+              @click="handleOpenNewReqDrawer(); floatingPanelVisible = false"
+            >
+              <div class="action-icon" style="background:#e0f2fe; color:#0284c7;">➕</div>
+              <div class="action-meta">
+                <div class="action-title">快速录入需求 (M02)</div>
+                <div class="action-desc">无需切换页面，抽屉随时拉起录入</div>
+              </div>
+            </div>
+
+            <!-- 客户免登录签名通道 -->
+            <div
+              class="quick-action-item"
+              @click="switchPerspective(currentPerspective === 'internal' ? 'client' : 'internal'); floatingPanelVisible = false"
+            >
+              <div class="action-icon" style="background:#fef3c7; color:#d97706;">🔗</div>
+              <div class="action-meta">
+                <div class="action-title">
+                  {{ currentPerspective === 'internal' ? '切换至外部客户免登端' : '切回内部系统视角' }}
+                </div>
+                <div class="action-desc">免登录专属链接，客户在线确认与签名</div>
+              </div>
+            </div>
+
+            <!-- 进入当前项目流水线 -->
+            <div
+              class="quick-action-item"
+              @click="currentPage = 'page-workflow'; floatingPanelVisible = false"
+            >
+              <div class="action-icon" style="background:#ecfdf5; color:#059669;">🚀</div>
+              <div class="action-meta">
+                <div class="action-title">工程流水线透视</div>
+                <div class="action-desc">查看 16 篇 SOP 工位与实时质检门禁</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel-footer">
+            <span style="color:#64748b; font-size:11px;">💡 贴士：可任意拖拽小球放置屏幕两侧</span>
+          </div>
+        </div>
+      </transition>
+    </div>
   </div>
 </template>
 
 <style scoped>
 /* ==========================================================================
+   🔮 全局智能调度悬浮球 (Smart Floating Ball) 高端微交互动效
+   ========================================================================== */
+.smart-floating-ball-wrapper {
+  position: fixed;
+  z-index: 9999;
+  user-select: none;
+}
+.smart-ball {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.4), 0 1px 3px rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  position: relative;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s;
+}
+.smart-ball:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 20px rgba(2, 132, 199, 0.5);
+}
+.smart-ball.dragging {
+  cursor: grabbing;
+  transform: scale(1.12);
+  box-shadow: 0 8px 24px rgba(2, 132, 199, 0.6);
+}
+.smart-ball.active {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.3);
+}
+.smart-ball-icon {
+  font-size: 20px;
+  color: #ffffff;
+  pointer-events: none;
+}
+.smart-ball-pulse {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(2, 132, 199, 0.4);
+  animation: ball-pulse 2.4s infinite ease-out;
+  pointer-events: none;
+}
+@keyframes ball-pulse {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  60% { transform: scale(1.3); opacity: 0; }
+  100% { transform: scale(1.3); opacity: 0; }
+}
+
+/* 浮层面板（毛玻璃 + 微投影） */
+.smart-floating-panel {
+  position: absolute;
+  bottom: 60px;
+  width: 270px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(12px);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  z-index: 10000;
+  cursor: default;
+}
+.smart-floating-panel.align-left {
+  right: 0;
+}
+.smart-floating-panel.align-right {
+  left: 0;
+}
+.panel-header {
+  padding: 10px 14px;
+  background: #f8fafc;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.panel-close-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.panel-close-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+.panel-body {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.quick-action-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+.quick-action-item:hover {
+  background: #f1f5f9;
+  transform: translateX(2px);
+}
+.action-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.action-meta {
+  flex: 1;
+}
+.action-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #1e293b;
+}
+.action-desc {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 1px;
+}
+.panel-footer {
+  padding: 8px 14px;
+  background: #f8fafc;
+  border-top: 1px solid #f1f5f9;
+  text-align: center;
+}
+
+/* 弹出动效 */
+.pop-scale-enter-active,
+.pop-scale-leave-active {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: bottom right;
+}
+.pop-scale-enter-from,
+.pop-scale-leave-to {
+  opacity: 0;
+  transform: scale(0.9) translateY(10px);
+}
+
+/* ==========================================================================
    Markdown 富文本阅读模式专属优雅排版样式
    ========================================================================== */
 .markdown-rendered-container {
-  background: #020617;
-  border: 1px solid #1e293b;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
   padding: 24px;
-  color: #e2e8f0;
+  color: #1e293b;
   font-size: 13.5px;
   line-height: 1.7;
   max-height: 650px;
   overflow-y: auto;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 :deep(.md-h1) {
   font-size: 20px;
   font-weight: 700;
-  color: #38bdf8;
+  color: #0369a1;
   margin: 16px 0 12px 0;
   padding-bottom: 8px;
-  border-bottom: 1px solid #1e293b;
+  border-bottom: 1px solid #e2e8f0;
 }
 :deep(.md-h2) {
   font-size: 16px;
   font-weight: 700;
-  color: #f8fafc;
+  color: #0f172a;
   margin: 18px 0 10px 0;
   display: flex;
   align-items: center;
@@ -6458,43 +6741,44 @@ onMounted(async () => {
 :deep(.md-h3) {
   font-size: 14.5px;
   font-weight: 600;
-  color: #38bdf8;
+  color: #0284c7;
   margin: 14px 0 8px 0;
 }
 :deep(.md-h4) {
   font-size: 13.5px;
   font-weight: 600;
-  color: #94a3b8;
+  color: #475569;
   margin: 10px 0 6px 0;
 }
 :deep(.md-code-block) {
-  background: #090d16;
-  border: 1px solid #1e293b;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
   border-radius: 6px;
   margin: 12px 0;
   overflow: hidden;
 }
 :deep(.md-code-header) {
-  background: #0f172a;
+  background: #f1f5f9;
   padding: 4px 12px;
   font-size: 11px;
   color: #64748b;
   text-transform: uppercase;
   font-family: monospace;
-  border-bottom: 1px solid #1e293b;
+  border-bottom: 1px solid #e2e8f0;
 }
 :deep(.md-code-body) {
   margin: 0;
   padding: 12px;
   font-family: Consolas, Monaco, monospace;
   font-size: 12px;
-  color: #34d399;
+  color: #0f766e;
   line-height: 1.5;
   overflow-x: auto;
 }
 :deep(.md-inline-code) {
-  background: #1e293b;
-  color: #38bdf8;
+  background: #f1f5f9;
+  color: #0284c7;
+  border: 1px solid #e2e8f0;
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 12px;
@@ -6502,20 +6786,20 @@ onMounted(async () => {
 }
 :deep(.md-blockquote) {
   border-left: 4px solid #0284c7;
-  background: rgba(2, 132, 199, 0.08);
+  background: #f0f9ff;
   padding: 8px 14px;
   margin: 10px 0;
-  color: #94a3b8;
+  color: #475569;
   font-style: italic;
   border-radius: 0 4px 4px 0;
 }
 :deep(.md-hr) {
   border: none;
-  border-top: 1px dashed #334155;
+  border-top: 1px dashed #cbd5e1;
   margin: 20px 0;
 }
 :deep(.md-strong) {
-  color: #f8fafc;
+  color: #0f172a;
   font-weight: 700;
 }
 :deep(.md-list-item) {
@@ -6526,11 +6810,11 @@ onMounted(async () => {
   line-height: 1.6;
 }
 :deep(.md-bullet) {
-  color: #38bdf8;
+  color: #0284c7;
   font-size: 14px;
 }
 :deep(.md-num) {
-  color: #10b981;
+  color: #059669;
   font-weight: 700;
   font-family: monospace;
 }
@@ -6542,8 +6826,8 @@ onMounted(async () => {
    Python / Shell 脚本代码编辑器视窗与语法高亮 (IDE Code Highlighting)
    ========================================================================== */
 .code-editor-viewport {
-  background: #020617;
-  border: 1px solid #1e293b;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
   padding: 16px 0;
   max-height: 650px;
@@ -6551,6 +6835,7 @@ onMounted(async () => {
   font-family: "JetBrains Mono", Consolas, Monaco, "Courier New", monospace;
   font-size: 12.5px;
   line-height: 1.6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 :deep(.code-line) {
   display: flex;
@@ -6558,50 +6843,50 @@ onMounted(async () => {
   white-space: pre;
 }
 :deep(.code-line:hover) {
-  background: rgba(255, 255, 255, 0.04);
+  background: #f8fafc;
 }
 :deep(.code-lineno) {
   width: 42px;
   user-select: none;
-  color: #475569;
+  color: #94a3b8;
   text-align: right;
   padding-right: 16px;
   flex-shrink: 0;
-  border-right: 1px solid #1e293b;
+  border-right: 1px solid #e2e8f0;
   margin-right: 16px;
   font-size: 11px;
 }
 :deep(.code-text) {
   flex: 1;
-  color: #f1f5f9;
+  color: #1e293b;
 }
 :deep(.hl-keyword) {
-  color: #f43f5e;
+  color: #e11d48;
   font-weight: 700;
 }
 :deep(.hl-string) {
-  color: #a7f3d0;
+  color: #0d9488;
 }
 :deep(.hl-docstring) {
   color: #64748b;
   font-style: italic;
 }
 :deep(.hl-comment) {
-  color: #64748b;
+  color: #94a3b8;
   font-style: italic;
 }
 :deep(.hl-bool) {
-  color: #fb923c;
+  color: #ea580c;
   font-weight: 700;
 }
 :deep(.hl-builtin) {
-  color: #38bdf8;
+  color: #0284c7;
 }
 :deep(.hl-decorator) {
-  color: #c084fc;
+  color: #9333ea;
 }
 :deep(.hl-number) {
-  color: #fbbf24;
+  color: #d97706;
 }
 
 /* 工程流水线拓扑画布可视区 (FR-REQ-WFC-01 / Task-510)
@@ -6641,9 +6926,10 @@ onMounted(async () => {
 }
 
 .req-app-container {
-  --primary: #14535B;
-  --primary-dark: #0D373D;
-  --primary-light: #E6F0F2;
+  /* 统一与 SysPlatform 全局主题 (Apple 科技蓝 / 主题色 Token) 100% 对齐 */
+  --primary: var(--primary-color, #0284c7);
+  --primary-dark: var(--primary-hover, #0369a1);
+  --primary-light: var(--primary-light, #e0f2fe);
   --accent: #C2410C;
   --accent-light: #FFEDD5;
   --bg: #F8FAFC;
@@ -6659,7 +6945,7 @@ onMounted(async () => {
   --warning-light: #FEF3C7;
   --info: #0284C7;
   --info-light: #E0F2FE;
-  --radius-sm: 4px;
+  --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
@@ -6681,21 +6967,22 @@ onMounted(async () => {
   line-height: 1.5;
 }
 
-/* 顶部顶栏 */
+/* 顶部顶栏（现代白底通透微卡片设计，替代暗沉黑条） */
 header.app-header {
-  background-color: var(--primary);
-  color: #FFFFFF;
-  min-height: 52px;
+  background-color: #ffffff;
+  color: #1e293b;
+  border-bottom: 1px solid #e2e8f0;
+  min-height: 48px;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  padding: 8px 16px;
+  padding: 6px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 10px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
   z-index: 50;
   flex-shrink: 0;
 }
@@ -6706,27 +6993,29 @@ header.app-header {
   flex-wrap: wrap;
 }
 .logo-badge {
-  background: rgba(255, 255, 255, 0.15);
+  background: #e0f2fe;
+  color: #0284c7;
   font-weight: 700;
-  font-size: 13px;
-  padding: 3px 8px;
+  font-size: 12px;
+  padding: 2px 7px;
   border-radius: var(--radius-sm);
   letter-spacing: 0.5px;
 }
 .app-title {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
+  color: #0f172a;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 .project-selector {
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  color: #FFF;
-  padding: 4px 10px;
-  border-radius: var(--radius-sm);
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #1e293b;
   font-size: 13px;
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
   cursor: pointer;
   outline: none;
 }
@@ -6892,49 +7181,57 @@ main.main-content {
   padding: 20px;
 }
 
-/* 按钮 */
+/* 按钮（统一百搭质感科技蓝配色，配合轻微渐变与投影） */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 7px 14px;
+  padding: 7px 16px;
   font-size: 13px;
   font-weight: 500;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-sm, 6px);
   cursor: pointer;
   border: 1px solid transparent;
-  transition: all 0.15s;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
 }
 .btn-primary {
-  background: var(--primary);
-  color: #FFF;
-  border-color: var(--primary);
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  color: #FFFFFF;
+  border-color: #0284c7;
+  box-shadow: 0 1px 2px rgba(2, 132, 199, 0.2);
 }
 .btn-primary:hover {
-  background: var(--primary-dark);
-  border-color: var(--primary-dark);
+  background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
+  border-color: #0369a1;
+  box-shadow: 0 3px 8px rgba(2, 132, 199, 0.35);
+  transform: translateY(-1px);
+}
+.btn-primary:active {
+  transform: translateY(0);
 }
 .btn-outline {
-  background: var(--surface);
-  color: var(--text-secondary);
-  border-color: var(--border-dark);
+  background: #ffffff;
+  color: #334155;
+  border-color: #cbd5e1;
 }
 .btn-outline:hover {
-  background: var(--bg);
-  color: var(--text);
-  border-color: #94A3B8;
+  background: #f8fafc;
+  color: #0284c7;
+  border-color: #93c5fd;
+  transform: translateY(-1px);
 }
 .btn-accent {
-  background: var(--accent);
+  background: #d97706;
   color: #FFF;
-  border-color: var(--accent);
+  border-color: #d97706;
 }
 .btn-accent:hover {
-  background: #9A3412;
+  background: #b45309;
 }
 .btn-sm {
-  padding: 4px 8px;
+  padding: 4px 10px;
   font-size: 12px;
 }
 

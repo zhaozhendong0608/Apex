@@ -6,25 +6,52 @@
 ---
 
 <!-- SECTION:ACTIVE:START -->
-
+## 🔴 进行中 (ACTIVE)
 <!-- SECTION:ACTIVE:END -->
 
 ---
 
 <!-- SECTION:BLOCKED:START -->
-
+## 🟠 阻塞中 (BLOCKED)
 <!-- SECTION:BLOCKED:END -->
-
 
 ---
 
 <!-- SECTION:TODO:START -->
-
+## ⚪ 待办中 (TODO)
 <!-- SECTION:TODO:END -->
 
 ---
 
 <!-- SECTION:DONE:START -->
+## 🟢 已完成 (DONE)
+<!-- SECTION:DONE:END -->
+
+---
+
+## 📌 附录：迁移保留的历史内容（请人工整理后删除）
+
+> 本区块由 board.py 在修复锚点时自动下沉，不属于状态机管辖。
+
+# 📋 任务看板 (Task Board)
+
+> ⚠️ **本文件是任务状态机的唯一事实源，只允许通过 `python3 .ai/scripts/board.py` 修改。**
+> 区块由 HTML 注释锚点守护；AI 与人均严禁手工编辑，否则 `verify` / `complete` 会失效。
+
+---
+
+---
+
+[Task-519] [S1-Bone] 新模块开发准备
+- **Status**: BLOCKED
+- **功能目标**: 白话验收目标示例
+- **涉及文件**: src/test.txt
+- **阻塞原因**: 测试取消
+- **阻塞时间**: 2026-11-21
+
+---
+
+---
 
 [Task-518] 闭环打通验证任务 (Done: 2026-11-17)
 - **Status**: DONE
@@ -100,5 +127,3 @@
 - **Status**: DONE
 - **功能目标**: 让 board.py 具备 verify+--accept 与原子归档、gate.py 补齐 4 类门禁与元门禁、全仓文档口径一致并落地新手手册
 - **涉及文件**: .ai/scripts/board.py,.ai/scripts/gate.py,.ai/scripts/sync_tree.py,BEGINNER_HANDBOOK.md,workflow_guide.html
-
-<!-- SECTION:DONE:END -->

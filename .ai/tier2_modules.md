@@ -19,7 +19,7 @@
 | `req-management` | 业务模块 PRD 工程流水线拓扑画布可视区治理 | [prd-workflow-canvas-viewport-v1.0.md](../docs/modules/req-management/prd-workflow-canvas-viewport-v1.0.md) | 🟡 4/6 | PRD · 原型 · TC · Design |
 | `sys_platform` | 通用后台管理平台核心模块 | [prd-sys-platform-v1.0.md](../docs/modules/sys_platform/prd-sys-platform-v1.0.md) | 🟡 4/6 | PRD · 原型 · DLD · TC |
 
-> 🤖 共 5 个模块，由 `sync_tree.py` 扫描 `docs/modules` 自动汇总。
+> 🤖 共 5 个模块，由 `sync_tree.py` 扫描 `base_template/docs/modules` / `docs/modules` 自动汇总。
 <!-- AUTO-MODULE-INDEX:END -->
 
 ---

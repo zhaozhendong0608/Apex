@@ -53,6 +53,7 @@ Apex/                                                # 🚀 顶层工作区 (IDE
 │   ├── 🧠 .windsurfrules                             # 🧠 IDE 规则适配文件
 │   ├── 📖 README.md                                  # 📖 项目门面与使用指南
 │   ├── 📁 backend/                                   # 后端工程
+│   ├── 📁 docs/                                      # 📁 需求 / 设计 / 计划 / 交接文档
 │   ├── 📁 frontend/                                  # 前端工程
 │   └── 🛠️ scripts/                                  # 🛠️ 自动化控制与分析脚本库
 ├── 📁 docs/                                          # 📁 需求 / 设计 / 计划 / 交接文档
@@ -76,14 +77,6 @@ Apex/                                                # 🚀 顶层工作区 (IDE
 ├── 🛠️ scripts/                                      # 🛠️ 自动化控制与分析脚本库
 │   ├── 📄 req_agent_flow.py
 │   └── 📁 tests/
-├── 📁 station-device-simulator/
-│   ├── 📁 simulator-core/
-│   ├── 📁 simulator-metadata-mysql/
-│   ├── 📁 simulator-metadata-spi/
-│   ├── 📁 simulator-sink-jsdb/
-│   ├── 📁 simulator-sink-spi/
-│   ├── 📁 simulator-starter/
-│   └── 📁 simulator-ui/
 ├── 📁 storage/
 │   └── 📁 prototypes/
 ├── 📁 training/
