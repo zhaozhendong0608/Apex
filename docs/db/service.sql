@@ -373,6 +373,28 @@ INSERT IGNORE INTO `t_req_release` (`id`, `project_id`, `baseline_id`, `release_
 VALUES (1, 1, 1, 'R-1.0.0', NULL, '2026-11-30', NULL, 'PLANNED', '首批核心交付：包含四层确认清单、SHA256原型快照与三方免登签署回执（绑定 BL-v1.0）。', 'admin');
 
 
+-- 4.8.4 需求子任务拆解与进度协同表 (t_req_subtask - 支持百分比度量与一键解锁)
+CREATE TABLE IF NOT EXISTS `t_req_subtask` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '自增主键',
+  `req_code` VARCHAR(64) NOT NULL COMMENT '关联主需求编号 (如 REQ-001)',
+  `task_code` VARCHAR(64) NOT NULL COMMENT '子任务唯一编号 (如 Task-ORDER-up_dong-01)',
+  `module_name` VARCHAR(64) NOT NULL COMMENT '所属业务切片模块 (如 ORDER, SMS, REQ_MGMT)',
+  `title` VARCHAR(256) NOT NULL COMMENT '子任务标题',
+  `goal` TEXT DEFAULT NULL COMMENT '白话验收目标',
+  `files` TEXT DEFAULT NULL COMMENT '涉及文件列表 (逗号分隔)',
+  `owner_name` VARCHAR(64) NOT NULL DEFAULT 'admin' COMMENT '责任研发人 (Git用户名)',
+  `status` VARCHAR(32) NOT NULL DEFAULT 'TODO' COMMENT '状态: TODO待办, IN_PROGRESS进行中, DONE已完成, BLOCKED已阻塞',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `completed_at` DATETIME DEFAULT NULL COMMENT '完成归档时间',
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_task_code` (`task_code`),
+  KEY `idx_subtask_req` (`req_code`),
+  KEY `idx_subtask_status` (`status`),
+  KEY `idx_subtask_owner` (`owner_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='需求管理-原子子任务拆解与百分比进度协同表';
+
+
 -- ------------------------------------------------------------------------------
 -- 4.9 Apex 动态菜单与权限配置 (sys_menu & sys_role_menu)
 -- 菜单排序规则 (Sort Order):

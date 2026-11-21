@@ -18,7 +18,8 @@ Apex 任务看板与交接记忆脚本 (board.py) v2.0
 用法
 ----
   python3 .ai/scripts/board.py list                        # 查看看板
-  python3 .ai/scripts/board.py add <id> <title> <goal> [files]
+  python3 .ai/scripts/board.py new <module> <title> <goal> [files] # 智能创建多人防冲突任务 (Task-<MODULE>-<USER>-<序号>)
+  python3 .ai/scripts/board.py add <id> <title> <goal> [files]     # 手动指定 ID 创建任务
   python3 .ai/scripts/board.py start <id>                  # 锁定为 ACTIVE（单焦点）
   python3 .ai/scripts/board.py verify <id>                 # 终验机器人核验（PASS/BLOCKING）
   python3 .ai/scripts/board.py complete <id> --accept       # [7] 专属：终验放行 + 原子归档
@@ -27,6 +28,7 @@ Apex 任务看板与交接记忆脚本 (board.py) v2.0
   python3 .ai/scripts/board.py block <id> "<原因>"           # 标记阻塞（释放焦点）
   python3 .ai/scripts/board.py unblock <id>                 # 解除阻塞 → TODO
   python3 .ai/scripts/board.py rebuild-tier1               # 仅重建第一层名片
+  python3 .ai/scripts/board.py land [target_node]          # 🚀 一键交工合流 (全门禁+契约校验+大图名片刷新+工位推进入库)
   python3 .ai/scripts/board.py init                        # 强制重建标准骨架（幂等）
 """
 
@@ -50,6 +52,51 @@ STATUS_FILE = os.path.join(AI_DIR, "tier3_status.md")
 HANDOVER_FILE = os.path.join(AI_DIR, "tier3_handover.md")
 TIER1_FILE = os.path.join(AI_DIR, "tier1_snapshot.md")
 BACKEND_ADVANCE_URL = "http://127.0.0.1:8080/api/v1/req/workflow/advance"
+BACKEND_SUBTASK_SYNC_URL = "http://127.0.0.1:8080/api/v1/req/workflow/subtasks/sync"
+
+def _sync_subtask_to_backend(task_id, title, goal="未指定", files="未指定", status="TODO"):
+    """
+    静默自动将原子子任务的状态同步至 MySQL 数据库 (t_req_subtask)
+    实现前端页面百分比统计实时动态计算
+    """
+    req_code = "REQ-001"
+    if os.path.exists(TIER1_FILE):
+        try:
+            with open(TIER1_FILE, "r", encoding="utf-8") as f:
+                for line in f:
+                    if "当前聚焦需求" in line:
+                        parts = line.split(":")
+                        if len(parts) > 1:
+                            req_code = parts[1].strip()
+                        break
+        except Exception:
+            pass
+
+    owner = get_git_username()
+    # 提取模块名 (如 Task-ORDER-updong-01 -> ORDER)
+    parts = task_id.split("-")
+    module = parts[1] if len(parts) > 2 else "MOD"
+
+    payload = {
+        "reqCode": req_code,
+        "taskCode": task_id,
+        "moduleName": module,
+        "title": title,
+        "goal": goal,
+        "files": files,
+        "ownerName": owner,
+        "status": status
+    }
+    try:
+        data = urllib.parse.urlencode(payload).encode("utf-8")
+        req = urllib.request.Request(BACKEND_SUBTASK_SYNC_URL, data=data, method="POST")
+        with urllib.request.urlopen(req, timeout=1.0) as resp:
+            if resp.status == 200:
+                print(f"📊 [MySQL Auto-Sync] 子任务 [{task_id}] 状态已入库 (Status: {status})")
+                return True
+    except Exception:
+        pass
+    return False
 
 def _sync_to_backend_workflow(node_id, action_type="ADVANCE", status="IN_PROGRESS", override_reason=None, artifacts_json=None):
     """
@@ -331,6 +378,51 @@ def load_board():
 # 命令实现
 # ===========================================================================
 
+def get_git_username():
+    """获取当前工作区的 git 用户名，作为隔离标识符"""
+    try:
+        import subprocess
+        res = subprocess.run(["git", "config", "user.name"], capture_output=True, text=True, check=True)
+        name = res.stdout.strip()
+        if name:
+            # 清理非合法标识符字符
+            clean = re.sub(r"[^A-Za-z0-9_-]", "", name.lower())
+            return clean if clean else "dev"
+    except Exception:
+        pass
+    return "dev"
+
+
+def create_auto_task(module, title, goal, files="未指定"):
+    """
+    智能根据 [模块-Git用户-序号] 自动生成绝对不冲突的 Task ID 并加入 TODO
+    格式: Task-<MODULE>-<USER>-<INDEX> (如: Task-ORDER-updong-01)
+    """
+    clean_mod = re.sub(r"[^A-Za-z0-9]", "", module.upper())
+    if not clean_mod:
+        clean_mod = "MOD"
+    user_tag = get_git_username()
+    prefix = f"Task-{clean_mod}-{user_tag}-"
+
+    content = load_board()
+    sections = read_sections(content)
+    max_idx = 0
+    pattern = re.compile(re.escape(prefix) + r"(\d+)")
+
+    for sec in ("active", "blocked", "todo", "done"):
+        tasks = split_tasks(sections.get(sec, ""))
+        for tid, _ in tasks:
+            m = pattern.match(tid)
+            if m:
+                idx = int(m.group(1))
+                if idx > max_idx:
+                    max_idx = idx
+
+    new_id = f"{prefix}{max_idx + 1:02d}"
+    print(f"💡 自动生成多人隔离防冲突任务 ID: [{new_id}] (模块: {clean_mod}, 责任人: {user_tag})")
+    return add_task(new_id, title, goal, files)
+
+
 def add_task(task_id, title, goal, files="未指定"):
     if not re.match(r"^Task-[A-Za-z0-9_\-]+$", task_id):
         print(f"❌ task_id 建议使用 `Task-<数字>` 形式，当前为 [{task_id}]")
@@ -350,6 +442,8 @@ def add_task(task_id, title, goal, files="未指定"):
     content = set_section(content, "todo", body)
     _write_if_changed(STATUS_FILE, content)
     print(f"✅ 已加入 TODO: [{task_id}] {title}")
+    # 自动同步新建子任务至 MySQL 数据库
+    _sync_subtask_to_backend(task_id, title, goal, files, status="TODO")
     return 0
 
 
@@ -387,6 +481,8 @@ def start_task(task_id, force=False, quiet=False):
     rebuild_tier1(quiet=quiet)
     # 同步工位状态至后端 MySQL
     _sync_to_backend_workflow("SOP-03", action_type="ADVANCE", status="IN_PROGRESS", artifacts_json=f"任务激活: [{task_id}]")
+    # 自动同步子任务状态为 IN_PROGRESS
+    _sync_subtask_to_backend(task_id, task_title(block), task_goal(block), ",".join(task_files(block)), status="IN_PROGRESS")
     return 0
 
 
@@ -505,7 +601,19 @@ def _verify_report(task_id):
             lines.append(f"   ⚠️  tier1 焦点与 [{task_id}] 不一致（执行 `board.py rebuild-tier1` 可修复）")
 
     lines.append("")
-    lines.append("── 5. 全量自动化测试探针与契约门禁 ──")
+    lines.append("── 5. 全量自动化测试探针与契约碰撞门禁 ──")
+    # 5.1 契约碰撞检测 (contract_guard)
+    cg_script = os.path.join(AI_DIR, "scripts", "contract_guard.py")
+    if os.path.exists(cg_script):
+        import subprocess
+        proc_cg = subprocess.run([sys.executable, cg_script, "--check"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if proc_cg.returncode == 0:
+            lines.append("   ✅ DLD 架构接口契约碰撞校验通过 (Contract 100% Aligned)")
+        else:
+            lines.append("   🔴 DLD 架构接口契约发生漂移 (缺少实现或字段不符)")
+            blockers.append("DLD 架构接口契约发生漂移，请运行 `python3 .ai/scripts/contract_guard.py` 查看详情")
+
+    # 5.2 单元与集成测试探针 (test_runner)
     runner_script = os.path.join(AI_DIR, "scripts", "test_runner.py")
     if os.path.exists(runner_script):
         import subprocess
@@ -620,6 +728,8 @@ def complete_task(task_id, accept=False):
     # 6) 同步工位终验归档至后端 MySQL
     files_str = ', '.join(task_files(block)) or ''
     _sync_to_backend_workflow("SOP-07", action_type="ADVANCE", status="COMPLETED", artifacts_json=f"任务归档: [{task_id}], 改动文件: {files_str}")
+    # 7) 自动同步子任务状态为 DONE，推进 MySQL 完成度百分比
+    _sync_subtask_to_backend(task_id, task_title(block), task_goal(block), files_str, status="DONE")
 
     print(f"\n💾 三类资产已同步：tier3_status.md / tier3_handover.md / tier1_snapshot.md")
     return 0
@@ -874,6 +984,14 @@ def main():
         print(load_board())
         return 0
 
+    if cmd in ("new", "create"):
+        if len(positional) < 3:
+            print("❌ 参数不足：board.py new <module> <title> <goal> [files]")
+            print("   示例：board.py new ORDER \"实现订单支付接口\" \"打通微信支付回调\" src/OrderController.java")
+            return 2
+        files = positional[3] if len(positional) > 3 else "未指定"
+        return create_auto_task(positional[0], positional[1], positional[2], files)
+
     if cmd == "add":
         if len(positional) < 3:
             print("❌ 参数不足：board.py add <task_id> <title> <goal> [files]")
@@ -944,6 +1062,51 @@ def main():
         else:
             print(f"⚠️ 后端服务暂未连通，已保留本地缓存。")
             return 0
+
+    if cmd in ("land", "merge-flow"):
+        """一键交工合流：全量门禁 + 刷新模块大图 + 重建名片 + 推进工位"""
+        print("=" * 60)
+        print("🚀 执行【一键交工合流】(One-Click Land Flow)...")
+        print("=" * 60)
+        import subprocess
+
+        # 1. 跑全局门禁 (若暂存区为空则执行全仓元门禁核验 --sql --meta)
+        gate_script = os.path.join(AI_DIR, "scripts", "gate.py")
+        print("1️⃣ 正在执行全量看门狗门禁 (gate.py)...")
+        # 检测是否有暂存区文件
+        staged_check = subprocess.run(["git", "diff", "--cached", "--name-only"], capture_output=True, text=True)
+        gate_args = ["--staged"] if staged_check.stdout.strip() else ["--sql", "--meta"]
+        p1 = subprocess.run([sys.executable, gate_script] + gate_args)
+        if p1.returncode != 0:
+            print("🚫 门禁未通过，合流中止！请修复报错后再试。")
+            return 1
+
+        # 2. 跑 DLD 契约碰撞检查
+        cg_script = os.path.join(AI_DIR, "scripts", "contract_guard.py")
+        print("\n2️⃣ 正在执行 DLD 接口契约一致性校验 (contract_guard.py --check)...")
+        p2 = subprocess.run([sys.executable, cg_script, "--check"])
+        if p2.returncode != 0:
+            print("🚫 接口契约发生漂移，合流中止！")
+            return 1
+
+        # 3. 刷新第二层模块矩阵大图
+        sync_script = os.path.join(AI_DIR, "scripts", "sync_tree.py")
+        print("\n3️⃣ 正在重新扫描全仓 PRD 与资产矩阵 (sync_tree.py)...")
+        subprocess.run([sys.executable, sync_script])
+
+        # 4. 刷新第一层名片
+        print("\n4️⃣ 正在自愈重建工作区名片 (tier1_snapshot.md)...")
+        rebuild_tier1()
+
+        # 5. 自动推进 MySQL 工位状态至 SOP-07 (双向验收)
+        target_node = positional[0] if positional else "SOP-07"
+        print(f"\n5️⃣ 正在推进 MySQL 数据库工位事实源 ➔ [{target_node}]...")
+        _sync_to_backend_workflow(target_node, action_type="ADVANCE", status="COMPLETED", artifacts_json="主干一键合流成功 (One-Click Landed)")
+
+        print("\n" + "=" * 60)
+        print(f"🎉 恭喜！一键交工合流全量成功！工位已推进至 [{target_node}]。")
+        print("=" * 60)
+        return 0
 
     if cmd == "init":
         _content, changed = ensure_board(force=True)

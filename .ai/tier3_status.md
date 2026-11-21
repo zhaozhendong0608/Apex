@@ -6,7 +6,7 @@
 ---
 
 <!-- SECTION:ACTIVE:START -->
-## 🔴 进行中 (ACTIVE)
+
 <!-- SECTION:ACTIVE:END -->
 
 ---
@@ -18,13 +18,13 @@
 ---
 
 <!-- SECTION:TODO:START -->
-## ⚪ 待办中 (TODO)
+
 <!-- SECTION:TODO:END -->
 
 ---
 
 <!-- SECTION:DONE:START -->
-## 🟢 已完成 (DONE)
+
 <!-- SECTION:DONE:END -->
 
 ---

@@ -67,6 +67,7 @@ Apex/                                                # 🚀 顶层工作区 (IDE
 │   ├── 🎨 design/                                    # UI/UX 设计规范与主题资产库
 │   ├── 📁 handovers/
 │   ├── 📦 modules/                                   # 业务大模块 PRD 与交互原型库
+│   ├── 📄 multi_developer_collaboration_guide.md     # 团队多人协作与 Git 分支流转最佳实践指南
 │   ├── 📁 plans/
 │   ├── 📁 playbooks/
 │   ├── 📁 srs/

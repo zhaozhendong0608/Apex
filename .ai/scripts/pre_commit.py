@@ -51,13 +51,16 @@ def main():
         return 0
 
     gate = str(AI_DIR / "scripts" / "gate.py")
+    contract_guard = str(AI_DIR / "scripts" / "contract_guard.py")
     failures = []
 
     if run("① 代码门禁（gate --staged）", [gate, "--staged"]) != 0:
         failures.append("gate --staged")
-    if run("② 指令引用完整性（gate --refs）", [gate, "--refs"]) != 0:
+    if run("② 契约一致性校验（contract_guard --check）", [contract_guard, "--check"]) != 0:
+        failures.append("contract_guard --check")
+    if run("③ 指令引用完整性（gate --refs）", [gate, "--refs"]) != 0:
         failures.append("gate --refs")
-    if run("③ 能力点基线（gate --sop）", [gate, "--sop"]) != 0:
+    if run("④ 能力点基线（gate --sop）", [gate, "--sop"]) != 0:
         failures.append("gate --sop")
 
     print(f"\n{'=' * 56}")

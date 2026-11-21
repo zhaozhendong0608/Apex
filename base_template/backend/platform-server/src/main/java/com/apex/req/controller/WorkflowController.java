@@ -46,6 +46,9 @@ public class WorkflowController {
     @Autowired(required = false)
     private com.apex.req.mapper.ReqWorkflowNodeStateMapper workflowNodeStateMapper;
 
+    @Autowired(required = false)
+    private com.apex.req.mapper.ReqSubtaskMapper subtaskMapper;
+
     /**
      * 定位 .ai 存储目录
      */
@@ -506,6 +509,128 @@ public class WorkflowController {
         } catch (IOException e) {
             return Result.error(500, "持久化工位状态失败: " + e.getMessage());
         }
+    }
+
+    // =========================================================================
+    // 🎯 原子子任务拆解与百分比进度协同 API (支持自动化上报与一键解锁)
+    // =========================================================================
+
+    /**
+     * 查询指定需求下的所有子任务及完成百分比
+     */
+    @GetMapping("/subtasks")
+    public Result<Map<String, Object>> listSubtasks(@RequestParam("reqCode") String reqCode) {
+        Map<String, Object> res = new HashMap<>();
+        if (subtaskMapper == null) {
+            res.put("total", 0);
+            res.put("completed", 0);
+            res.put("percentage", 0);
+            res.put("list", Collections.emptyList());
+            return Result.success(res);
+        }
+
+        LambdaQueryWrapper<com.apex.req.domain.entity.ReqSubtask> qw = new LambdaQueryWrapper<>();
+        qw.eq(com.apex.req.domain.entity.ReqSubtask::getReqCode, reqCode)
+          .orderByDesc(com.apex.req.domain.entity.ReqSubtask::getId);
+        List<com.apex.req.domain.entity.ReqSubtask> list = subtaskMapper.selectList(qw);
+
+        long completedCount = list.stream().filter(t -> "DONE".equalsIgnoreCase(t.getStatus())).count();
+        int total = list.size();
+        int percentage = total > 0 ? (int) Math.round((double) completedCount * 100 / total) : 0;
+
+        res.put("total", total);
+        res.put("completed", completedCount);
+        res.put("percentage", percentage);
+        res.put("list", list);
+        return Result.success(res);
+    }
+
+    /**
+     * 自动上报/同步单个子任务状态 (TODO -> IN_PROGRESS -> DONE)
+     */
+    @PostMapping("/subtasks/sync")
+    public Result<com.apex.req.domain.entity.ReqSubtask> syncSubtask(
+            @RequestParam("reqCode") String reqCode,
+            @RequestParam("taskCode") String taskCode,
+            @RequestParam(value = "moduleName", defaultValue = "MOD") String moduleName,
+            @RequestParam("title") String title,
+            @RequestParam(value = "goal", defaultValue = "") String goal,
+            @RequestParam(value = "files", defaultValue = "") String files,
+            @RequestParam(value = "ownerName", defaultValue = "admin") String ownerName,
+            @RequestParam(value = "status", defaultValue = "TODO") String status) {
+        if (subtaskMapper == null) {
+            return Result.error(500, "数据库未初始化 subtaskMapper");
+        }
+
+        LambdaQueryWrapper<com.apex.req.domain.entity.ReqSubtask> qw = new LambdaQueryWrapper<>();
+        qw.eq(com.apex.req.domain.entity.ReqSubtask::getTaskCode, taskCode);
+        com.apex.req.domain.entity.ReqSubtask exist = subtaskMapper.selectOne(qw);
+
+        if (exist != null) {
+            exist.setTitle(title);
+            exist.setStatus(status.toUpperCase());
+            exist.setGoal(goal);
+            exist.setFiles(files);
+            exist.setUpdatedAt(LocalDateTime.now());
+            if ("DONE".equalsIgnoreCase(status) && exist.getCompletedAt() == null) {
+                exist.setCompletedAt(LocalDateTime.now());
+            }
+            subtaskMapper.updateById(exist);
+            return Result.success(exist, "子任务 [" + taskCode + "] 状态已同步更新为 " + status);
+        } else {
+            com.apex.req.domain.entity.ReqSubtask sub = com.apex.req.domain.entity.ReqSubtask.builder()
+                    .reqCode(reqCode)
+                    .taskCode(taskCode)
+                    .moduleName(moduleName)
+                    .title(title)
+                    .goal(goal)
+                    .files(files)
+                    .ownerName(ownerName)
+                    .status(status.toUpperCase())
+                    .createdAt(LocalDateTime.now())
+                    .updatedAt(LocalDateTime.now())
+                    .completedAt("DONE".equalsIgnoreCase(status) ? LocalDateTime.now() : null)
+                    .build();
+            subtaskMapper.insert(sub);
+            return Result.success(sub, "子任务 [" + taskCode + "] 已自动入库");
+        }
+    }
+
+    /**
+     * 一键重置/解锁大需求 (Admin Override，清空 DISSECTED 防重锁，重置为 PENDING)
+     */
+    @PostMapping("/unlock-requirement")
+    public Result<String> unlockRequirement(
+            @RequestParam("reqCode") String reqCode,
+            @RequestParam(value = "reason", defaultValue = "管理员一键解锁重置") String reason,
+            @RequestParam(value = "operator", defaultValue = "admin") String operator) {
+        if (requirementMapper != null) {
+            LambdaUpdateWrapper<ReqRequirement> uw = new LambdaUpdateWrapper<>();
+            uw.eq(ReqRequirement::getReqCode, reqCode)
+              .set(ReqRequirement::getStatus, "PENDING")
+              .set(ReqRequirement::getCurrentNodeId, "SOP-01")
+              .set(ReqRequirement::getUpdatedAt, LocalDateTime.now());
+            requirementMapper.update(null, uw);
+        }
+
+        // 记入流转审计履历
+        if (workflowRecordMapper != null) {
+            ReqWorkflowRecord rec = ReqWorkflowRecord.builder()
+                    .reqCode(reqCode)
+                    .nodeId("SOP-01")
+                    .nodeName("需求重置解锁")
+                    .trackMode("STANDARD")
+                    .skillName("-")
+                    .operator(operator)
+                    .actionType("OVERRIDE")
+                    .overrideReason(reason)
+                    .artifactsJson("一键解锁重置需求状态为 PENDING")
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            workflowRecordMapper.insert(rec);
+        }
+
+        return Result.success(reqCode, "需求 [" + reqCode + "] 已成功一键解锁重置为 PENDING (待重新拆解)");
     }
 
     /**

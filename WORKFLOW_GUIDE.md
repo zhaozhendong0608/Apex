@@ -38,7 +38,7 @@ Apex/                                      # 🚀 顶层工作区 (IDE 打开的
 │   │   ├── 📄 dag_pilot.py
 │   │   ├── 📄 gate.py                      # 🚦 统一质量门禁（6 项看门狗 + SQL 配对 + 元门禁）
 │   │   └── 📄 install_hooks.py
-│   │   └── …(另有 5 项)
+│   │   └── …(另有 6 项)
 │   ├── 📜 sop/                             # 📜 全套 16 篇 SOP（主链 0~9 · 旁路 B1~B6）
 │   │   ├── 📄 00-sop-overview.md           # [0] 体系总览 · 16 篇 SOP 全景
 │   │   ├── 📄 01-sop-planning.md           # [1] 需求规划与任务拆解
