@@ -1,46 +1,41 @@
 {
   "reqCode" : "REQ-001",
-  "current_node" : "SOP-01",
-  "nodes" : {
-    "SOP-01" : {
-      "actionType" : "AUTO_ACTIVATE",
-      "operator" : "admin",
-      "status" : "IN_PROGRESS"
-    },
-    "SOP-02" : {
-      "actionType" : "ADVANCE",
-      "overrideReason" : null,
-      "operator" : "admin",
-      "status" : "IN_PROGRESS"
-    },
-    "SOP-07" : {
-      "actionType" : "ADVANCE",
-      "overrideReason" : null,
-      "operator" : "admin",
-      "status" : "COMPLETED"
-    },
-    "SOP-03" : {
-      "actionType" : "ADVANCE",
-      "overrideReason" : null,
-      "operator" : "admin",
-      "status" : "IN_PROGRESS"
-    },
-    "SOP-04" : {
-      "actionType" : "ADVANCE",
-      "overrideReason" : null,
-      "operator" : "admin",
-      "status" : "COMPLETED"
-    },
-    "SOP-00" : {
-      "actionType" : "ADVANCE",
-      "overrideReason" : null,
-      "operator" : "admin",
-      "status" : "COMPLETED"
-    }
-  },
-  "last_operator" : "admin",
-  "updated_at" : "Wed Nov 18 19:08:58 CST 2026",
-  "track_mode" : "STANDARD",
-  "completed_node" : "SOP-00",
-  "activated_next_nodes" : [ "SOP-01" ]
+  "trackMode" : "STANDARD",
+  "nodes" : [ {
+    "name" : "体系总览",
+    "id" : "SOP-00"
+  }, {
+    "name" : "需求规划",
+    "id" : "SOP-01"
+  }, {
+    "name" : "方案设计",
+    "id" : "SOP-02"
+  }, {
+    "name" : "测试用例矩阵",
+    "id" : "TC-GEN"
+  }, {
+    "name" : "TDD编码",
+    "id" : "SOP-03"
+  }, {
+    "name" : "机器门禁",
+    "id" : "SOP-04"
+  }, {
+    "name" : "人工评审",
+    "id" : "SOP-05"
+  }, {
+    "name" : "集成测试",
+    "id" : "SOP-06"
+  }, {
+    "name" : "双向验收",
+    "id" : "SOP-07"
+  }, {
+    "name" : "容器部署",
+    "id" : "SOP-08"
+  }, {
+    "name" : "Git发布",
+    "id" : "SOP-09"
+  } ],
+  "currentNode" : "SOP-01",
+  "templateCode" : "TPL-DEFAULT",
+  "updatedAt" : "2026-11-21T20:16:29.918796"
 }

@@ -57,6 +57,8 @@ import {
   createBaselineApi,
   unfreezeRequirementApi,
   getPrototypeListApi,
+  getProjectPrototypeListApi,
+  uploadPrototypeApi,
   getBaselineListApi,
   getWorkflowStateApi,
   getWorkflowTopologyApi,
@@ -2046,6 +2048,7 @@ const currentProject = ref<any>({
   clientName: '',
   description: ''
 })
+const isProjectDescExpanded = ref(false)
 const projectStats = ref<any>({
   totalRequirements: 0,
   baselinedCount: 0,
@@ -2099,6 +2102,11 @@ const requirements = ref<any[]>([])
 // 原型版本清单 (从 MySQL t_req_prototype_version 动态获取)
 const prototypeList = ref<any[]>([])
 const selectedPrototype = ref<any>(null)
+const uploadProtoForm = ref({
+  changeSummary: '',
+  file: null as File | null
+})
+const uploadProtoLoading = ref(false)
 
 // 需求基线清单 (从 MySQL t_req_baseline 动态获取)
 const baselineList = ref<any[]>([])
@@ -2219,22 +2227,8 @@ const openReqDetail = async (req: any, doNavigate = true) => {
       } else {
         confirmItems.value = []
       }
-      // 同步拉取真实原型版本快照 (MySQL t_req_prototype_version)
-      try {
-        const protoRes = await getPrototypeListApi(req.id)
-        if (protoRes.data && protoRes.data.length > 0) {
-          prototypeList.value = protoRes.data
-          selectedPrototype.value = protoRes.data[0]
-          selectedPrototypeVer.value = protoRes.data[0].versionNo || 'v1'
-        } else {
-          prototypeList.value = []
-          selectedPrototype.value = null
-          selectedPrototypeVer.value = 'v1'
-        }
-      } catch (e) {
-        prototypeList.value = []
-        selectedPrototype.value = null
-      }
+      // 同步拉取当前项目真实原型版本快照 (MySQL t_req_prototype_version)
+      await loadProjectPrototypes(currentProject.value?.id)
 
       // 同步拉取真实需求基线清单 (MySQL t_req_baseline)
       try {
@@ -2576,6 +2570,86 @@ const handleCreateProject = async () => {
   }
 }
 
+// 打开上传原型弹窗
+const handleOpenUploadProtoModal = () => {
+  uploadProtoForm.value = {
+    changeSummary: '',
+    file: null
+  }
+  modalUploadPrototypeOpen.value = true
+}
+
+// 监听原型文件选择 (支持 .html, .htm, .zip)
+const handleProtoFileChange = (e: Event) => {
+  const target = e.target as HTMLInputElement
+  if (target.files && target.files.length > 0) {
+    uploadProtoForm.value.file = target.files[0]
+  } else {
+    uploadProtoForm.value.file = null
+  }
+}
+
+// 拉取当前项目的原型版本快照清单 (以项目为唯一物理维度)
+const loadProjectPrototypes = async (projectId?: number) => {
+  const pid = projectId || currentProject.value?.id
+  if (!pid) {
+    prototypeList.value = []
+    selectedPrototype.value = null
+    return
+  }
+  try {
+    const protoRes = await getProjectPrototypeListApi(pid)
+    if (protoRes.data && protoRes.data.length > 0) {
+      prototypeList.value = protoRes.data
+      selectedPrototype.value = protoRes.data[0]
+      selectedPrototypeVer.value = protoRes.data[0].versionNo || 'v1'
+    } else {
+      prototypeList.value = []
+      selectedPrototype.value = null
+      selectedPrototypeVer.value = 'v1'
+    }
+  } catch (e) {
+    console.warn('获取项目原型列表失败', e)
+  }
+}
+
+// 提交原型文件上传 (以项目为物理维度请求后端 /api/v1/req/prototypes/upload)
+const handleSubmitUploadProto = async () => {
+  const targetProjectId = currentProject.value?.id
+  if (!targetProjectId) {
+    ElMessage.warning('当前暂未选定项目空间')
+    return
+  }
+  if (!uploadProtoForm.value.file) {
+    ElMessage.warning('请先选择要上传的 HTML5 文件或 ZIP 原型包')
+    return
+  }
+
+  const formData = new FormData()
+  formData.append('projectId', String(targetProjectId))
+  if (currentReq.value?.id) {
+    formData.append('reqId', String(currentReq.value.id))
+  }
+  formData.append('file', uploadProtoForm.value.file)
+  if (uploadProtoForm.value.changeSummary) {
+    formData.append('changeSummary', uploadProtoForm.value.changeSummary)
+  }
+
+  uploadProtoLoading.value = true
+  try {
+    const res = await uploadPrototypeApi(formData)
+    ElMessage.success(`项目 [${currentProject.value?.projectKey}] 原型快照上传成功！版本: ${res.data?.versionNo || '新版本'}，已生成物理存证。`)
+    modalUploadPrototypeOpen.value = false
+    
+    // 重新拉取当前项目的原型版本快照
+    await loadProjectPrototypes(targetProjectId)
+  } catch (err: any) {
+    ElMessage.error(err.message || '上传原型失败')
+  } finally {
+    uploadProtoLoading.value = false
+  }
+}
+
 // 删除项目空间 (仅限管理员，带强门禁与二次防手滑确认)
 const handleDeleteProject = async (targetProj?: any) => {
   const proj = targetProj || currentProject.value
@@ -2677,8 +2751,8 @@ const handleEnterProjectDashboard = async (proj: any) => {
   ElMessage.success(`已进入 [${proj.projectKey} · ${proj.name}] 项目工作台`)
 }
 
-// 切换项目空间
-const handleProjectChange = async () => {
+// 切换项目空间 (支持保持在当前页面，如在原型页面切换项目时仍停留在原型页面)
+const handleProjectChange = async (targetPage?: string) => {
   const found = projectList.value.find(p => p.projectKey === selectedProject.value)
   if (found) {
     currentProject.value = found
@@ -2694,12 +2768,20 @@ const handleProjectChange = async () => {
     modalNewProjectOpen.value = false
     modalUploadPrototypeOpen.value = false
 
-    // 2. 重新加载该项目下的统计与需求数据
+    // 2. 重新加载该项目下的统计与需求数据及原型与发版
     await loadInitialData(found.id)
+    await loadProjectPrototypes(found.id)
+    await loadProjectReleases(found.id)
 
-    // 3. 核心机制：切换项目空间时，默认无条件重置回项目工作台 /req/dashboard
-    navigatePage('page-dashboard')
-    ElMessage.success(`已切换至 [${found.projectKey} · ${found.name}] 项目空间，已默认进入该项目工作台`)
+    // 3. 页面导向：若指定或处于当前原型/大屏/发版/时间线页则保持，否则切回工作台
+    if (targetPage) {
+      navigatePage(targetPage)
+    } else if (['page-prototypes', 'page-workflow', 'page-releases', 'page-timeline'].includes(currentPage.value)) {
+      // 保持当前所在页面
+    } else {
+      navigatePage('page-dashboard')
+    }
+    ElMessage.success(`已切换至 [${found.projectKey} · ${found.name}] 项目空间`)
   }
 }
 
@@ -3242,6 +3324,8 @@ const loadInitialData = async (targetProjectId?: number) => {
           priority: 'P1',
           quote: ''
         }
+        // 即便无需求，也拉取当前项目的原型资产
+        await loadProjectPrototypes(activeProj.id)
       }
     } else {
       // 数据库中所有项目均被删除时的优雅清空
@@ -4206,25 +4290,37 @@ onMounted(async () => {
 
         <!-- ================= P03 项目工作台 ================= -->
         <div id="page-dashboard" class="view-page" :class="{ active: currentPage === 'page-dashboard' }">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-            <div>
-              <div style="display:flex; align-items:center; gap:10px;">
+          <!-- 项目顶部信息卡片 -->
+          <div class="dashboard-project-hero">
+            <div class="dashboard-hero-main">
+              <div class="dashboard-hero-title-row">
                 <button
-                  class="btn btn-outline btn-sm"
-                  style="padding:3px 8px; display:inline-flex; align-items:center; gap:4px;"
+                  class="btn btn-outline btn-sm dashboard-back-btn"
                   title="返回项目列表大厅"
                   @click="navigatePage('page-projects')"
                 >
                   <span>📁 全部项目</span>
                 </button>
-                <h2 style="font-size:20px; font-weight:700;">{{ currentProject.name || '项目需求工作台' }}</h2>
+                <h2 class="dashboard-hero-title">{{ currentProject.name || '项目需求工作台' }}</h2>
                 <span class="tag tag-baselined">{{ currentProject.projectKey || 'NET-SIM' }}</span>
+                <span v-if="currentProject.clientName" class="dashboard-client-badge">
+                  🏢 客户单位：<strong>{{ currentProject.clientName }}</strong>
+                </span>
               </div>
-              <p style="color:var(--text-muted); font-size:13px; margin-top:4px;">
-                客户单位：<strong style="color:var(--text);">{{ currentProject.clientName || '暂未指定' }}</strong> ｜ {{ currentProject.description || '契约与快照单一事实源' }}
-              </p>
+              <div v-if="currentProject.description" class="dashboard-desc-container">
+                <div class="dashboard-desc-text" :class="{ 'is-expanded': isProjectDescExpanded }">
+                  <span class="dashboard-desc-label">项目简介：</span>{{ currentProject.description }}
+                </div>
+                <button
+                  v-if="currentProject.description && currentProject.description.length > 70"
+                  class="dashboard-desc-toggle-btn"
+                  @click="isProjectDescExpanded = !isProjectDescExpanded"
+                >
+                  {{ isProjectDescExpanded ? '收起 ▲' : '查看完整简介 ▼' }}
+                </button>
+              </div>
             </div>
-            <div style="display:flex; gap:10px; align-items: center;">
+            <div class="dashboard-hero-actions">
               <!-- 仅管理员有权执行项目删除，并提供安全防误删防护 -->
               <button 
                 v-if="isAdmin" 
@@ -4235,8 +4331,7 @@ onMounted(async () => {
               >
                 🗑️ 删除项目
               </button>
-              <button class="btn btn-outline" @click="modalNewProjectOpen = true">📁 新建项目 (M01)</button>
-              <button class="btn btn-primary" @click="handleOpenNewReqDrawer">+ 新建需求 (M02)</button>
+              <button class="btn btn-primary" @click="handleOpenNewReqDrawer">+ 新建需求</button>
             </div>
           </div>
 
@@ -4294,7 +4389,7 @@ onMounted(async () => {
                   <tr v-if="requirements.length === 0">
                     <td colspan="8" style="text-align:center; padding: 40px 0; color: var(--text-muted);">
                       <div style="font-size: 32px; margin-bottom: 8px;">📋</div>
-                      <div>当前项目空间暂无需求数据，请点击右上角「+ 新建需求 (M02)」录入新需求</div>
+                      <div>当前项目空间暂无需求数据，请点击右上角「+ 新建需求」录入新需求</div>
                     </td>
                   </tr>
                   <tr v-for="req in requirements" :key="req.id">
@@ -4490,25 +4585,29 @@ onMounted(async () => {
         <div id="page-prototypes" class="view-page" :class="{ active: currentPage === 'page-prototypes' }">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
             <div>
-              <h2 style="font-size:20px; font-weight:700;">{{ currentProject.projectKey }} · {{ currentReq.reqNo ? currentReq.reqNo + ' 原型版本管理 (P07)' : '原型版本管理 (P07)' }}</h2>
+              <h2 style="font-size:20px; font-weight:700;">{{ currentProject.projectKey }} · 项目原型版本与托管</h2>
               <p style="color:var(--text-muted); font-size:13px;">所属项目：{{ currentProject.name }} ｜ 严格遵循“旧版本永不覆盖”、“SHA256 快照固化”与“在线只读可交互”规范</p>
             </div>
-            <div style="display:flex; align-items:center; gap:10px;">
-              <select
-                v-if="requirements.length > 0"
-                class="form-control"
-                style="width:240px; padding:4px 8px; font-size:13px;"
-                :value="currentReq.id"
-                @change="(e: any) => {
-                  const found = requirements.find(r => r.id === Number(e.target.value))
-                  if (found) openReqDetail(found, false)
-                }"
-              >
-                <option v-for="r in requirements" :key="r.id" :value="r.id">
-                  {{ r.reqCode }} · {{ r.title }}
-                </option>
-              </select>
-              <button class="btn btn-primary" @click="modalUploadPrototypeOpen = true">📤 上传新版本 (M05)</button>
+            <div style="display:flex; align-items:center; gap:12px;">
+              <!-- 项目快速切换下拉选择器 -->
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span style="font-size:12px; font-weight:600; color:var(--text-muted);">切换项目：</span>
+                <select
+                  class="form-control"
+                  style="width:230px; font-size:13px; padding:4px 10px; font-weight:600; color:var(--primary); background:#fff;"
+                  v-model="selectedProject"
+                  @change="handleProjectChange('page-prototypes')"
+                >
+                  <option v-for="p in projectList" :key="p.id" :value="p.projectKey">
+                    {{ p.projectKey }} · {{ p.name }}
+                  </option>
+                </select>
+              </div>
+
+              <span class="tag tag-baselined" style="padding:5px 10px; font-size:12px;">
+                共 {{ prototypeList.length }} 个快照
+              </span>
+              <button class="btn btn-primary" @click="handleOpenUploadProtoModal">📤 上传原型文件</button>
             </div>
           </div>
 
@@ -4516,12 +4615,12 @@ onMounted(async () => {
             <!-- 版本列表 (直连 MySQL t_req_prototype_version) -->
             <div class="card">
               <div class="card-header">
-                <div class="card-title">📦 版本快照清单 (L3)</div>
+                <div class="card-title">📦 项目原型快照清单 (L3)</div>
               </div>
               <div style="padding:10px;">
                 <div v-if="prototypeList.length === 0" style="padding:30px 12px; text-align:center; color:var(--text-muted); font-size:13px;">
                   <div style="font-size:24px; margin-bottom:6px;">📦</div>
-                  当前需求暂无上传的原型快照，请点击右上角「上传新版本 (M05)」
+                  当前项目暂无上传的原型快照，请点击右上角「上传原型文件」
                 </div>
                 <div
                   v-for="p in prototypeList"
@@ -4805,9 +4904,24 @@ onMounted(async () => {
               <h2 style="font-size:20px; font-weight:700;">{{ currentProject.name }} ({{ currentProject.projectKey }}) · 发布版本追踪 (P16)</h2>
               <p style="color:var(--text-muted); font-size:13px;">一个发布版本必须严格绑定一个已冻结基线 (MySQL t_req_release 实时持久化)，正式发布自动打 Git Tag 并联动推进需求状态</p>
             </div>
-            <div style="display:flex; gap:10px;">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <!-- 项目快速切换下拉选择器 -->
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span style="font-size:12px; font-weight:600; color:var(--text-muted);">切换项目：</span>
+                <select
+                  class="form-control"
+                  style="width:230px; font-size:13px; padding:4px 10px; font-weight:600; color:var(--primary); background:#fff;"
+                  v-model="selectedProject"
+                  @change="handleProjectChange('page-releases')"
+                >
+                  <option v-for="p in projectList" :key="p.id" :value="p.projectKey">
+                    {{ p.projectKey }} · {{ p.name }}
+                  </option>
+                </select>
+              </div>
+
               <button class="btn btn-outline" @click="loadProjectReleases(currentProject.id)">🔄 刷新列表</button>
-              <button class="btn btn-primary" @click="handleOpenNewReleaseModal">+ 新建发布计划 (M12)</button>
+              <button class="btn btn-primary" @click="handleOpenNewReleaseModal">+ 新建发布计划</button>
             </div>
           </div>
 
@@ -4932,7 +5046,22 @@ onMounted(async () => {
               <h2 style="font-size:20px; font-weight:700;">{{ currentProject.name }} ({{ currentProject.projectKey }}) · 需求与基线演进时间线 (P13)</h2>
               <p style="color:var(--text-muted); font-size:13px;">当前项目轻量级里程碑演进总览：一眼洞悉原型迭代 ➔ 基线冻结 ➔ 发布上线全生命周期（当前模式：{{ timelineViewMode === 'BASELINE_ONLY' ? '基线聚合视图' : '全量里程碑视图' }}）</p>
             </div>
-            <div style="display:flex; gap:10px;">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <!-- 项目快速切换下拉选择器 -->
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span style="font-size:12px; font-weight:600; color:var(--text-muted);">切换项目：</span>
+                <select
+                  class="form-control"
+                  style="width:230px; font-size:13px; padding:4px 10px; font-weight:600; color:var(--primary); background:#fff;"
+                  v-model="selectedProject"
+                  @change="handleProjectChange('page-timeline')"
+                >
+                  <option v-for="p in projectList" :key="p.id" :value="p.projectKey">
+                    {{ p.projectKey }} · {{ p.name }}
+                  </option>
+                </select>
+              </div>
+
               <button class="btn btn-outline" @click="handleToggleTimelineViewMode">
                 {{ timelineViewMode === 'BASELINE_ONLY' ? '👁️ 切回全量视图' : '👁️ 切换基线聚合视图' }}
               </button>
@@ -6409,31 +6538,53 @@ onMounted(async () => {
       </div>
     </CommonFormModal>
 
-    <!-- ================= 模态弹窗：M05 上传原型版本 ================= -->
+    <!-- ================= 模态弹窗：上传原型版本 ================= -->
     <div class="modal-overlay" :class="{ active: modalUploadPrototypeOpen }">
       <div class="card" style="width:480px; margin:0;">
         <div class="modal-header">
-          <div class="modal-title">📤 上传原型版本 ZIP (M05)</div>
+          <div class="modal-title">📤 上传原型快照 (HTML5 / ZIP)</div>
           <button class="btn btn-outline btn-sm" @click="modalUploadPrototypeOpen = false">✕</button>
         </div>
         <div class="modal-body">
           <div class="form-group">
-            <label class="form-label required">版本命名</label>
-            <input type="text" class="form-control" value="mockup v4.0" readonly>
+            <label class="form-label required">目标归属项目空间</label>
+            <input type="text" class="form-control" :value="`${currentProject.projectKey || 'NET-SIM'} · ${currentProject.name || '当前项目'}`" readonly style="background:#f8fafc; font-weight:700; color:#0284c7;">
+            <div class="form-hint">原型将以当前项目为唯一维度进行归档，生成专属目录 storage/prototypes/{{ currentProject.projectKey }}/...</div>
           </div>
           <div class="form-group">
-            <label class="form-label required">原型 ZIP 包 (必须含 mockup.html)</label>
-            <input type="file" class="form-control">
-            <div class="form-hint">上传后系统自动进行 SHA256 校验和提取，永不覆盖旧版本目录。</div>
+            <label class="form-label required">原型文件 (支持 HTML5 或 ZIP 包)</label>
+            <input
+              type="file"
+              class="form-control"
+              accept=".html,.htm,.zip"
+              @change="handleProtoFileChange"
+            >
+            <div class="form-hint" style="margin-top:6px; line-height:1.5;">
+              💡 <strong>支持直接上传：</strong><br>
+              ① 单文件 HTML5 原型 (<code>.html</code> / <code>.htm</code>)<br>
+              ② 包含 <code>mockup.html</code> 与静态资源的 ZIP 压缩包 (<code>.zip</code>)<br>
+              上传后系统将自动生成下一个版本号并计算 SHA256 物理存证指纹。
+            </div>
           </div>
           <div class="form-group">
             <label class="form-label">变更摘要</label>
-            <textarea class="form-control" rows="2" placeholder="简述本次原型修改重点..."></textarea>
+            <textarea
+              class="form-control"
+              rows="2"
+              v-model="uploadProtoForm.changeSummary"
+              placeholder="简述本次原型修改重点，如：新增电表采集点位与看板交互..."
+            ></textarea>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-outline" @click="modalUploadPrototypeOpen = false">取消</button>
-          <button class="btn btn-primary" @click="ElMessage.success('原型 v4.0 已上传，已生成哈希值并生成新快照！'); modalUploadPrototypeOpen = false;">开始解析并固化</button>
+          <button class="btn btn-outline" @click="modalUploadPrototypeOpen = false" :disabled="uploadProtoLoading">取消</button>
+          <button
+            class="btn btn-primary"
+            @click="handleSubmitUploadProto"
+            :disabled="uploadProtoLoading"
+          >
+            {{ uploadProtoLoading ? '正在固化并上传...' : '开始固化并入库' }}
+          </button>
         </div>
       </div>
     </div>
@@ -6657,7 +6808,7 @@ onMounted(async () => {
             >
               <div class="action-icon" style="background:#e0f2fe; color:#0284c7;">➕</div>
               <div class="action-meta">
-                <div class="action-title">快速录入需求 (M02)</div>
+                <div class="action-title">快速录入需求</div>
                 <div class="action-desc">无需切换页面，抽屉随时拉起录入</div>
               </div>
             </div>
@@ -7516,6 +7667,121 @@ table.data-table td {
 }
 table.data-table tr:hover td {
   background: #F9FBFC;
+}
+
+/* 工作台顶部项目 Hero 区域 */
+.dashboard-project-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 18px 22px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard-hero-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboard-hero-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.dashboard-back-btn {
+  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+  border-radius: 6px;
+}
+
+.dashboard-hero-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.dashboard-client-badge {
+  font-size: 12px;
+  color: #475569;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  padding: 2px 10px;
+  border-radius: 12px;
+  margin-left: 4px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.dashboard-client-badge strong {
+  color: #1e293b;
+  margin-left: 2px;
+}
+
+.dashboard-desc-container {
+  margin-top: 6px;
+  background: #f8fafc;
+  border: 1px solid #edf2f7;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+
+.dashboard-desc-text {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  transition: all 0.25s ease;
+}
+
+.dashboard-desc-text.is-expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+}
+
+.dashboard-desc-label {
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.dashboard-desc-toggle-btn {
+  background: none;
+  border: none;
+  padding: 2px 0 0 0;
+  font-size: 12px;
+  color: var(--primary, #0284c7);
+  cursor: pointer;
+  display: inline-block;
+  font-weight: 500;
+}
+
+.dashboard-desc-toggle-btn:hover {
+  text-decoration: underline;
+}
+
+.dashboard-hero-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
 /* 指标统计卡片 Grid */

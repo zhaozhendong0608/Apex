@@ -279,6 +279,13 @@ export function getPrototypeListApi(reqId: number): Promise<ApiResponse<any[]>> 
   })
 }
 
+export function getProjectPrototypeListApi(projectId: number): Promise<ApiResponse<any[]>> {
+  return request({
+    url: `/req/prototypes/project/${projectId}`,
+    method: 'GET'
+  })
+}
+
 export function getLatestPrototypeApi(reqId: number): Promise<ApiResponse<any>> {
   return request({
     url: `/req/prototypes/${reqId}/latest`,

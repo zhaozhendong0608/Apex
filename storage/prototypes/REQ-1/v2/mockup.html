@@ -1,0 +1,2426 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>企业级能碳管理平台 · 全局共享组织树 + 3D数字孪生原型</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow-x: hidden;
+      background-color: #050a14;
+      color: #e2e8f0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      touch-action: none;
+    }
+    .hud-glass {
+      background: rgba(9, 16, 30, 0.85);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+    .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+    .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.35); border-radius: 4px; }
+    input[type="range"] { accent-color: #22d3ee; }
+  </style>
+</head>
+<body class="select-none">
+  <div id="canvas-container"></div>
+
+  <div id="hover-tooltip" class="pointer-events-none fixed z-40 hidden rounded-lg px-3 py-2 text-xs hud-glass border-cyan-400/40 transition-opacity duration-150">
+    <div id="tooltip-title" class="font-semibold text-cyan-300"></div>
+    <div id="tooltip-sub" class="text-slate-300 mt-0.5"></div>
+  </div>
+
+  <div id="toast" class="fixed bottom-12 right-4 z-50 hidden rounded-lg bg-emerald-500/20 border border-emerald-400/50 px-3.5 py-2 text-xs text-emerald-200 hud-glass"></div>
+
+  <!-- Add Point Modal -->
+  <div id="add-point-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
+    <div class="w-full max-w-md rounded-xl hud-glass border border-cyan-400/40 p-4 text-xs space-y-3">
+      <div class="flex items-center justify-between border-b border-slate-700/70 pb-2">
+        <h3 class="text-sm font-semibold text-white">新增点位 (Tag) 登记与路由绑定</h3>
+        <button id="btn-close-point-modal" class="text-slate-400 hover:text-white text-sm">✕</button>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <div>
+          <label class="block text-slate-400 mb-1">点位编码 (Tag)</label>
+          <input id="new-pt-tag" type="text" value="NB_COAT_ELEC_09" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-2.5 py-1.5 font-mono text-cyan-300" />
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">归属组织/车间</label>
+          <select id="new-pt-ws" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-2.5 py-1.5 text-slate-100">
+            <option value="coating">涂装与烘干车间</option>
+            <option value="stamping">冲压与机加工车间</option>
+            <option value="assembly">总装与智能仓储车间</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">能源品种</label>
+          <select id="new-pt-energy" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-2.5 py-1.5 text-slate-100">
+            <option value="电">电</option>
+            <option value="天然气">天然气</option>
+            <option value="蒸汽">蒸汽</option>
+            <option value="油">油</option>
+            <option value="煤">煤</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">采集属性</label>
+          <select id="new-pt-type" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-2.5 py-1.5 text-slate-100">
+            <option value="专表直采">专表直采 (100%归属)</option>
+            <option value="公共总表">公共总表 (需跨区公摊)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">接入协议</label>
+          <select id="new-pt-proto" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-2.5 py-1.5 text-slate-100">
+            <option value="MQTT/Neuron">MQTT/Neuron</option>
+            <option value="Modbus TCP">Modbus TCP</option>
+            <option value="OPC-UA">OPC-UA</option>
+            <option value="HTTP API">HTTP API</option>
+            <option value="Excel/人工补录">Excel/人工补录</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">倍率 / 量纲</label>
+          <input id="new-pt-scale" type="text" value="CT 400:5" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-2.5 py-1.5 text-slate-100" />
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-700/70">
+        <button id="btn-cancel-point-modal" class="rounded-lg bg-slate-800 border border-slate-600 px-3 py-1.5 text-slate-300 hover:text-white">取消</button>
+        <button id="btn-save-point-modal" class="rounded-lg bg-cyan-500/25 border border-cyan-400/50 px-3.5 py-1.5 font-medium text-cyan-200 hover:bg-cyan-500/35">确认登记并上线</button>
+      </div>
+    </div>
+  </div>
+
+  <header class="fixed top-2.5 left-2.5 right-2.5 z-30 flex flex-col gap-2 rounded-xl px-3.5 py-2 hud-glass">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2.5">
+        <div class="flex h-7 w-7 items-center justify-center rounded-lg bg-cyan-500/20 border border-cyan-400/40 text-cyan-300">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-sm font-semibold tracking-wide text-white">企业级能碳管理平台</h1>
+            <span class="hidden sm:inline-flex items-center rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-300 border border-emerald-500/30">
+              <span class="mr-1 h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              全局组织上下文联动
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-1.5">
+        <select id="factory-select" class="rounded-lg bg-slate-800/90 border border-slate-600/60 px-2 py-1 text-xs text-slate-100 focus:outline-none focus:border-cyan-400">
+          <option value="north">A工厂 · 华北精密制造基地</option>
+          <option value="east">B工厂 · 华东零碳示范基地</option>
+        </select>
+
+        <div class="flex rounded-lg bg-slate-800/90 p-0.5 border border-slate-700/70 text-[11px]" id="mode-tabs">
+          <button data-mode="overview" class="mode-btn rounded-md px-2 py-1 font-medium bg-cyan-500/25 text-cyan-300 transition">孪生鸟瞰</button>
+          <button data-mode="heatmap" class="mode-btn rounded-md px-2 py-1 font-medium text-slate-400 hover:text-slate-200 transition">碳排热力</button>
+          <button data-mode="energy" class="mode-btn rounded-md px-2 py-1 font-medium text-slate-400 hover:text-slate-200 transition">绿电能流</button>
+        </div>
+
+        <button id="btn-rotate" class="rounded-lg bg-slate-800/90 border border-slate-700/70 px-2 py-1 text-[11px] text-slate-300 hover:text-cyan-300 transition">自动巡航: 开</button>
+        <button id="btn-reset" class="rounded-lg bg-slate-800/90 border border-slate-700/70 px-2 py-1 text-[11px] text-slate-300 hover:text-cyan-300 transition">重置视角</button>
+        <button id="btn-toggle-hud" class="rounded-lg bg-slate-800/90 border border-slate-700/70 px-2 py-1 text-[11px] text-cyan-300 lg:hidden">面板</button>
+      </div>
+    </div>
+
+    <nav id="module-nav" class="flex items-center gap-1 overflow-x-auto custom-scroll pb-0.5 text-[11px]">
+      <button data-mod="cockpit" class="mod-tab shrink-0 rounded-lg px-2.5 py-1 font-medium bg-cyan-500/25 text-cyan-200 border border-cyan-400/40 transition">8. 3D驾驶舱</button>
+      <button data-mod="org" class="mod-tab shrink-0 rounded-lg px-2.5 py-1 font-medium text-slate-300 hover:bg-slate-800 border border-transparent transition">1. 组织与边界配置</button>
+      <button data-mod="ingest" class="mod-tab shrink-0 rounded-lg px-2.5 py-1 font-medium text-slate-300 hover:bg-slate-800 border border-transparent transition">2. 点位与数据接入</button>
+      <button data-mod="gov" class="mod-tab shrink-0 rounded-lg px-2.5 py-1 font-medium text-slate-300 hover:bg-slate-800 border border-transparent transition">3. 治理与对账 <span id="badge-gov" class="ml-1 rounded-full bg-amber-500/30 px-1.5 text-[10px] text-amber-300">2</span></button>
+      <button data-mod="activity" class="mod-tab shrink-0 rounded-lg px-2.5 py-1 font-medium text-slate-300 hover:bg-slate-800 border border-transparent transition">4. 活动数据台账</button>
+      <button data-mod="factor" class="mod-tab shrink-0 rounded-lg px-2.5 py-1 font-medium text-slate-300 hover:bg-slate-800 border border-transparent transition">5. 排放因子库</button>
+      <button data-mod="calc" class="mod-tab shrink-0 rounded-lg px-2.5 py-1 font-medium text-slate-300 hover:bg-slate-800 border border-transparent transition">6. 碳排放核算</button>
+      <button data-mod="budget" class="mod-tab shrink-0 rounded-lg px-2.5 py-1 font-medium text-slate-300 hover:bg-slate-800 border border-transparent transition">7. 预算与预警 <span id="badge-alert" class="ml-1 rounded-full bg-rose-500/30 px-1.5 text-[10px] text-rose-300">2</span></button>
+    </nav>
+  </header>
+
+  <!-- Add Area / Workshop Modal -->
+  <div id="add-area-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
+    <div class="w-full max-w-md rounded-xl hud-glass border border-cyan-400/40 p-4 text-xs space-y-3">
+      <div class="flex items-center justify-between border-b border-slate-700/70 pb-2">
+        <h3 class="text-sm font-semibold text-white">新增行政区域 / 车间节点（同步生成 3D 厂房）</h3>
+        <button id="btn-close-area-modal" class="text-slate-400 hover:text-white text-sm">✕</button>
+      </div>
+      <div class="space-y-2.5">
+        <div>
+          <label class="block text-slate-400 mb-1">区域 / 车间名称</label>
+          <input id="new-area-name" type="text" value="热处理与模温控制车间" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-2.5 py-1.5 text-slate-100" />
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">计量与核算边界说明</label>
+          <input id="new-area-boundary" type="text" value="新增边界 · 含电加热与循环冷却" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-2.5 py-1.5 text-slate-100" />
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-slate-400 mb-1">预估 Scope 1 (t/日)</label>
+            <input id="new-area-s1" type="number" value="6.5" step="0.5" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-2.5 py-1.5 text-slate-100" />
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">预估 Scope 2 (t/日)</label>
+            <input id="new-area-s2" type="number" value="14.2" step="0.5" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-2.5 py-1.5 text-slate-100" />
+          </div>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-700/70">
+        <button id="btn-cancel-area-modal" class="rounded-lg bg-slate-800 border border-slate-600 px-3 py-1.5 text-slate-300 hover:text-white">取消</button>
+        <button id="btn-save-area-modal" class="rounded-lg bg-cyan-500/25 border border-cyan-400/50 px-3.5 py-1.5 font-medium text-cyan-200 hover:bg-cyan-500/35">确认创建</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Energy System Modal -->
+  <div id="add-sys-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
+    <div class="w-full max-w-md rounded-xl hud-glass border border-emerald-400/40 p-4 text-xs space-y-3">
+      <div class="flex items-center justify-between border-b border-slate-700/70 pb-2">
+        <h3 class="text-sm font-semibold text-white">新增用能系统节点与总表点位</h3>
+        <button id="btn-close-sys-modal" class="text-slate-400 hover:text-white text-sm">✕</button>
+      </div>
+      <div class="space-y-2.5">
+        <div>
+          <label class="block text-slate-400 mb-1">用能系统名称</label>
+          <input id="new-sys-name" type="text" value="工业循环冷却水系统" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-2.5 py-1.5 text-slate-100" />
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-slate-400 mb-1">系统层级/属性</label>
+            <input id="new-sys-level" type="text" value="公辅循环水总表" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-2.5 py-1.5 text-slate-100" />
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">总表点位编码 (Tag)</label>
+            <input id="new-sys-meter" type="text" value="NB_COOL_ELEC_01" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-2.5 py-1.5 font-mono text-cyan-300" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">下级支路/分摊节点（逗号分隔）</label>
+          <input id="new-sys-children" type="text" value="1# 冷却塔变频泵组, 2# 板式换热站" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-2.5 py-1.5 text-slate-100" />
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-700/70">
+        <button id="btn-cancel-sys-modal" class="rounded-lg bg-slate-800 border border-slate-600 px-3 py-1.5 text-slate-300 hover:text-white">取消</button>
+        <button id="btn-save-sys-modal" class="rounded-lg bg-emerald-500/25 border border-emerald-400/50 px-3.5 py-1.5 font-medium text-emerald-200 hover:bg-emerald-500/35">确认添加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unlock Reason Modal -->
+  <div id="unlock-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
+    <div class="w-full max-w-sm rounded-xl hud-glass border border-amber-400/40 p-4 text-xs space-y-3">
+      <div class="flex items-center justify-between border-b border-slate-700/70 pb-2">
+        <h3 class="text-sm font-semibold text-amber-300">反结账解锁确认（审计留痕）</h3>
+        <button id="btn-close-unlock" class="text-slate-400 hover:text-white text-sm">✕</button>
+      </div>
+      <div>
+        <div id="unlock-target-info" class="text-slate-300 mb-2"></div>
+        <label class="block text-slate-400 mb-1">请填写解锁原因（必填，将写入审计日志）</label>
+        <input id="unlock-reason-inp" type="text" value="供电局正式电费发票修正，需校准度电数值" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-2.5 py-1.5 text-slate-100" />
+      </div>
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-700/70">
+        <button id="btn-cancel-unlock" class="rounded-lg bg-slate-800 border border-slate-600 px-3 py-1.5 text-slate-300">取消</button>
+        <button id="btn-confirm-unlock" class="rounded-lg bg-amber-500/25 border border-amber-400/50 px-3.5 py-1.5 font-medium text-amber-200 hover:bg-amber-500/35">确认解锁</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Emission Factor Modal -->
+  <div id="add-factor-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4">
+    <div class="w-full max-w-md rounded-xl hud-glass border border-cyan-400/40 p-4 text-xs space-y-3">
+      <div class="flex items-center justify-between border-b border-slate-700/70 pb-2">
+        <h3 class="text-sm font-semibold text-white">新增排放因子（表单填报 + 证明文件）</h3>
+        <button id="btn-close-factor-modal" class="text-slate-400 hover:text-white text-sm">✕</button>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <div class="sm:col-span-2">
+          <label class="block text-slate-400 mb-1">因子名称</label>
+          <input id="new-fac-name" type="text" value="天然气燃料排放因子 (实测热值)" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-2.5 py-1.5 text-slate-100" />
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">能源品种</label>
+          <select id="new-fac-energy" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-2.5 py-1.5 text-slate-100">
+            <option value="天然气">天然气</option>
+            <option value="电">电</option>
+            <option value="蒸汽">蒸汽</option>
+            <option value="煤">煤</option>
+            <option value="油">油</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">适用政策 / 标准</label>
+          <select id="new-fac-policy" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-2.5 py-1.5 text-slate-100">
+            <option value="国内MRV">国内MRV</option>
+            <option value="ISO 14064">ISO 14064</option>
+            <option value="欧盟CBAM">欧盟CBAM</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">因子数值与单位</label>
+          <input id="new-fac-val" type="text" value="2.185 tCO₂/千m³" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-2.5 py-1.5 font-mono text-cyan-300" />
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">版本号</label>
+          <input id="new-fac-ver" type="text" value="v2026.2" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-2.5 py-1.5 font-mono text-slate-100" />
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">生效时间区间</label>
+          <input id="new-fac-eff" type="text" value="2026-11-01 ~ 长期" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-2.5 py-1.5 text-slate-100" />
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">上传来源文件 / 化验单</label>
+          <input id="new-fac-file" type="file" class="w-full text-[11px] text-slate-300 file:mr-2 file:rounded file:border-0 file:bg-slate-700 file:px-2 file:py-1 file:text-cyan-200" />
+        </div>
+      </div>
+      <div class="text-[11px] text-amber-300/90 bg-amber-500/10 border border-amber-500/30 rounded p-2">
+        提示：同一「能源 + 政策标准」下同时只能启用唯一一个因子，保存启用后将自动停用同维度旧版本。
+      </div>
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-700/70">
+        <button id="btn-cancel-factor-modal" class="rounded-lg bg-slate-800 border border-slate-600 px-3 py-1.5 text-slate-300">取消</button>
+        <button id="btn-save-factor-modal" class="rounded-lg bg-cyan-500/25 border border-cyan-400/50 px-3.5 py-1.5 font-medium text-cyan-200 hover:bg-cyan-500/35">保存并设为启用</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODULE 8: 3D COCKPIT HUD ==================== -->
+  <aside id="left-hud" class="fixed top-24 left-2.5 bottom-3 z-10 w-[calc(100%-1.25rem)] sm:w-80 flex flex-col gap-3 pointer-events-none lg:pointer-events-auto">
+    <div class="hud-glass rounded-xl p-3 pointer-events-auto flex flex-col gap-2.5 overflow-y-auto custom-scroll max-h-full">
+      <div class="grid grid-cols-2 gap-2">
+        <div class="rounded-lg bg-slate-800/60 border border-slate-700/50 p-2">
+          <div class="text-[11px] text-slate-400">今日实时碳排</div>
+          <div class="mt-0.5 flex items-baseline gap-1">
+            <span id="kpi-today" class="text-base font-bold text-white">142.8</span>
+            <span class="text-[10px] text-slate-400">tCO₂e</span>
+          </div>
+        </div>
+        <div class="rounded-lg bg-slate-800/60 border border-slate-700/50 p-2">
+          <div class="text-[11px] text-slate-400">绿电消纳占比</div>
+          <div class="mt-0.5 flex items-baseline gap-1">
+            <span id="kpi-green" class="text-base font-bold text-emerald-400">34%</span>
+            <span class="text-[10px] text-emerald-300/70">光伏+绿证</span>
+          </div>
+        </div>
+        <div class="rounded-lg bg-slate-800/60 border border-slate-700/50 p-2">
+          <div class="text-[11px] text-slate-400">年度配额盈缺</div>
+          <div class="mt-0.5 flex items-baseline gap-1">
+            <span id="kpi-quota" class="text-base font-bold text-amber-400">-2,150</span>
+            <span class="text-[10px] text-slate-400">t</span>
+          </div>
+        </div>
+        <div class="rounded-lg bg-slate-800/60 border border-slate-700/50 p-2">
+          <div class="text-[11px] text-slate-400">预计碳成本/收益</div>
+          <div class="mt-0.5 flex items-baseline gap-1">
+            <span id="kpi-finance" class="text-base font-bold text-rose-400">-19.4</span>
+            <span class="text-[10px] text-slate-400">万元</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="flex items-center justify-between mb-1.5">
+          <h2 class="text-xs font-semibold text-slate-200">车间碳排排行（点击定位3D）</h2>
+          <span class="text-[10px] text-cyan-400">Scope 1+2</span>
+        </div>
+        <div id="workshop-ranking" class="flex flex-col gap-1.5"></div>
+      </div>
+
+      <div>
+        <div class="flex items-center justify-between gap-1 mb-1.5">
+          <h2 id="trend-title" class="text-xs font-semibold text-slate-200 truncate">能碳趋势</h2>
+          <div id="granularity-tabs" class="flex rounded-md bg-slate-800/90 p-0.5 border border-slate-700 text-[10px]">
+            <button data-gran="day" class="gran-btn rounded px-1.5 py-0.5 bg-cyan-500/25 text-cyan-200 font-medium">日</button>
+            <button data-gran="week" class="gran-btn rounded px-1.5 py-0.5 text-slate-400 hover:text-slate-200">周</button>
+            <button data-gran="month" class="gran-btn rounded px-1.5 py-0.5 text-slate-400 hover:text-slate-200">月</button>
+            <button data-gran="quarter" class="gran-btn rounded px-1.5 py-0.5 text-slate-400 hover:text-slate-200">季</button>
+            <button data-gran="year" class="gran-btn rounded px-1.5 py-0.5 text-slate-400 hover:text-slate-200">年</button>
+          </div>
+        </div>
+        <div class="flex justify-between text-[10px] text-slate-400 mb-1">
+          <span id="trend-unit">单位: kW (24h负荷)</span>
+          <span>预算执行率: <b id="kpi-budget-rate" class="text-cyan-300">78.4%</b></span>
+        </div>
+        <div class="relative h-36 w-full rounded-lg bg-slate-900/60 p-1.5 border border-slate-800">
+          <canvas id="trendChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <aside id="right-hud" class="fixed top-24 right-2.5 bottom-3 z-10 w-[calc(100%-1.25rem)] sm:w-80 hidden lg:flex flex-col gap-3 pointer-events-none lg:pointer-events-auto">
+    <div class="hud-glass rounded-xl p-3 pointer-events-auto flex flex-col gap-3 overflow-y-auto custom-scroll max-h-full">
+      <div class="border-b border-slate-700/60 pb-2">
+        <div class="flex items-center justify-between">
+          <span id="inspector-badge" class="rounded bg-cyan-500/20 px-2 py-0.5 text-[10px] font-medium text-cyan-300 border border-cyan-500/30">车间级穿透</span>
+          <button id="btn-view-all" class="text-[11px] text-slate-400 hover:text-cyan-300">查看全厂</button>
+        </div>
+        <h2 id="inspector-name" class="mt-1 text-sm font-semibold text-white">涂装与烘干车间</h2>
+        <p id="inspector-desc" class="text-[11px] text-slate-400 mt-0.5"></p>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 text-xs">
+        <div class="rounded-lg bg-slate-800/50 p-2 border border-slate-700/50">
+          <div class="text-slate-400 text-[10px]">Scope 1 直接排放</div>
+          <div id="insp-scope1" class="font-semibold text-amber-300 mt-0.5">58.4 tCO₂e/日</div>
+        </div>
+        <div class="rounded-lg bg-slate-800/50 p-2 border border-slate-700/50">
+          <div class="text-slate-400 text-[10px]">Scope 2 电力排放</div>
+          <div id="insp-scope2" class="font-semibold text-cyan-300 mt-0.5">26.1 tCO₂e/日</div>
+        </div>
+      </div>
+
+      <div>
+        <h3 class="text-xs font-semibold text-slate-200 mb-1.5">关联重点排放设施与点位</h3>
+        <div id="equipment-list" class="flex flex-col gap-1.5"></div>
+      </div>
+
+      <div class="rounded-lg bg-slate-800/60 border border-cyan-500/25 p-2.5">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-xs font-semibold text-cyan-300">降碳技改与碳价沙盘</h3>
+          <span class="text-[10px] text-slate-400">实时联动3D</span>
+        </div>
+        <div class="space-y-2.5 text-xs">
+          <div>
+            <div class="flex justify-between text-slate-300 mb-1">
+              <span>全国碳市场碳价</span>
+              <span id="val-price" class="font-mono text-cyan-300">90 元/吨</span>
+            </div>
+            <input id="slider-price" type="range" min="50" max="200" step="5" value="90" class="w-full h-1.5 bg-slate-700 rounded-lg cursor-pointer" />
+          </div>
+          <div>
+            <div class="flex justify-between text-slate-300 mb-1">
+              <span>光伏 + 绿电替代率</span>
+              <span id="val-green" class="font-mono text-emerald-300">34%</span>
+            </div>
+            <input id="slider-green" type="range" min="10" max="90" step="2" value="34" class="w-full h-1.5 bg-slate-700 rounded-lg cursor-pointer" />
+          </div>
+          <label class="flex items-center justify-between cursor-pointer pt-1 border-t border-slate-700/60">
+            <span class="text-slate-300">开启涂装炉余热回收技改</span>
+            <input id="toggle-retrofit" type="checkbox" class="sr-only peer" />
+            <div class="relative w-9 h-5 bg-slate-700 rounded-full peer peer-checked:bg-emerald-500 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4"></div>
+          </label>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ==================== MODULES 1-7 WORKSPACE WITH SHARED GLOBAL ORG TREE ==================== -->
+  <section id="workspace-panel" class="fixed top-24 left-2.5 right-2.5 bottom-3 z-20 hidden rounded-xl hud-glass flex-col overflow-hidden">
+    <!-- Workspace Header with Global Context Breadcrumb -->
+    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-700/70 px-4 py-2.5 bg-slate-900/60">
+      <div class="flex items-center gap-2.5">
+        <button id="btn-collapse-tree" class="rounded-lg bg-slate-800 border border-slate-600/70 px-2 py-1 text-[11px] text-slate-200 hover:border-cyan-400 transition">
+          收起/展开左树
+        </button>
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 id="ws-panel-title" class="text-sm font-semibold text-white">模块工作台</h2>
+            <span id="ws-breadcrumb" class="rounded-full bg-cyan-500/15 border border-cyan-400/30 px-2.5 py-0.5 text-[11px] text-cyan-200">当前上下文: 全部区域</span>
+          </div>
+          <p id="ws-panel-sub" class="text-[11px] text-slate-400 mt-0.5"></p>
+        </div>
+      </div>
+      <button id="btn-back-3d" class="rounded-lg bg-cyan-500/20 border border-cyan-400/40 px-3 py-1 text-xs font-medium text-cyan-200 hover:bg-cyan-500/30 transition">
+        返回 3D 驾驶舱
+      </button>
+    </div>
+
+    <!-- Split Container: Persistent Shared Left Org Tree + Right Module Content -->
+    <div class="flex-1 flex overflow-hidden">
+      <aside id="shared-org-sidebar" class="w-64 shrink-0 border-r border-slate-700/70 bg-slate-900/40 p-3 overflow-y-auto custom-scroll flex flex-col gap-2.5 text-xs">
+        <div class="flex rounded-lg bg-slate-800 p-0.5 border border-slate-700 text-[11px]">
+          <button data-tree="admin" class="tree-view-btn flex-1 rounded-md py-1 font-medium transition bg-cyan-500/25 text-cyan-200">行政区域树</button>
+          <button data-tree="system" class="tree-view-btn flex-1 rounded-md py-1 font-medium transition text-slate-400">用能系统树</button>
+        </div>
+        <div id="shared-tree-actions" class="flex gap-1.5">
+          <button id="btn-open-add-area" class="flex-1 rounded-lg bg-cyan-500/20 border border-cyan-400/40 py-1 text-[11px] font-medium text-cyan-200 hover:bg-cyan-500/30 transition">+ 新增区域</button>
+          <button id="btn-open-add-sys" class="flex-1 rounded-lg bg-emerald-500/20 border border-emerald-400/40 py-1 text-[11px] font-medium text-emerald-200 hover:bg-emerald-500/30 transition">+ 新增系统</button>
+        </div>
+        <div id="shared-tree-body" class="flex-1 space-y-1.5"></div>
+      </aside>
+
+      <div id="ws-panel-body" class="flex-1 overflow-y-auto custom-scroll p-4 text-xs"></div>
+    </div>
+  </section>
+
+  <div class="fixed bottom-2.5 left-1/2 -translate-x-1/2 z-10 hidden sm:flex items-center gap-4 rounded-full px-4 py-1 text-[11px] hud-glass">
+    <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-emerald-400"></span>低排放 / 绿电区</span>
+    <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-amber-400"></span>中负荷生产区</span>
+    <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-rose-500"></span>高碳排重点区</span>
+    <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-cyan-400"></span>实时能流</span>
+  </div>
+
+  <script>
+    // ==============================
+    // 1. Unified Platform State (Cross-Module Global Context)
+    // ==============================
+    const FACTORY_DATA = {
+      north: {
+        name: 'A工厂 · 华北精密制造基地',
+        regionName: '华北区域',
+        region: '华北区域电网 (0.6185 tCO₂/MWh)',
+        gridFactor: 0.6185,
+        baseQuota: 50000,
+        annualBudget: 48500,
+        baseGreenPct: 34,
+        hourlyLoad: [3800, 3600, 3550, 3500, 3700, 4100, 4800, 5600, 6200, 6500, 6400, 6100, 5900, 6300, 6450, 6200, 5800, 5200, 4800, 4500, 4200, 4000, 3900, 3850],
+        workshops: [
+          {
+            id: 'coating', name: '涂装与烘干车间', boundary: '重点排放边界 · 含Scope 1燃气窑炉', inBoundary: true,
+            desc: '主要耗能：天然气烘干炉（Scope 1）及排风系统（Scope 2）',
+            scope1: 58.4, scope2: 26.1, pos: { x: -7.5, z: -2 }, size: { w: 7.5, h: 3.4, d: 9 },
+            allocations: [
+              { tag: 'NB_COAT_GAS_01', energy: '天然气', weight: 100, note: '专表直采' },
+              { tag: 'NB_COAT_GAS_02', energy: '天然气', weight: 100, note: '专表直采' },
+              { tag: 'NB_COAT_ELEC_04', energy: '电', weight: 100, note: '专表直采' },
+              { tag: 'NB_COMP_ELEC_03', energy: '电', weight: 35, note: '空压站跨区公摊' }
+            ],
+            equipment: [
+              { id: 'eq-oven1', name: '1# 燃气烘干窑炉', meter: 'NB_COAT_GAS_01', scope: 'Scope 1', power: '天然气 420 m³/h', carbon: 46.2, status: '高排预警' },
+              { id: 'eq-rto', name: 'RTO 废气焚烧炉', meter: 'NB_COAT_GAS_02', scope: 'Scope 1', power: '天然气 110 m³/h', carbon: 12.2, status: '正常运行' },
+              { id: 'eq-fan', name: '喷漆室变频排风机组', meter: 'NB_COAT_ELEC_04', power: '380 kW', carbon: 18.5, status: '正常运行' }
+            ]
+          },
+          {
+            id: 'stamping', name: '冲压与机加工车间', boundary: '常规用电边界 · 含空压站公辅设施', inBoundary: true,
+            desc: '主要耗能：2000T液压机群、CNC加工中心与空压站（Scope 2）',
+            scope1: 4.2, scope2: 33.8, pos: { x: 2.5, z: -3.5 }, size: { w: 8, h: 3.2, d: 7 },
+            allocations: [
+              { tag: 'NB_STAMP_ELEC_01', energy: '电', weight: 100, note: '专表直采' },
+              { tag: 'NB_COMP_ELEC_03', energy: '电', weight: 65, note: '空压站跨区公摊' }
+            ],
+            equipment: [
+              { id: 'eq-press', name: '2000T 伺服冲压线', meter: 'NB_STAMP_ELEC_01', power: '1,150 kW', carbon: 21.4, status: '峰荷运行' },
+              { id: 'eq-comp', name: '集中空压机站 (3台)', meter: 'NB_COMP_ELEC_03', power: '450 kW', carbon: 8.6, status: '能效偏低' },
+              { id: 'eq-cnc', name: 'CNC 精密加工群', meter: 'NB_CNC_ELEC_08', power: '320 kW', carbon: 8.0, status: '正常运行' }
+            ]
+          },
+          {
+            id: 'assembly', name: '总装与智能仓储车间', boundary: '绿电微网边界 · 含屋顶光伏消纳', inBoundary: true,
+            desc: '主要耗能：AGV物流线、装配线及屋顶光伏自发自用区',
+            scope1: 1.8, scope2: 18.5, pos: { x: 2.5, z: 5.5 }, size: { w: 8.5, h: 2.8, d: 6.5 }, hasSolar: true,
+            allocations: [
+              { tag: 'NB_AGV_ELEC_05', energy: '电', weight: 100, note: '专表直采' },
+              { tag: 'NB_PV_GEN_01', energy: '绿电扣减', weight: 100, note: '光伏自发自用抵扣' }
+            ],
+            equipment: [
+              { id: 'eq-hvac', name: '磁悬浮中央空调冷机', meter: 'NB_HVAC_ELEC_01', power: '260 kW', carbon: 9.2, status: '节能模式' },
+              { id: 'eq-agv', name: '智能装配与AGV充电区', meter: 'NB_AGV_ELEC_05', power: '185 kW', carbon: 6.1, status: '绿电直供' },
+              { id: 'eq-pv', name: '屋顶分布式光伏阵 (2.4MW)', meter: 'NB_PV_GEN_01', power: '发电 1,680 kW', carbon: -11.4, status: '满发消纳' }
+            ]
+          }
+        ]
+      },
+      east: {
+        name: 'B工厂 · 华东零碳示范基地',
+        regionName: '华东区域',
+        region: '华东区域电网 (0.5240 tCO₂/MWh)',
+        gridFactor: 0.5240,
+        baseQuota: 42000,
+        annualBudget: 40000,
+        baseGreenPct: 68,
+        hourlyLoad: [2600, 2500, 2450, 2400, 2550, 2900, 3400, 4000, 4400, 4600, 4500, 4300, 4100, 4400, 4550, 4300, 4000, 3600, 3300, 3100, 2900, 2800, 2700, 2650],
+        workshops: [
+          {
+            id: 'coating', name: '电泳与热处理车间', boundary: '电气化改造边界 · 热泵余热回收', inBoundary: true,
+            desc: '已实施部分电加热替代，热泵余热回收运行中',
+            scope1: 22.0, scope2: 24.5, pos: { x: -7.5, z: -2 }, size: { w: 7.5, h: 3.4, d: 9 },
+            allocations: [
+              { tag: 'EC_HEAT_ELEC_01', energy: '电', weight: 100, note: '专表直采' },
+              { tag: 'EC_RTO_GAS_02', energy: '天然气', weight: 100, note: '专表直采' }
+            ],
+            equipment: [
+              { id: 'eq-oven1', name: '高效电磁感应加热炉', meter: 'EC_HEAT_ELEC_01', power: '680 kW', carbon: 19.8, status: '正常运行' },
+              { id: 'eq-rto', name: '蓄热式热力氧化器', meter: 'EC_RTO_GAS_02', power: '天然气 180 m³/h', carbon: 22.0, status: '正常运行' }
+            ]
+          },
+          {
+            id: 'stamping', name: '精密压铸车间', boundary: '高载能电气化边界', inBoundary: true,
+            desc: '全变频压铸机群 + 液态铝集中保温炉',
+            scope1: 8.5, scope2: 25.0, pos: { x: 2.5, z: -3.5 }, size: { w: 8, h: 3.2, d: 7 },
+            allocations: [
+              { tag: 'EC_CAST_ELEC_05', energy: '电', weight: 100, note: '专表直采' },
+              { tag: 'EC_COMP_ELEC_06', energy: '电', weight: 100, note: '专表直采' }
+            ],
+            equipment: [
+              { id: 'eq-press', name: '一体化压铸岛', meter: 'EC_CAST_ELEC_05', power: '980 kW', carbon: 21.0, status: '正常运行' },
+              { id: 'eq-comp', name: '一级能效空压站', meter: 'EC_COMP_ELEC_06', power: '280 kW', carbon: 4.0, status: '节能模式' }
+            ]
+          },
+          {
+            id: 'assembly', name: 'PACK总装与光储微网区', boundary: '近零碳示范边界 · 光储直柔', inBoundary: true,
+            desc: '屋顶全覆盖光伏 + 4MWh 储能削峰填谷',
+            scope1: 0.5, scope2: 11.2, pos: { x: 2.5, z: 5.5 }, size: { w: 8.5, h: 2.8, d: 6.5 }, hasSolar: true,
+            allocations: [
+              { tag: 'EC_PACK_ELEC_10', energy: '电', weight: 100, note: '专表直采' },
+              { tag: 'EC_BESS_GEN_01', energy: '绿电扣减', weight: 100, note: '光储直供抵扣' }
+            ],
+            equipment: [
+              { id: 'eq-agv', name: '自动化PACK产线', meter: 'EC_PACK_ELEC_10', power: '310 kW', carbon: 11.2, status: '绿电直供' },
+              { id: 'eq-pv', name: '全覆盖光伏 + 储能系统', meter: 'EC_BESS_GEN_01', power: '发电 2,300 kW', carbon: -18.6, status: '满发消纳' }
+            ]
+          }
+        ]
+      }
+    };
+
+    const state = {
+      activeModule: 'cockpit',
+      factoryKey: 'north',
+      mode: 'overview',
+      chartGranularity: 'day',
+      selectedWorkshopId: 'coating',
+      globalNode: 'coating', // 'all' | 'coating' | 'stamping' | 'assembly'
+      orgTreeView: 'admin',
+      treeCollapsed: false,
+      pointFilterEnergy: '全部',
+      activityPeriodFilter: '全部',
+      pendingUnlockId: null,
+      carbonPrice: 90,
+      greenPct: 34,
+      retrofitEnabled: false,
+      autoRotate: true,
+      activeFactorVersion: 'v2026.1',
+      factorPolicyFilter: '全部',
+      calcPeriod: '2026-11 (当月)',
+      systemTrees: {
+        north: [
+          { sys: '10kV 变配电系统', level: '1级关口总表', meter: 'NB_MAIN_ELEC_00', children: ['涂装配电柜 (NB_COAT_ELEC_04)', '冲压馈线 (NB_STAMP_ELEC_01)', 'CNC动力柜 (NB_CNC_ELEC_08)'] },
+          { sys: '天然气供气管网', level: '1级燃气总表', meter: 'NB_MAIN_GAS_00', children: ['1# 燃气烘干窑炉 (NB_COAT_GAS_01)', 'RTO 焚烧炉 (NB_COAT_GAS_02)'] },
+          { sys: '压缩空气公辅系统', level: '跨车间公摊', meter: 'NB_COMP_ELEC_03', children: ['冲压车间 65%', '涂装车间 35%'] },
+          { sys: '屋顶光储微网系统', level: '自发自用绿电', meter: 'NB_PV_GEN_01', children: ['总装与AGV充电区 (NB_AGV_ELEC_05)'] }
+        ],
+        east: [
+          { sys: '10kV 清洁供电系统', level: '1级关口总表', meter: 'EC_MAIN_ELEC_00', children: ['电磁加热炉 (EC_HEAT_ELEC_01)', '压铸岛 (EC_CAST_ELEC_05)', 'PACK产线 (EC_PACK_ELEC_10)'] },
+          { sys: '光储直柔微网', level: '绿电抵扣系统', meter: 'EC_BESS_GEN_01', children: ['优先消纳 PACK 总装区'] }
+        ]
+      },
+      gateways: [
+        { id: 'gw1', name: 'Neuron 边缘数采网关', proto: 'MQTT 订阅', endpoint: 'topic: edge/+/telemetry', heartbeat: '刚刚 (14ms)', status: '在线' },
+        { id: 'gw2', name: '厂区 SCADA 数采中台', proto: 'HTTP API 拉取', endpoint: 'api/v2/scada/points', heartbeat: '1分钟前', status: '在线' },
+        { id: 'gw3', name: 'ERP / MES 业务接口', proto: 'REST Webhook', endpoint: 'api/v1/erp/energy-bills', heartbeat: '15分钟前', status: '正常' },
+        { id: 'gw4', name: 'Excel / 人工补录通道', proto: '表单 / 导入', endpoint: '月度单据与断点补数', heartbeat: '1待核', status: '待核' }
+      ],
+      discoveredPoints: [],
+      points: [
+        { tag: 'NB_COAT_GAS_01', wsId: 'coating', area: '涂装与烘干车间', meterType: '专表直采', energy: '天然气', proto: 'Modbus TCP', scale: '×1.0 m³', val: '420.5 m³/h', status: '在线' },
+        { tag: 'NB_COAT_GAS_02', wsId: 'coating', area: '涂装与烘干车间', meterType: '专表直采', energy: '天然气', proto: 'OPC-UA', scale: '×1.0 m³', val: '110.2 m³/h', status: '在线' },
+        { tag: 'NB_COAT_ELEC_04', wsId: 'coating', area: '涂装与烘干车间', meterType: '专表直采', energy: '电', proto: 'MQTT/Neuron', scale: 'CT 400:5', val: '380.4 kW', status: '在线' },
+        { tag: 'NB_STEAM_01', wsId: 'coating', area: '涂装与烘干车间', meterType: '专表直采', energy: '蒸汽', proto: 'Excel/人工补录', scale: '×1.0 吨', val: '1,280 吨/月', status: '待核对' },
+        { tag: 'NB_STAMP_ELEC_01', wsId: 'stamping', area: '冲压与机加工车间', meterType: '专表直采', energy: '电', proto: 'MQTT/Neuron', scale: 'CT 1000:5', val: '1,152 kW', status: '在线' },
+        { tag: 'NB_COMP_ELEC_03', wsId: 'stamping', area: '冲压与机加工车间', meterType: '公共总表', energy: '电', proto: 'Modbus RTU', scale: 'CT 500:5', val: '450.0 kW', status: '在线' },
+        { tag: 'NB_CNC_ELEC_08', wsId: 'stamping', area: '冲压与机加工车间', meterType: '专表直采', energy: '电', proto: 'OPC-UA', scale: 'CT 400:5', val: '320.1 kW', status: '在线' },
+        { tag: 'NB_AGV_ELEC_05', wsId: 'assembly', area: '总装与智能仓储车间', meterType: '专表直采', energy: '电', proto: 'HTTP API', scale: 'CT 200:5', val: '185.0 kW', status: '在线' },
+        { tag: 'NB_DIESEL_01', wsId: 'assembly', area: '总装与智能仓储车间', meterType: '专表直采', energy: '油', proto: 'ERP API', scale: '×1.0 L', val: '3,420 L/月', status: '在线' },
+        { tag: 'NB_PV_GEN_01', wsId: 'assembly', area: '总装与智能仓储车间', meterType: '专表直采', energy: '电', proto: 'IEC 104', scale: '光伏逆变', val: '-1,680 kW', status: '在线' }
+      ],
+      govTab: 'manual',
+      govRuleList: [
+        { code: 'DEDUP', name: '1. 报文时间窗去重', threshold: '60秒同时间戳', action: '自动处理', template: '{time} 收到 {tag} 重复报文 {count} 条', enabled: true },
+        { code: 'RANGE_LIMIT', name: '2. 越限/负值拦截', threshold: 'val < 0 (豁免光伏)', action: '自动处理', template: '{tag} 上报越限值 {val}，已拦截', enabled: true },
+        { code: 'SPIKE_3SIGMA', name: '3. 3σ 突变异常', threshold: '偏离基线 > 3σ', action: '自动标红+告警', template: '{tag} 跳变至 {val} (基线 {baseline})', enabled: true },
+        { code: 'FROZEN_VALUE', name: '4. 数据僵死检测', threshold: '连续 60 分钟不变', action: '转人工复核', template: '{tag} 连续 {duration} 保持 {val} 不变', enabled: true },
+        { code: 'GAP_MISSING', name: '5. 通信断点缺数', threshold: '中断 > 10 分钟', action: '插补后转人工', template: '{tag} {start}~{end} 缺数，插补 {fillVal}', enabled: true },
+        { code: 'METER_BALANCE', name: '6. 总分表对账', threshold: '偏差 > ±3.0%', action: '超阈值转人工', template: '总表 {mainTag}({mainVal}) vs 分表({subSum})，偏差 {pct}', enabled: true },
+        { code: 'CROSS_SOURCE', name: '7. 跨源/补录核对', threshold: '所有人工/ERP单据', action: '必经人工复核', template: '[{period}] {tag} 补录/账单 {val} 待确认', enabled: true }
+      ],
+      autoGovLogs: [
+        { id: 'ag1', wsId: 'stamping', rule: '报文时间窗去重', tag: 'NB_STAMP_ELEC_01', detail: '14:02:00 收到 2 条同时间戳报文 (1,152 kW)，系统自动保留首条并丢弃重复帧', action: '已自动去重', time: '14:02' },
+        { id: 'ag2', wsId: 'coating', rule: '负值/倒走自动拦截', tag: 'NB_COAT_ELEC_04', detail: '11:20:00 传感器瞬时故障传回负值 -12.4 kW，系统已自动拦截并沿用前值 380.4 kW', action: '已自动拦截', time: '11:20' },
+        { id: 'ag3', wsId: 'coating', rule: '3σ 突变异常标红', tag: 'NB_COAT_GAS_01', detail: '09:15:00 读数瞬时跳变至 1,850 m³/h (超 3σ 阈值)，已自动标红并触发模块7预警', action: '已标红告警', time: '09:15' },
+        { id: 'ag4', wsId: 'all', rule: '总分表线损按占比平摊', tag: 'NB_MAIN_ELEC_00', detail: '昨日日结：关口总表与分表差额 270 kWh (线损 2.1%)，已按各车间用电占比自动平摊入账', action: '已自动平摊', time: '00:05' }
+      ],
+      govQueue: [
+        { id: 'g1', wsId: 'all', type: '总表/分表对账', desc: 'A工厂 10kV 关口总表 (12,450 kWh) vs 3个车间分表之和 (12,180 kWh)，线损偏差 +2.2%', source: 'Modbus vs 电力公司API', status: '待处理' },
+        { id: 'g2', wsId: 'coating', type: '断点补数校验', desc: '涂装车间 NB_COAT_GAS_01 昨晚 23:15-23:45 通信中断30分钟，已按前序均值插补 210 m³', source: 'Neuron 边缘缓存', status: '待处理' }
+      ],
+      activityLedger: [
+        { id: 'a1', wsId: 'all', period: '2026-10', factory: 'A工厂', area: '全厂关口', energy: '外购电力', value: '3,842,000 kWh', genType: '外部账单同步', source: '关口总表 + 电力账单对账', status: '已锁定', updatedBy: '张工' },
+        { id: 'a2', wsId: 'coating', period: '2026-10', factory: 'A工厂', area: '涂装与烘干车间', energy: '天然气', value: '412,500 m³', genType: '治理对账转入', source: 'NB_COAT_GAS_01/02', status: '已确认', updatedBy: '李敏' },
+        { id: 'a3', wsId: 'coating', period: '2026-10', factory: 'A工厂', area: '涂装与烘干车间', energy: '外购蒸汽', value: '1,280 吨', genType: '治理对账转入', source: 'NB_STEAM_01 (人工补录)', status: '待确认', updatedBy: '王强' },
+        { id: 'a4', wsId: 'stamping', period: '2026-10', factory: 'A工厂', area: '冲压与机加工车间', energy: '车间分表电力', value: '1,560,000 kWh', genType: '定时日/月结', source: 'NB_STAMP_ELEC_01 + 公摊', status: '已锁定', updatedBy: '凌晨定时任务' },
+        { id: 'a5', wsId: 'assembly', period: '2026-10', factory: 'A工厂', area: '总装与智能仓储车间', energy: '光伏绿电自用', value: '482,000 kWh', genType: '定时日/月结', source: 'NB_PV_GEN_01', status: '已锁定', updatedBy: '凌晨定时任务' }
+      ],
+      factors: [
+        { id: 'f1', name: '华北区域电网排放因子', energy: '电', policy: '国内MRV', val: '0.6185 tCO₂/MWh', ver: 'v2026.1', effective: '2026-01-01 ~ 长期', source: '生态环境部公告.pdf', enabled: true },
+        { id: 'f2', name: '华北区域电网排放因子(历史)', energy: '电', policy: '国内MRV', val: '0.6410 tCO₂/MWh', ver: 'v2025.1', effective: '2025-01-01 ~ 2025-12-31', source: '生态环境部历史公告.pdf', enabled: false },
+        { id: 'f3', name: '天然气燃料排放因子', energy: '天然气', policy: '国内MRV', val: '2.162 tCO₂/千m³', ver: 'v2026.1', effective: '2026-01-01 ~ 长期', source: 'GB_T_32150_缺省值.pdf', enabled: true },
+        { id: 'f4', name: '外购热力(蒸汽)排放因子', energy: '蒸汽', policy: '国内MRV', val: '0.110 tCO₂/GJ', ver: 'v2026.1', effective: '2026-01-01 ~ 长期', source: '省级热电联产基准.pdf', enabled: true },
+        { id: 'f5', name: '华北电网全生命周期因子', energy: '电', policy: '欧盟CBAM', val: '0.6840 tCO₂/MWh', ver: 'v2026.CBAM', effective: '2026-01-01 ~ 长期', source: 'EU_CBAM_Default_Values.pdf', enabled: true },
+        { id: 'f6', name: '工业柴油燃料因子', energy: '油', policy: 'ISO 14064', val: '2.630 kgCO₂/L', ver: 'v2026.1', effective: '2026-01-01 ~ 长期', source: 'IPCC_2006_Guidelines.pdf', enabled: true }
+      ],
+      calcTasks: [
+        { id: 't1', name: '2026-10 华北基地月度 Scope 1+2 核算', scope: 'Scope 1 + 2', formula: 'Σ(锁定活动数据 × 因子 v2026.1)', result: '4,892.4 tCO₂e', time: '2026-11-13 10:00', status: '已完成' },
+        { id: 't2', name: '2026-10 华东基地月度 Scope 1+2 核算', scope: 'Scope 1 + 2', formula: 'Σ(活动数据 - 绿电扣减) × 因子', result: '1,940.8 tCO₂e', time: '2026-11-13 10:02', status: '已完成' }
+      ],
+      alerts: [
+        { id: 'al1', wsId: 'coating', level: '高危', target: '涂装与烘干车间 · NB_COAT_GAS_01', msg: '天然气瞬时流量较基线偏高 +18.4%，预计触发本月预算红线', time: '14:05', status: '未处理' },
+        { id: 'al2', wsId: 'all', level: '预警', target: 'A工厂 · 年度配额履约预测', msg: '按当前排放速率预测年底配额缺口约 2,150 吨，建议提前锁定绿电或配额', time: '09:30', status: '未处理' }
+      ]
+    };
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.remove('hidden');
+      setTimeout(() => t.classList.add('hidden'), 2600);
+    }
+
+    // ==============================
+    // 2. Three.js 3D Digital Twin
+    // ==============================
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x050a14);
+    scene.fog = new THREE.FogExp2(0x050a14, 0.018);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 200);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    container.appendChild(renderer.domElement);
+
+    let camTarget = new THREE.Vector3(0, 0.5, 0);
+    let camSpherical = { radius: 28, theta: Math.PI / 4, phi: Math.PI / 3.1 };
+    let targetSpherical = { ...camSpherical };
+    let isDragging = false;
+    let pointerDownPos = { x: 0, y: 0 };
+    let prevPointer = { x: 0, y: 0 };
+
+    function updateCameraPosition() {
+      camSpherical.radius += (targetSpherical.radius - camSpherical.radius) * 0.12;
+      camSpherical.theta += (targetSpherical.theta - camSpherical.theta) * 0.12;
+      camSpherical.phi += (targetSpherical.phi - camSpherical.phi) * 0.12;
+      if (state.autoRotate && !isDragging && state.activeModule === 'cockpit') {
+        targetSpherical.theta += 0.0018;
+      }
+      const sinPhi = Math.sin(camSpherical.phi);
+      camera.position.x = camTarget.x + camSpherical.radius * sinPhi * Math.sin(camSpherical.theta);
+      camera.position.y = camTarget.y + camSpherical.radius * Math.cos(camSpherical.phi);
+      camera.position.z = camTarget.z + camSpherical.radius * sinPhi * Math.cos(camSpherical.theta);
+      camera.lookAt(camTarget);
+    }
+
+    scene.add(new THREE.AmbientLight(0x94a3b8, 0.65));
+    const dirLight = new THREE.DirectionalLight(0xe0f2fe, 1.1);
+    dirLight.position.set(16, 26, 14);
+    scene.add(dirLight);
+    const accentLight = new THREE.PointLight(0x22d3ee, 1.2, 35);
+    accentLight.position.set(-6, 10, 6);
+    scene.add(accentLight);
+
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(80, 80),
+      new THREE.MeshStandardMaterial({ color: 0x081020, roughness: 0.9, metalness: 0.1 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    scene.add(ground);
+
+    const gridHelper = new THREE.GridHelper(60, 40, 0x1e3a5f, 0x0f1f38);
+    gridHelper.position.y = 0.02;
+    scene.add(gridHelper);
+
+    const basePlatform = new THREE.Mesh(
+      new THREE.BoxGeometry(24, 0.25, 19),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.7, metalness: 0.3 })
+    );
+    basePlatform.position.set(-1.5, 0.125, 1);
+    scene.add(basePlatform);
+
+    const subBox = new THREE.Mesh(
+      new THREE.BoxGeometry(3.2, 2.0, 3.2),
+      new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4, metalness: 0.6 })
+    );
+    subBox.position.set(-10, 1.2, 6.5);
+    scene.add(subBox);
+    const subGlow = new THREE.Mesh(
+      new THREE.BoxGeometry(3.3, 0.15, 3.3),
+      new THREE.MeshBasicMaterial({ color: 0x22d3ee })
+    );
+    subGlow.position.set(-10, 2.25, 6.5);
+    scene.add(subGlow);
+
+    const workshopMeshes = {};
+    const energyParticles = [];
+    const exhaustParticles = [];
+    let interactiveObjects = [];
+
+    function getCarbonColor(totalCarbon) {
+      if (totalCarbon >= 65) return 0xf43f5e;
+      if (totalCarbon >= 32) return 0xf59e0b;
+      return 0x10b981;
+    }
+
+    function computeWorkshopCarbon(ws) {
+      if (!ws.inBoundary) return 0;
+      const factorScale = state.activeFactorVersion === 'v2025.1' ? 1.036 : 1.0;
+      const greenReduction = 1 - (state.greenPct - FACTORY_DATA[state.factoryKey].baseGreenPct) * 0.006;
+      let s1 = ws.scope1;
+      if (ws.id === 'coating' && state.retrofitEnabled) s1 = s1 * 0.72;
+      const s2 = Math.max(2, ws.scope2 * greenReduction * factorScale);
+      return Number((s1 + s2).toFixed(1));
+    }
+
+    function buildFactory3D() {
+      Object.values(workshopMeshes).forEach(item => scene.remove(item.group));
+      energyParticles.forEach(p => scene.remove(p.mesh));
+      exhaustParticles.forEach(p => scene.remove(p.mesh));
+      energyParticles.length = 0;
+      exhaustParticles.length = 0;
+      interactiveObjects = [];
+
+      const factory = FACTORY_DATA[state.factoryKey];
+      factory.workshops.forEach(ws => {
+        const group = new THREE.Group();
+        group.position.set(ws.pos.x, 0.25, ws.pos.z);
+
+        const effectiveCarbon = computeWorkshopCarbon(ws);
+        const heatColor = getCarbonColor(effectiveCarbon);
+
+        const shellGeo = new THREE.BoxGeometry(ws.size.w, ws.size.h, ws.size.d);
+        const shellMat = new THREE.MeshPhysicalMaterial({
+          color: state.mode === 'heatmap' ? heatColor : 0x1e3a5f,
+          transparent: true,
+          opacity: state.mode === 'heatmap' ? 0.55 : 0.35,
+          roughness: 0.2,
+          side: THREE.DoubleSide
+        });
+        const shell = new THREE.Mesh(shellGeo, shellMat);
+        shell.position.y = ws.size.h / 2;
+        shell.userData = { workshopId: ws.id };
+        group.add(shell);
+        interactiveObjects.push(shell);
+
+        const isSelected = state.selectedWorkshopId === ws.id;
+        const edges = new THREE.LineSegments(
+          new THREE.EdgesGeometry(shellGeo),
+          new THREE.LineBasicMaterial({
+            color: isSelected ? 0x38bdf8 : (state.mode === 'heatmap' ? heatColor : 0x0284c7),
+            transparent: true,
+            opacity: isSelected ? 1.0 : 0.65
+          })
+        );
+        edges.position.y = ws.size.h / 2;
+        group.add(edges);
+
+        const eqCount = ws.equipment.length;
+        for (let i = 0; i < eqCount; i++) {
+          const eqH = ws.id === 'coating' && i === 0 ? 1.8 : 1.1;
+          const eqMesh = new THREE.Mesh(
+            new THREE.BoxGeometry(1.4, eqH, 1.6),
+            new THREE.MeshStandardMaterial({
+              color: ws.id === 'coating' && i === 0 ? 0xfb7185 : 0x38bdf8,
+              emissive: ws.id === 'coating' && i === 0 ? 0x881337 : 0x0c4a6e,
+              emissiveIntensity: 0.6,
+              roughness: 0.3,
+              metalness: 0.7
+            })
+          );
+          eqMesh.position.set((i - (eqCount - 1) / 2) * 2.1, eqH / 2 + 0.05, 0);
+          group.add(eqMesh);
+        }
+
+        if (ws.hasSolar) {
+          for (let r = -1; r <= 1; r++) {
+            for (let c = -1; c <= 1; c++) {
+              const panel = new THREE.Mesh(
+                new THREE.BoxGeometry(1.8, 0.08, 1.2),
+                new THREE.MeshStandardMaterial({ color: 0x0f172a, emissive: 0x0369a1, emissiveIntensity: 0.45, metalness: 0.9, roughness: 0.1 })
+              );
+              panel.position.set(r * 2.2, ws.size.h + 0.25, c * 1.6);
+              panel.rotation.x = 0.22;
+              group.add(panel);
+            }
+          }
+        }
+
+        if (ws.id === 'coating') {
+          const stack = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.32, 0.42, 2.2, 16),
+            new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.6, roughness: 0.4 })
+          );
+          stack.position.set(-2.2, ws.size.h + 1.1, -2.5);
+          group.add(stack);
+
+          for (let p = 0; p < 10; p++) {
+            const smoke = new THREE.Mesh(
+              new THREE.SphereGeometry(0.18 + Math.random() * 0.15, 8, 8),
+              new THREE.MeshBasicMaterial({ color: state.retrofitEnabled ? 0x34d399 : 0xfb7185, transparent: true, opacity: 0.55 })
+            );
+            smoke.position.set(ws.pos.x - 2.2, ws.size.h + 2.4 + p * 0.35, ws.pos.z - 2.5);
+            scene.add(smoke);
+            exhaustParticles.push({ mesh: smoke, baseX: ws.pos.x - 2.2, baseY: ws.size.h + 2.4, baseZ: ws.pos.z - 2.5, offset: p * 0.1 });
+          }
+        }
+
+        if (isSelected) {
+          const ring = new THREE.Mesh(
+            new THREE.RingGeometry(Math.max(ws.size.w, ws.size.d) * 0.58, Math.max(ws.size.w, ws.size.d) * 0.62, 48),
+            new THREE.MeshBasicMaterial({ color: 0x22d3ee, side: THREE.DoubleSide, transparent: true, opacity: 0.8 })
+          );
+          ring.rotation.x = -Math.PI / 2;
+          ring.position.y = 0.05;
+          group.add(ring);
+        }
+
+        scene.add(group);
+        workshopMeshes[ws.id] = { group, shell, edges, data: ws };
+
+        const start = new THREE.Vector3(-10, 1.2, 6.5);
+        const end = new THREE.Vector3(ws.pos.x, 1.2, ws.pos.z);
+        const curve = new THREE.QuadraticBezierCurve3(start, new THREE.Vector3((start.x + end.x) / 2, 2.2, (start.z + end.z) / 2), end);
+
+        const tube = new THREE.Mesh(
+          new THREE.TubeGeometry(curve, 24, state.mode === 'energy' ? 0.08 : 0.04, 8, false),
+          new THREE.MeshBasicMaterial({ color: ws.hasSolar ? 0x10b981 : 0x22d3ee, transparent: true, opacity: state.mode === 'energy' ? 0.7 : 0.25 })
+        );
+        scene.add(tube);
+        energyParticles.push({ mesh: tube, isTube: true });
+
+        const dotCount = state.mode === 'energy' ? 6 : 3;
+        for (let d = 0; d < dotCount; d++) {
+          const dot = new THREE.Mesh(
+            new THREE.SphereGeometry(state.mode === 'energy' ? 0.18 : 0.11, 8, 8),
+            new THREE.MeshBasicMaterial({ color: ws.hasSolar ? 0x34d399 : 0x38bdf8 })
+          );
+          scene.add(dot);
+          energyParticles.push({ mesh: dot, curve, t: d / dotCount, speed: 0.006 });
+        }
+      });
+    }
+
+    // ==============================
+    // 3. Cockpit UI & Chart Sync
+    // ==============================
+    let trendChart = null;
+    function initChart() {
+      const ctx = document.getElementById('trendChart').getContext('2d');
+      trendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`),
+          datasets: [{
+            label: '用电负荷 (kW)',
+            data: FACTORY_DATA[state.factoryKey].hourlyLoad,
+            borderColor: '#22d3ee',
+            backgroundColor: 'rgba(34, 211, 238, 0.15)',
+            borderWidth: 2,
+            tension: 0.35,
+            fill: true,
+            pointRadius: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+          scales: {
+            x: { ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 } }, grid: { display: false } },
+            y: { ticks: { color: '#64748b', maxTicksLimit: 4, font: { size: 10 } }, grid: { color: 'rgba(51, 65, 85, 0.4)' } }
+          }
+        }
+      });
+    }
+
+    function updateCockpitUI() {
+      const factory = FACTORY_DATA[state.factoryKey];
+      let totalToday = 0;
+      const computedList = factory.workshops.map(ws => {
+        const c = computeWorkshopCarbon(ws);
+        totalToday += c;
+        return { ws, carbon: c };
+      });
+      computedList.sort((a, b) => b.carbon - a.carbon);
+
+      document.getElementById('kpi-today').textContent = totalToday.toFixed(1);
+      document.getElementById('kpi-green').textContent = `${state.greenPct}%`;
+
+      const annualEst = totalToday * 340;
+      const quotaDiff = Math.round(factory.baseQuota - annualEst);
+      const quotaEl = document.getElementById('kpi-quota');
+      quotaEl.textContent = (quotaDiff >= 0 ? '+' : '') + quotaDiff.toLocaleString();
+      quotaEl.className = `text-base font-bold ${quotaDiff >= 0 ? 'text-emerald-400' : 'text-amber-400'}`;
+
+      const financeVal = (quotaDiff * state.carbonPrice / 10000).toFixed(1);
+      const finEl = document.getElementById('kpi-finance');
+      finEl.textContent = (Number(financeVal) >= 0 ? '+' : '') + financeVal;
+      finEl.className = `text-base font-bold ${Number(financeVal) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+
+      const budgetRate = Math.min(120, Math.round((annualEst / factory.annualBudget) * 1000) / 10);
+      document.getElementById('kpi-budget-rate').textContent = `${budgetRate}%`;
+
+      document.getElementById('badge-gov').textContent = state.govQueue.filter(g => g.status === '待处理').length;
+      document.getElementById('badge-alert').textContent = state.alerts.filter(a => a.status === '未处理').length;
+
+      const rankContainer = document.getElementById('workshop-ranking');
+      rankContainer.innerHTML = '';
+      computedList.forEach(({ ws, carbon }) => {
+        const pct = totalToday > 0 ? Math.round((carbon / totalToday) * 100) : 0;
+        const isSel = ws.id === state.selectedWorkshopId;
+        const barColor = carbon >= 65 ? 'bg-rose-500' : (carbon >= 32 ? 'bg-amber-400' : 'bg-emerald-400');
+        const btn = document.createElement('button');
+        btn.className = `w-full text-left rounded-lg p-2 border transition ${isSel ? 'bg-cyan-500/15 border-cyan-400/60' : 'bg-slate-800/50 border-slate-700/50 hover:border-slate-500'}`;
+        btn.innerHTML = `
+          <div class="flex justify-between text-xs">
+            <span class="font-medium text-slate-100">${ws.name}</span>
+            <span class="font-mono text-slate-300">${carbon} t <span class="text-slate-500">(${pct}%)</span></span>
+          </div>
+          <div class="mt-1 h-1.5 w-full rounded-full bg-slate-700/80 overflow-hidden">
+            <div class="h-full ${barColor} rounded-full transition-all duration-300" style="width:${pct}%"></div>
+          </div>
+        `;
+        btn.addEventListener('click', () => {
+          state.selectedWorkshopId = ws.id;
+          state.globalNode = ws.id;
+          updateCockpitUI();
+          buildFactory3D();
+        });
+        rankContainer.appendChild(btn);
+      });
+
+      const selWs = factory.workshops.find(w => w.id === state.selectedWorkshopId) || factory.workshops[0];
+      const factorScale = state.activeFactorVersion === 'v2025.1' ? 1.036 : 1.0;
+      const greenReduction = 1 - (state.greenPct - factory.baseGreenPct) * 0.006;
+      const s1 = selWs.inBoundary ? ((selWs.id === 'coating' && state.retrofitEnabled) ? (selWs.scope1 * 0.72) : selWs.scope1) : 0;
+      const s2 = selWs.inBoundary ? Math.max(2, selWs.scope2 * greenReduction * factorScale) : 0;
+
+      document.getElementById('inspector-name').textContent = selWs.name;
+      document.getElementById('inspector-desc').textContent = selWs.desc;
+      document.getElementById('insp-scope1').textContent = `${s1.toFixed(1)} tCO₂e/日`;
+      document.getElementById('insp-scope2').textContent = `${s2.toFixed(1)} tCO₂e/日`;
+
+      const eqContainer = document.getElementById('equipment-list');
+      eqContainer.innerHTML = '';
+      selWs.equipment.forEach(eq => {
+        const badgeClass = eq.status.includes('预警') || eq.status.includes('偏低')
+          ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+          : (eq.carbon < 0 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-cyan-500/15 text-cyan-300 border-cyan-500/25');
+        const div = document.createElement('div');
+        div.className = 'rounded-lg bg-slate-900/60 border border-slate-700/60 p-2 text-xs';
+        div.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="font-medium text-slate-200">${eq.name}</span>
+            <span class="rounded px-1.5 py-0.5 text-[10px] border ${badgeClass}">${eq.status}</span>
+          </div>
+          <div class="mt-1 flex justify-between text-[11px] text-slate-400">
+            <span class="font-mono text-cyan-300/80">${eq.meter}</span>
+            <span class="font-mono text-slate-300">${eq.power}</span>
+          </div>
+        `;
+        eqContainer.appendChild(div);
+      });
+
+      if (trendChart) {
+        const scale = state.factoryKey === 'north' ? 1 : 0.65;
+        const granMap = {
+          day: {
+            title: '24h 用电负荷',
+            unit: '单位: kW (分时采集)',
+            labels: Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`),
+            data: factory.hourlyLoad,
+            color: '#22d3ee',
+            bg: 'rgba(34, 211, 238, 0.15)'
+          },
+          week: {
+            title: '本周日碳排趋势',
+            unit: '单位: tCO₂e/日 (含周末基荷)',
+            labels: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+            data: [148, 152, 146, 155, 149, 98, 76].map(v => Math.round(v * scale)),
+            color: '#34d399',
+            bg: 'rgba(52, 211, 153, 0.15)'
+          },
+          month: {
+            title: '年度月度碳排账期',
+            unit: '单位: tCO₂e/月 (对齐台账)',
+            labels: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+            data: [4100, 3600, 4250, 4380, 4520, 4890, 5120, 5200, 4750, 4892, 4680, 4500].map(v => Math.round(v * scale)),
+            color: '#fbbf24',
+            bg: 'rgba(251, 191, 36, 0.15)'
+          },
+          quarter: {
+            title: '季度碳排统计',
+            unit: '单位: tCO₂e/季',
+            labels: ['Q1 一季度', 'Q2 二季度', 'Q3 三季度', 'Q4 四季度(预测)'],
+            data: [11950, 13790, 15070, 14072].map(v => Math.round(v * scale)),
+            color: '#38bdf8',
+            bg: 'rgba(56, 189, 248, 0.15)'
+          },
+          year: {
+            title: '历年碳排同比走势',
+            unit: '单位: 万吨 CO₂e/年',
+            labels: ['2023年', '2024年', '2025年', '2026年(预估)'],
+            data: [5.62, 5.38, 5.11, 4.85].map(v => Number((v * scale).toFixed(2))),
+            color: '#a78bfa',
+            bg: 'rgba(167, 139, 250, 0.15)'
+          }
+        };
+        const cfg = granMap[state.chartGranularity] || granMap.day;
+        document.getElementById('trend-title').textContent = cfg.title;
+        document.getElementById('trend-unit').textContent = cfg.unit;
+        trendChart.data.labels = cfg.labels;
+        trendChart.data.datasets[0].data = cfg.data;
+        trendChart.data.datasets[0].borderColor = cfg.color;
+        trendChart.data.datasets[0].backgroundColor = cfg.bg;
+        trendChart.update();
+      }
+    }
+
+    // ==============================
+    // 4. Shared Persistent Org Tree & Modules 1-7
+    // ==============================
+    const TREE_ENABLED_MODULES = ['org', 'ingest', 'gov', 'activity', 'budget'];
+
+    function renderSharedOrgTree() {
+      const sidebar = document.getElementById('shared-org-sidebar');
+      const collapseBtn = document.getElementById('btn-collapse-tree');
+      const treeBody = document.getElementById('shared-tree-body');
+      const f = FACTORY_DATA[state.factoryKey];
+
+      const needsTree = TREE_ENABLED_MODULES.includes(state.activeModule);
+      collapseBtn.classList.toggle('hidden', !needsTree);
+
+      if (!needsTree || state.treeCollapsed) {
+        sidebar.classList.add('hidden');
+        sidebar.classList.remove('flex');
+      } else {
+        sidebar.classList.remove('hidden');
+        sidebar.classList.add('flex');
+      }
+
+      // Breadcrumb
+      const activeWs = f.workshops.find(w => w.id === state.globalNode);
+      document.getElementById('ws-breadcrumb').textContent = state.globalNode === 'all' || !activeWs
+        ? `上下文: ${f.name.split(' ')[0]} · 全部区域`
+        : `上下文: ${f.name.split(' ')[0]} / ${activeWs.name}`;
+
+      // Toggle buttons style
+      sidebar.querySelectorAll('.tree-view-btn').forEach(btn => {
+        const isA = btn.dataset.tree === state.orgTreeView;
+        btn.className = `tree-view-btn flex-1 rounded-md py-1 font-medium transition ${
+          isA ? (btn.dataset.tree === 'admin' ? 'bg-cyan-500/25 text-cyan-200' : 'bg-emerald-500/25 text-emerald-200') : 'text-slate-400'
+        }`;
+      });
+
+      if (state.orgTreeView === 'admin') {
+        treeBody.innerHTML = `
+          <button data-node="all" class="shared-node-btn w-full text-left rounded-lg p-2 border transition ${state.globalNode === 'all' ? 'bg-cyan-500/20 border-cyan-400/60 text-white' : 'bg-slate-800/70 border-slate-600/60 text-slate-200'}">
+            <div class="font-semibold">${f.name.split(' ')[0]} (全部区域)</div>
+            <div class="text-[10px] text-slate-400 mt-0.5">${f.regionName} · ${state.points.length} 个点位</div>
+          </button>
+          ${f.workshops.map(w => {
+            const ptCount = state.points.filter(p => p.wsId === w.id).length;
+            const alertCount = state.alerts.filter(a => a.wsId === w.id && a.status === '未处理').length;
+            const isSel = state.globalNode === w.id;
+            return `
+              <button data-node="${w.id}" class="shared-node-btn ml-2 w-[calc(100%-0.5rem)] text-left rounded-lg p-2 border transition ${isSel ? 'bg-cyan-500/20 border-cyan-400/60 text-white' : 'bg-slate-800/40 border-slate-700/60 text-slate-300 hover:border-slate-500'}">
+                <div class="flex items-center justify-between">
+                  <span class="font-medium truncate">${w.name}</span>
+                  ${alertCount > 0 ? `<span class="rounded-full bg-rose-500/30 px-1.5 text-[10px] text-rose-300">${alertCount}警</span>` : ''}
+                </div>
+                <div class="flex items-center justify-between text-[10px] text-slate-400 mt-0.5">
+                  <span>${ptCount} 点位</span>
+                  <span class="${w.inBoundary ? 'text-emerald-300' : 'text-slate-500'}">${w.inBoundary ? '纳入边界' : '已剔除'}</span>
+                </div>
+              </button>
+            `;
+          }).join('')}
+        `;
+        treeBody.querySelectorAll('.shared-node-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            state.globalNode = btn.dataset.node;
+            if (state.globalNode !== 'all') {
+              state.selectedWorkshopId = state.globalNode;
+            }
+            renderSharedOrgTree();
+            renderWorkspaceModule(state.activeModule);
+          });
+        });
+      } else {
+        const sysList = state.systemTrees[state.factoryKey] || [];
+        treeBody.innerHTML = sysList.map(s => `
+          <div class="rounded-lg bg-slate-800/60 p-2 border border-slate-700/70">
+            <div class="font-semibold text-emerald-300">${s.sys}</div>
+            <div class="font-mono text-[10px] text-cyan-300">${s.meter}</div>
+            <div class="mt-1 ml-2 border-l border-slate-600 pl-2 space-y-0.5 text-[10px] text-slate-300">
+              ${s.children.map(ch => `<div>↳ ${ch}</div>`).join('')}
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    function switchModule(modKey) {
+      state.activeModule = modKey;
+      document.querySelectorAll('.mod-tab').forEach(b => {
+        const active = b.dataset.mod === modKey;
+        b.className = `mod-tab shrink-0 rounded-lg px-2.5 py-1 font-medium transition ${
+          active ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-400/40' : 'text-slate-300 hover:bg-slate-800 border border-transparent'
+        }`;
+      });
+
+      const panel = document.getElementById('workspace-panel');
+      const leftHud = document.getElementById('left-hud');
+      const rightHud = document.getElementById('right-hud');
+
+      if (modKey === 'cockpit') {
+        panel.classList.add('hidden');
+        panel.classList.remove('flex');
+        leftHud.classList.remove('hidden');
+        rightHud.classList.remove('hidden');
+        updateCockpitUI();
+        buildFactory3D();
+        return;
+      }
+
+      panel.classList.remove('hidden');
+      panel.classList.add('flex');
+      leftHud.classList.add('hidden');
+      rightHud.classList.add('hidden');
+      renderSharedOrgTree();
+      renderWorkspaceModule(modKey);
+    }
+
+    function renderWorkspaceModule(modKey) {
+      const titleEl = document.getElementById('ws-panel-title');
+      const subEl = document.getElementById('ws-panel-sub');
+      const bodyEl = document.getElementById('ws-panel-body');
+      const f = FACTORY_DATA[state.factoryKey];
+      const activeWsId = state.globalNode === 'all' ? f.workshops[0].id : state.globalNode;
+
+      if (modKey === 'org') {
+        titleEl.textContent = '1. 组织与边界配置';
+        subEl.textContent = '在左侧共享组织树选中节点，即可在右侧配置核算边界、计量点位分摊权重及排放设施';
+        const selWs = f.workshops.find(w => w.id === activeWsId) || f.workshops[0];
+
+        bodyEl.innerHTML = `
+          <div class="flex flex-col gap-3">
+            <div class="rounded-xl bg-slate-900/70 border border-cyan-500/30 p-3.5 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-semibold text-white">${selWs.name}</span>
+                  <span class="rounded bg-slate-800 px-2 py-0.5 text-[10px] text-cyan-300 border border-slate-600">${selWs.boundary}</span>
+                </div>
+                <div class="text-[11px] text-slate-400 mt-1">归属网格: ${f.region} · 当前日碳排: <b class="text-white">${computeWorkshopCarbon(selWs)} tCO₂e</b></div>
+              </div>
+              <div class="flex items-center gap-3">
+                <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-200">
+                  <span>纳入碳盘查边界</span>
+                  <input id="chk-boundary" type="checkbox" class="accent-cyan-400 h-4 w-4" ${selWs.inBoundary ? 'checked' : ''} />
+                </label>
+                <button id="btn-org-goto-3d" class="rounded-lg bg-cyan-500/20 border border-cyan-400/50 px-3 py-1.5 text-cyan-200 hover:bg-cyan-500/30 transition">3D场景定位</button>
+              </div>
+            </div>
+
+            <div class="rounded-xl bg-slate-900/70 border border-slate-700/60 p-3.5">
+              <div class="font-semibold text-cyan-300 mb-2">计量点位绑定与跨区权重分摊</div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                ${selWs.allocations.map((al, idx) => `
+                  <div class="rounded-lg bg-slate-800/60 border border-slate-700 p-2.5 flex items-center justify-between gap-2">
+                    <div>
+                      <div class="font-mono font-semibold text-white">${al.tag}</div>
+                      <div class="text-[11px] text-slate-400">${al.energy} · ${al.note}</div>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                      <input type="number" min="0" max="100" value="${al.weight}" data-alloc-idx="${idx}" class="alloc-weight-input w-14 rounded bg-slate-900 border border-slate-600 px-1.5 py-1 text-right font-mono text-cyan-300" />
+                      <span class="text-slate-400">%</span>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+
+            <div class="rounded-xl bg-slate-900/70 border border-amber-500/30 p-3.5">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <span class="font-semibold text-amber-300">公共总表分摊校验中心（所有车间权重之和必须 = 100%）</span>
+                <span class="text-[10px] text-slate-400">修改任一车间比例将实时重算总和</span>
+              </div>
+              <div id="shared-validation-box" class="space-y-2">
+                ${(() => {
+                  const sharedMap = {};
+                  f.workshops.forEach(w => {
+                    w.allocations.forEach((al, idx) => {
+                      if (al.note.includes('公摊') || al.weight < 100) {
+                        if (!sharedMap[al.tag]) sharedMap[al.tag] = [];
+                        sharedMap[al.tag].push({ wsId: w.id, wsName: w.name, idx, weight: al.weight, energy: al.energy });
+                      }
+                    });
+                  });
+                  const selTags = new Set(selWs.allocations.map(a => a.tag));
+                  const tags = Object.keys(sharedMap).filter(t => selTags.has(t));
+                  if (!tags.length) return `<div class="text-slate-400">当前节点（${selWs.name}）不涉及跨区公摊点位，全部为 100% 专表直采。</div>`;
+                  return tags.map(tag => {
+                    const items = sharedMap[tag];
+                    const total = items.reduce((sum, x) => sum + x.weight, 0);
+                    const ok = total === 100;
+                    return `
+                      <div class="rounded-lg bg-slate-800/70 border ${ok ? 'border-emerald-500/40' : 'border-rose-500/60'} p-2.5">
+                        <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                          <span class="font-mono font-semibold text-white">${tag} <span class="text-slate-400 font-sans font-normal">(${items[0].energy})</span></span>
+                          <span class="rounded px-2 py-0.5 text-[10px] font-medium ${ok ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/25 text-rose-300'}">
+                            ${ok ? '总和 100% · 校验通过 ✓' : `当前总和 ${total}% · ${total > 100 ? '超额重复计算' : '存在漏算'}！`}
+                          </span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          ${items.map(it => `
+                            <div class="flex items-center justify-between rounded bg-slate-900/70 px-2.5 py-1.5 border border-slate-700">
+                              <span class="text-slate-200">${it.wsName}</span>
+                              <div class="flex items-center gap-1">
+                                <input type="number" min="0" max="100" value="${it.weight}" data-shared-ws="${it.wsId}" data-shared-idx="${it.idx}" class="shared-weight-input w-14 rounded bg-slate-800 border border-slate-600 px-1.5 py-0.5 text-right font-mono text-cyan-300" />
+                                <span class="text-slate-400">%</span>
+                              </div>
+                            </div>
+                          `).join('')}
+                        </div>
+                      </div>
+                    `;
+                  }).join('');
+                })()}
+              </div>
+            </div>
+
+            <div class="rounded-xl bg-slate-900/70 border border-slate-700/60 p-3.5">
+              <div class="font-semibold text-white mb-2">节点下属重点排放设施（含核算范围定性）</div>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                ${selWs.equipment.map(eq => {
+                  const sc = eq.scope || (eq.meter.includes('GAS') ? 'Scope 1' : 'Scope 2');
+                  return `
+                    <div class="rounded-lg bg-slate-800/50 border border-slate-700 p-2.5">
+                      <div class="flex items-center justify-between gap-1">
+                        <span class="font-medium text-slate-100 truncate">${eq.name}</span>
+                        <span class="shrink-0 rounded px-1.5 py-0.5 text-[10px] ${sc === 'Scope 1' ? 'bg-amber-500/20 text-amber-300' : 'bg-cyan-500/20 text-cyan-300'}">${sc}</span>
+                      </div>
+                      <div class="font-mono text-[11px] text-cyan-300 mt-1">${eq.meter}</div>
+                      <div class="text-[11px] text-slate-400 mt-0.5">${eq.power}</div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          </div>
+        `;
+        document.getElementById('chk-boundary').addEventListener('change', e => {
+          selWs.inBoundary = e.target.checked;
+          renderSharedOrgTree();
+          updateCockpitUI();
+          buildFactory3D();
+          showToast(`${selWs.name} 已${selWs.inBoundary ? '纳入' : '移出'}核算边界`);
+          renderWorkspaceModule('org');
+        });
+        bodyEl.querySelectorAll('.alloc-weight-input').forEach(inp => {
+          inp.addEventListener('change', e => {
+            const idx = Number(e.target.dataset.allocIdx);
+            selWs.allocations[idx].weight = Math.max(0, Math.min(100, Number(e.target.value) || 0));
+            showToast(`已更新点位 ${selWs.allocations[idx].tag} 分摊权重为 ${selWs.allocations[idx].weight}%`);
+            renderWorkspaceModule('org');
+          });
+        });
+        bodyEl.querySelectorAll('.shared-weight-input').forEach(inp => {
+          inp.addEventListener('change', e => {
+            const wsObj = f.workshops.find(w => w.id === e.target.dataset.sharedWs);
+            const idx = Number(e.target.dataset.sharedIdx);
+            if (wsObj && wsObj.allocations[idx]) {
+              wsObj.allocations[idx].weight = Math.max(0, Math.min(100, Number(e.target.value) || 0));
+              renderWorkspaceModule('org');
+            }
+          });
+        });
+        document.getElementById('btn-org-goto-3d').addEventListener('click', () => {
+          state.selectedWorkshopId = selWs.id;
+          switchModule('cockpit');
+        });
+      } else if (modKey === 'ingest') {
+        titleEl.textContent = '2. 点位与数据接入';
+        subEl.textContent = '统一网关接收后按左侧组织上下文自动过滤点位（电/气/煤/油/蒸汽），并支持人工补录';
+        const filteredPoints = state.points.filter(p => {
+          const matchWs = state.globalNode === 'all' || p.wsId === state.globalNode;
+          const matchEn = state.pointFilterEnergy === '全部' || p.energy === state.pointFilterEnergy;
+          return matchWs && matchEn;
+        });
+
+        bodyEl.innerHTML = `
+          <div class="flex flex-col gap-3">
+            <!-- Upstream Data Collection Platforms -->
+            <div class="rounded-xl bg-slate-900/70 border border-cyan-500/25 p-3">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <span class="font-semibold text-cyan-300">上游数采平台与接入通道（边缘侧转 MQTT / API 统一推送至本系统）</span>
+                <button id="btn-sync-points" class="rounded-lg bg-emerald-500/20 border border-emerald-400/50 px-2.5 py-1 text-[11px] font-medium text-emerald-200 hover:bg-emerald-500/30 transition">
+                  ↻ 从数采平台自动发现新点位
+                </button>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                ${state.gateways.map(g => `
+                  <div class="rounded-lg bg-slate-800/60 border border-slate-700/70 p-2.5 flex flex-col justify-between gap-1.5">
+                    <div>
+                      <div class="flex items-center justify-between gap-1">
+                        <span class="font-medium text-slate-100 truncate">${g.name}</span>
+                        <span class="shrink-0 rounded px-1.5 py-0.5 text-[10px] ${g.status === '在线' || g.status === '正常' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}">${g.status}</span>
+                      </div>
+                      <div class="text-[10px] text-cyan-300 font-mono mt-1 truncate">${g.proto} · ${g.endpoint}</div>
+                    </div>
+                    <div class="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-700/50">
+                      <span>心跳: ${g.heartbeat}</span>
+                      <button data-gw-id="${g.id}" class="ping-gw-btn text-cyan-300 hover:underline">测试连通</button>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+              ${state.discoveredPoints.length ? `
+                <div class="mt-2.5 rounded-lg bg-emerald-500/10 border border-emerald-400/40 p-2.5 space-y-2">
+                  <div class="text-emerald-200 font-semibold">待认领点位池（请为以下新发现的硬件点位指定归属车间与属性）：</div>
+                  ${state.discoveredPoints.map((dp, i) => `
+                    <div class="flex flex-wrap items-center justify-between gap-2 rounded bg-slate-900/70 p-2 border border-slate-700">
+                      <div>
+                        <span class="font-mono font-semibold text-cyan-300">${dp.tag}</span>
+                        <span class="text-slate-400 ml-1.5">(${dp.proto} · 实时值: ${dp.val})</span>
+                      </div>
+                      <div class="flex flex-wrap items-center gap-1.5">
+                        <select id="claim-ws-${i}" class="rounded bg-slate-800 border border-slate-600 px-2 py-1 text-[11px] text-slate-100">
+                          ${f.workshops.map(w => `<option value="${w.id}" ${(state.globalNode !== 'all' ? state.globalNode === w.id : i === 0) ? 'selected' : ''}>${w.name}</option>`).join('')}
+                        </select>
+                        <select id="claim-energy-${i}" class="rounded bg-slate-800 border border-slate-600 px-2 py-1 text-[11px] text-slate-100">
+                          <option value="电" ${dp.energy === '电' ? 'selected' : ''}>电</option>
+                          <option value="天然气">天然气</option>
+                          <option value="蒸汽">蒸汽</option>
+                          <option value="油">油</option>
+                          <option value="煤">煤</option>
+                        </select>
+                        <select id="claim-type-${i}" class="rounded bg-slate-800 border border-slate-600 px-2 py-1 text-[11px] text-slate-100">
+                          <option value="专表直采">专表直采</option>
+                          <option value="公共总表">公共总表</option>
+                        </select>
+                        <button data-claim-idx="${i}" class="claim-one-btn rounded bg-emerald-500/30 border border-emerald-400/60 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-emerald-500/40">确认认领</button>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              ` : ''}
+            </div>
+
+            <div class="rounded-xl bg-slate-900/70 border border-slate-700/60 p-3.5">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <div class="flex items-center gap-2.5">
+                  <span class="font-semibold text-cyan-300">点位 (Point / Tag) 实时接入台账（共 ${filteredPoints.length} 个）</span>
+                  <button id="btn-open-add-point" class="rounded-lg bg-cyan-500/25 border border-cyan-400/50 px-2.5 py-1 text-[11px] font-medium text-cyan-200 hover:bg-cyan-500/35 transition">+ 新增点位</button>
+                </div>
+                <div class="flex gap-1">
+                  ${['全部', '电', '天然气', '蒸汽', '油'].map(en => `
+                    <button data-en="${en}" class="en-filter-btn rounded px-2 py-0.5 text-[11px] border ${state.pointFilterEnergy === en ? 'bg-cyan-500/25 border-cyan-400 text-cyan-200' : 'bg-slate-800 border-slate-600 text-slate-300'}">${en}</button>
+                  `).join('')}
+                </div>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                  <thead>
+                    <tr class="border-b border-slate-700 text-slate-400">
+                      <th class="py-2 pr-2">点位编码 (Tag)</th><th class="py-2 pr-2">归属区域</th><th class="py-2 pr-2">采集属性</th><th class="py-2 pr-2">能源</th><th class="py-2 pr-2">接入协议</th><th class="py-2 pr-2">倍率/量纲</th><th class="py-2 pr-2">最新遥测值</th><th class="py-2 pr-2">状态</th><th class="py-2">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-800">
+                    ${filteredPoints.map(p => `
+                      <tr>
+                        <td class="py-2 pr-2 font-mono text-cyan-300">${p.tag}</td>
+                        <td class="py-2 pr-2 text-slate-200">${p.area}</td>
+                        <td class="py-2 pr-2"><span class="rounded px-1.5 py-0.5 text-[10px] ${p.meterType === '公共总表' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-slate-800 text-slate-300 border border-slate-600'}">${p.meterType || '专表直采'}</span></td>
+                        <td class="py-2 pr-2">${p.energy}</td>
+                        <td class="py-2 pr-2 font-mono text-slate-400">${p.proto}</td>
+                        <td class="py-2 pr-2 text-slate-400">${p.scale}</td>
+                        <td class="py-2 pr-2 font-mono text-white">${p.val}</td>
+                        <td class="py-2 pr-2"><span class="rounded px-1.5 py-0.5 text-[10px] ${p.status === '在线' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}">${p.status}</span></td>
+                        <td class="py-2"><button data-pick-tag="${p.tag}" class="pick-tag-btn rounded bg-slate-800 border border-slate-600 px-2 py-0.5 text-[10px] text-cyan-300 hover:border-cyan-400">补录</button></td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="rounded-xl bg-slate-900/70 border border-cyan-500/30 p-3 flex flex-wrap items-end gap-3">
+              <div class="flex-1 min-w-[200px]">
+                <label class="block text-slate-400 mb-1">指定补录点位 (Tag)</label>
+                <select id="manual-tag" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-2.5 py-1.5 font-mono text-cyan-200">
+                  ${(filteredPoints.length ? filteredPoints : state.points).map(p => `<option value="${p.tag}">${p.tag} (${p.area} · ${p.energy})</option>`).join('')}
+                </select>
+              </div>
+              <div class="w-40">
+                <label class="block text-slate-400 mb-1">补录账期 / 时段</label>
+                <select id="manual-period" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-2.5 py-1.5 text-slate-100">
+                  <option value="2026-11 月度结算">2026-11 月度结算</option>
+                  <option value="2026-11-13 断点时段">2026-11-13 断点时段</option>
+                </select>
+              </div>
+              <div class="w-28">
+                <label class="block text-slate-400 mb-1">补录读数</label>
+                <input id="manual-val" type="number" value="320" class="w-full rounded-lg bg-slate-800 border border-slate-600 px-2.5 py-1.5 text-slate-100" />
+              </div>
+              <button id="btn-submit-manual" class="rounded-lg bg-cyan-500/25 border border-cyan-400/50 px-4 py-1.5 font-medium text-cyan-200 hover:bg-cyan-500/35 transition">
+                推送至「3. 治理队列」
+              </button>
+            </div>
+          </div>
+        `;
+        bodyEl.querySelectorAll('.ping-gw-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const gw = state.gateways.find(x => x.id === btn.dataset.gwId);
+            if (gw) {
+              gw.heartbeat = '刚刚 (18ms)';
+              if (gw.status === '待核') gw.status = '在线';
+              showToast(`通道「${gw.name}」连通正常，心跳延迟 18ms`);
+              renderWorkspaceModule('ingest');
+            }
+          });
+        });
+        document.getElementById('btn-sync-points').addEventListener('click', () => {
+          if (state.discoveredPoints.length > 0) {
+            showToast('已有自动发现的待认领点位，请点击下方一键认领');
+            return;
+          }
+          const newTag = 'GW02_PLC_REG_' + (Math.floor(Math.random() * 80) + 10);
+          state.discoveredPoints.push({
+            tag: newTag, wsId: '', area: '未分配', meterType: '专表直采',
+            energy: '电', proto: 'MQTT/Neuron', scale: 'CT 300:5', val: '142.6 kW', status: '在线'
+          });
+          showToast(`已从数采平台探测到 1 个新点位: ${newTag}`);
+          renderWorkspaceModule('ingest');
+        });
+        bodyEl.querySelectorAll('.claim-one-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const i = Number(btn.dataset.claimIdx);
+            const dp = state.discoveredPoints[i];
+            if (!dp) return;
+            const chosenWsId = document.getElementById(`claim-ws-${i}`).value;
+            const chosenEnergy = document.getElementById(`claim-energy-${i}`).value;
+            const chosenType = document.getElementById(`claim-type-${i}`).value;
+            const targetWs = f.workshops.find(w => w.id === chosenWsId) || f.workshops[0];
+
+            const claimedPoint = {
+              ...dp,
+              wsId: targetWs.id,
+              area: targetWs.name,
+              energy: chosenEnergy,
+              meterType: chosenType
+            };
+            state.points.unshift(claimedPoint);
+            targetWs.allocations.push({
+              tag: claimedPoint.tag,
+              energy: chosenEnergy,
+              weight: chosenType === '公共总表' ? 50 : 100,
+              note: chosenType === '公共总表' ? '公摊点位(待完成100%分配)' : '数采平台认领直采'
+            });
+            state.discoveredPoints.splice(i, 1);
+            renderSharedOrgTree();
+            renderWorkspaceModule('ingest');
+            showToast(`点位 ${claimedPoint.tag} 已认领并绑定至「${targetWs.name}」`);
+          });
+        });
+        document.getElementById('btn-open-add-point').addEventListener('click', () => {
+          const modal = document.getElementById('add-point-modal');
+          const wsSelect = document.getElementById('new-pt-ws');
+          wsSelect.innerHTML = f.workshops.map(w => `<option value="${w.id}">${w.name}</option>`).join('');
+          if (state.globalNode !== 'all') wsSelect.value = state.globalNode;
+          modal.classList.remove('hidden');
+          modal.classList.add('flex');
+        });
+        bodyEl.querySelectorAll('.en-filter-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            state.pointFilterEnergy = btn.dataset.en;
+            renderWorkspaceModule('ingest');
+          });
+        });
+        bodyEl.querySelectorAll('.pick-tag-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const sel = document.getElementById('manual-tag');
+            if (sel) sel.value = btn.dataset.pickTag;
+            document.getElementById('manual-val').focus();
+            showToast(`已选中点位 ${btn.dataset.pickTag} 准备补录`);
+          });
+        });
+        document.getElementById('btn-submit-manual').addEventListener('click', () => {
+          const tag = document.getElementById('manual-tag').value;
+          const period = document.getElementById('manual-period').value;
+          const val = document.getElementById('manual-val').value || '0';
+          const pt = state.points.find(p => p.tag === tag);
+          const wsIdForGov = pt ? pt.wsId : activeWsId;
+          const energyName = pt ? pt.energy : '能源';
+          state.govQueue.unshift({
+            id: 'g-' + Date.now(),
+            wsId: wsIdForGov,
+            tag,
+            type: `点位补录 (${tag})`,
+            desc: `[${period}] 点位 ${tag} (${energyName}) 收到人工补录读数 ${val}，需经阈值与均值校验后转入正式台账`,
+            source: `人工补录 · ${tag}`,
+            status: '待处理'
+          });
+          updateCockpitUI();
+          showToast(`已提交点位 ${tag} 补录数据 (${val}) 至治理队列`);
+          renderWorkspaceModule('ingest');
+        });
+      } else if (modKey === 'gov') {
+        titleEl.textContent = '3. 数据治理与对账';
+        subEl.textContent = '按左侧组织上下文筛选待治理工单，支持自动化清洗规则与总分表一键平摊';
+        const filteredGov = state.govQueue.filter(g => state.globalNode === 'all' || g.wsId === 'all' || g.wsId === state.globalNode);
+        const filteredAuto = state.autoGovLogs.filter(a => state.globalNode === 'all' || a.wsId === 'all' || a.wsId === state.globalNode);
+        const pendingCnt = filteredGov.filter(g => g.status === '待处理').length;
+
+        bodyEl.innerHTML = `
+          <div class="space-y-4">
+            <div class="rounded-xl bg-slate-900/70 border border-cyan-500/25 p-3.5">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                <span class="font-semibold text-cyan-300">7大基础治理规则配置中心（统一管理阈值、处置策略与文案模板）</span>
+                <button id="btn-run-gov-scan" class="rounded-lg bg-cyan-500/20 border border-cyan-400/50 px-2.5 py-1 text-[11px] font-medium text-cyan-200 hover:bg-cyan-500/30 transition">↻ 立即执行一次治理巡检</button>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                  <thead>
+                    <tr class="border-b border-slate-700 text-slate-400 text-[11px]">
+                      <th class="py-1.5 pr-2">启用</th><th class="py-1.5 pr-2">规则名称</th><th class="py-1.5 pr-2">触发阈值</th><th class="py-1.5 pr-2">处置策略</th><th class="py-1.5">绑定的描述模板</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-800 text-[11px]">
+                    ${state.govRuleList.map((r, idx) => `
+                      <tr>
+                        <td class="py-1.5 pr-2"><input type="checkbox" data-ridx="${idx}" class="gov-rule-chk accent-cyan-400" ${r.enabled ? 'checked' : ''} /></td>
+                        <td class="py-1.5 pr-2 font-medium text-white whitespace-nowrap">${r.name}</td>
+                        <td class="py-1.5 pr-2"><input type="text" data-ridx="${idx}" value="${r.threshold}" class="gov-thresh-inp w-32 rounded bg-slate-800 border border-slate-700 px-1.5 py-0.5 text-cyan-200" /></td>
+                        <td class="py-1.5 pr-2">
+                          <select data-ridx="${idx}" class="gov-action-sel rounded bg-slate-800 border border-slate-700 px-1.5 py-0.5 text-slate-200">
+                            <option value="自动处理" ${r.action === '自动处理' ? 'selected' : ''}>自动处理</option>
+                            <option value="自动标红+告警" ${r.action === '自动标红+告警' ? 'selected' : ''}>自动标红+告警</option>
+                            <option value="插补后转人工" ${r.action === '插补后转人工' ? 'selected' : ''}>插补后转人工</option>
+                            <option value="超阈值转人工" ${r.action === '超阈值转人工' ? 'selected' : ''}>超阈值转人工</option>
+                            <option value="转人工复核" ${r.action === '转人工复核' ? 'selected' : ''}>转人工复核</option>
+                            <option value="必经人工复核" ${r.action === '必经人工复核' ? 'selected' : ''}>必经人工复核</option>
+                          </select>
+                        </td>
+                        <td class="py-1.5 font-mono text-[10px] text-slate-400 truncate max-w-[260px]" title="${r.template}">${r.template}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Dual Tabs: Manual Review vs Auto-Resolved Logs -->
+            <div class="flex items-center gap-2 border-b border-slate-700/70 pb-2">
+              <button data-govtab="manual" class="gov-subtab rounded-lg px-3 py-1.5 text-xs font-medium transition ${state.govTab === 'manual' ? 'bg-amber-500/20 text-amber-200 border border-amber-400/50' : 'bg-slate-800/60 text-slate-400 hover:text-slate-200'}">
+                待人工复核与对账 (${pendingCnt})
+              </button>
+              <button data-govtab="auto" class="gov-subtab rounded-lg px-3 py-1.5 text-xs font-medium transition ${state.govTab === 'auto' ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/50' : 'bg-slate-800/60 text-slate-400 hover:text-slate-200'}">
+                系统自动已处理日志 (${filteredAuto.length})
+              </button>
+            </div>
+
+            ${state.govTab === 'manual' ? `
+              <div class="space-y-3">
+                ${filteredGov.length ? filteredGov.map(g => `
+                  <div class="rounded-xl bg-slate-900/70 border ${g.status === '待处理' ? 'border-amber-500/40' : 'border-emerald-500/30'} p-3.5 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div class="flex items-center gap-2">
+                        <span class="rounded px-2 py-0.5 text-[10px] font-medium ${g.status === '待处理' ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'}">${g.status}</span>
+                        <span class="font-semibold text-white">${g.type}</span>
+                        <span class="text-slate-400">来源: ${g.source}</span>
+                      </div>
+                      <p class="mt-1.5 text-slate-300">${g.desc}</p>
+                    </div>
+                    ${g.status === '待处理' ? `
+                      <button data-gov-id="${g.id}" class="resolve-gov-btn rounded-lg bg-emerald-500/20 border border-emerald-400/50 px-3 py-1.5 text-emerald-200 hover:bg-emerald-500/30 transition">
+                        一键对账确认并转入正式数据
+                      </button>
+                    ` : '<span class="text-emerald-400 font-medium">已入账 → 4.活动数据</span>'}
+                  </div>
+                `).join('') : '<div class="text-slate-400 p-4 text-center">当前区域暂无待人工复核的异常数据</div>'}
+              </div>
+            ` : `
+              <div class="rounded-xl bg-slate-900/70 border border-slate-700/60 p-3.5 overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                  <thead>
+                    <tr class="border-b border-slate-700 text-slate-400">
+                      <th class="py-2 pr-3">时间</th><th class="py-2 pr-3">命中规则</th><th class="py-2 pr-3">点位编码</th><th class="py-2 pr-3">处理明细（审计留痕）</th><th class="py-2">系统结果</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-800">
+                    ${filteredAuto.map(a => `
+                      <tr>
+                        <td class="py-2.5 pr-3 font-mono text-slate-400">${a.time}</td>
+                        <td class="py-2.5 pr-3 font-medium text-cyan-300">${a.rule}</td>
+                        <td class="py-2.5 pr-3 font-mono text-white">${a.tag}</td>
+                        <td class="py-2.5 pr-3 text-slate-300">${a.detail}</td>
+                        <td class="py-2.5"><span class="rounded bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 text-[10px] text-emerald-300">${a.action}</span></td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            `}
+          </div>
+        `;
+        document.getElementById('btn-run-gov-scan').addEventListener('click', () => {
+          const tStr = new Date().toTimeString().slice(0, 5);
+          state.autoGovLogs.unshift({
+            id: 'ag-' + Date.now(), wsId: 'stamping', rule: '报文时间窗去重', tag: 'NB_STAMP_ELEC_01',
+            detail: `${tStr} 巡检发现 1 条重复上报帧，系统已自动去重保留首条`, action: '已自动去重', time: tStr
+          });
+          state.govQueue.unshift({
+            id: 'g-' + Date.now(), wsId: 'coating', type: '总分表超阈值对账',
+            desc: `${tStr} 巡检：涂装车间燃气分表之和与总表偏差 +3.8%（超 ±3.0% 阈值），请人工核查`,
+            source: '定时巡检规则引擎', status: '待处理'
+          });
+          updateCockpitUI();
+          showToast('治理巡检完成：新增 1 条自动处理日志、1 条待人工复核工单');
+          renderWorkspaceModule('gov');
+        });
+        bodyEl.querySelectorAll('.gov-subtab').forEach(btn => {
+          btn.addEventListener('click', () => {
+            state.govTab = btn.dataset.govtab;
+            renderWorkspaceModule('gov');
+          });
+        });
+        bodyEl.querySelectorAll('.gov-rule-chk').forEach(chk => {
+          chk.addEventListener('change', () => {
+            const idx = Number(chk.dataset.ridx);
+            state.govRuleList[idx].enabled = chk.checked;
+            showToast(`规则「${state.govRuleList[idx].name}」已${chk.checked ? '启用' : '停用'}`);
+          });
+        });
+        bodyEl.querySelectorAll('.gov-thresh-inp').forEach(inp => {
+          inp.addEventListener('change', () => {
+            const idx = Number(inp.dataset.ridx);
+            state.govRuleList[idx].threshold = inp.value;
+            showToast(`已更新「${state.govRuleList[idx].name}」阈值`);
+          });
+        });
+        bodyEl.querySelectorAll('.gov-action-sel').forEach(sel => {
+          sel.addEventListener('change', () => {
+            const idx = Number(sel.dataset.ridx);
+            state.govRuleList[idx].action = sel.value;
+            showToast(`已切换「${state.govRuleList[idx].name}」处置策略为: ${sel.value}`);
+          });
+        });
+        bodyEl.querySelectorAll('.resolve-gov-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const item = state.govQueue.find(x => x.id === btn.dataset.govId);
+            if (item) {
+              item.status = '已对账确认';
+              state.activityLedger.unshift({
+                id: 'a-' + Date.now(),
+                wsId: item.wsId,
+                period: '2026-11',
+                factory: f.name.split(' ')[0],
+                area: item.wsId === 'all' ? '全厂关口' : (f.workshops.find(w => w.id === item.wsId)?.name || '车间'),
+                energy: item.type,
+                value: '已平摊校准入账',
+                genType: '治理对账转入',
+                source: item.source,
+                status: '已确认',
+                updatedBy: '当前用户 (治理确认)'
+              });
+              updateCockpitUI();
+              showToast('对账完成，正式数据已写入「4. 活动数据台账」');
+              renderWorkspaceModule('gov');
+            }
+          });
+        });
+      } else if (modKey === 'activity') {
+        titleEl.textContent = '4. 活动数据台账';
+        subEl.textContent = '定时结账与治理转入的唯一正式账本；解锁已封账数据必须填写原因留痕';
+        const filteredAct = state.activityLedger.filter(a => {
+          const matchWs = state.globalNode === 'all' || a.wsId === 'all' || a.wsId === state.globalNode;
+          const matchPeriod = state.activityPeriodFilter === '全部' || a.period === state.activityPeriodFilter;
+          return matchWs && matchPeriod;
+        });
+        bodyEl.innerHTML = `
+          <div class="rounded-xl bg-slate-900/70 border border-slate-700/60 p-3.5 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="font-semibold text-cyan-300">正式活动数据台账（共 ${filteredAct.length} 笔）</span>
+              <div class="flex gap-1">
+                ${['全部', '2026-11', '2026-10'].map(pd => `
+                  <button data-pd="${pd}" class="pd-filter-btn rounded px-2.5 py-0.5 text-[11px] border ${state.activityPeriodFilter === pd ? 'bg-cyan-500/25 border-cyan-400 text-cyan-200' : 'bg-slate-800 border-slate-600 text-slate-300'}">${pd === '全部' ? '全部账期' : pd}</button>
+                `).join('')}
+              </div>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-slate-700 text-slate-400">
+                    <th class="py-2 pr-3">账期</th><th class="py-2 pr-3">归属区域</th><th class="py-2 pr-3">能源类型</th><th class="py-2 pr-3">正式活动数据</th><th class="py-2 pr-3">产生方式</th><th class="py-2 pr-3">数据血缘来源</th><th class="py-2 pr-3">状态</th><th class="py-2">操作</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                  ${filteredAct.map(a => `
+                    <tr>
+                      <td class="py-2.5 pr-3 font-mono">${a.period}</td>
+                      <td class="py-2.5 pr-3 text-slate-200">${a.area}</td>
+                      <td class="py-2.5 pr-3 font-medium text-white">${a.energy}</td>
+                      <td class="py-2.5 pr-3 font-mono text-cyan-300">${a.value}</td>
+                      <td class="py-2.5 pr-3"><span class="rounded bg-slate-800 border border-slate-700 px-1.5 py-0.5 text-[10px] text-slate-300">${a.genType || '治理对账转入'}</span></td>
+                      <td class="py-2.5 pr-3 text-slate-400">${a.source} (${a.updatedBy})</td>
+                      <td class="py-2.5 pr-3">
+                        <span class="rounded px-2 py-0.5 text-[10px] ${a.status === '已锁定' ? 'bg-cyan-500/20 text-cyan-300' : (a.status === '已确认' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300')}">${a.status}</span>
+                      </td>
+                      <td class="py-2.5">
+                        <button data-act-id="${a.id}" class="lock-act-btn rounded bg-slate-800 border border-slate-600 px-2.5 py-1 text-[11px] text-slate-200 hover:border-cyan-400">
+                          ${a.status === '已锁定' ? '解锁' : '确认并锁定'}
+                        </button>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+        bodyEl.querySelectorAll('.pd-filter-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            state.activityPeriodFilter = btn.dataset.pd;
+            renderWorkspaceModule('activity');
+          });
+        });
+        bodyEl.querySelectorAll('.lock-act-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const row = state.activityLedger.find(x => x.id === btn.dataset.actId);
+            if (!row) return;
+            if (row.status === '已锁定') {
+              state.pendingUnlockId = row.id;
+              document.getElementById('unlock-target-info').textContent = `即将解锁: ${row.period} · ${row.area} · ${row.energy} (${row.value})`;
+              const m = document.getElementById('unlock-modal');
+              m.classList.remove('hidden'); m.classList.add('flex');
+            } else {
+              row.status = '已锁定';
+              showToast(`${row.energy} (${row.period}) 已确认锁定封账`);
+              renderWorkspaceModule('activity');
+            }
+          });
+        });
+      } else if (modKey === 'factor') {
+        titleEl.textContent = '5. 排放因子库（按时间 + 政策标准 + 地区管理 · 同维度唯一启用）';
+        subEl.textContent = '支持国内MRV、ISO 14064 与欧盟CBAM多口径并存，新增因子支持表单填报与红头文件/化验单附件留痕';
+        const filteredFactors = state.factorPolicyFilter === '全部'
+          ? state.factors
+          : state.factors.filter(x => x.policy === state.factorPolicyFilter);
+        bodyEl.innerHTML = `
+          <div class="rounded-xl bg-slate-900/70 border border-slate-700/60 p-3.5 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="text-slate-400 mr-1">按政策/标准筛选:</span>
+                ${['全部', '国内MRV', 'ISO 14064', '欧盟CBAM'].map(pol => `
+                  <button data-pol="${pol}" class="pol-filter-btn rounded px-2.5 py-0.5 text-[11px] border ${state.factorPolicyFilter === pol ? 'bg-cyan-500/25 border-cyan-400 text-cyan-200' : 'bg-slate-800 border-slate-600 text-slate-300'}">${pol}</button>
+                `).join('')}
+              </div>
+              <button id="btn-open-add-factor" class="rounded-lg bg-cyan-500/25 border border-cyan-400/50 px-3 py-1 text-[11px] font-medium text-cyan-200 hover:bg-cyan-500/35 transition">+ 新增因子 (表单+附件)</button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-slate-700 text-slate-400">
+                    <th class="py-2 pr-3">因子名称</th><th class="py-2 pr-3">能源</th><th class="py-2 pr-3">适用政策/标准</th><th class="py-2 pr-3">因子数值</th><th class="py-2 pr-3">版本</th><th class="py-2 pr-3">生效时间区间</th><th class="py-2 pr-3">证明附件</th><th class="py-2">状态</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                  ${filteredFactors.map(fac => `
+                    <tr>
+                      <td class="py-2.5 pr-3 font-medium text-white">${fac.name}</td>
+                      <td class="py-2.5 pr-3 text-slate-200">${fac.energy}</td>
+                      <td class="py-2.5 pr-3"><span class="rounded bg-slate-800 border border-slate-700 px-1.5 py-0.5 text-[10px] text-cyan-200">${fac.policy}</span></td>
+                      <td class="py-2.5 pr-3 font-mono text-cyan-300">${fac.val}</td>
+                      <td class="py-2.5 pr-3 font-mono">${fac.ver}</td>
+                      <td class="py-2.5 pr-3 text-slate-300">${fac.effective}</td>
+                      <td class="py-2.5 pr-3 text-slate-400 font-mono text-[11px]">📎 ${fac.source}</td>
+                      <td class="py-2.5">
+                        <button data-fac-id="${fac.id}" class="toggle-fac-btn rounded px-2.5 py-1 text-[11px] border ${fac.enabled ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300' : 'bg-slate-800 border-slate-600 text-slate-400 hover:border-cyan-400 hover:text-slate-200'}">
+                          ${fac.enabled ? '当前启用' : '启用此版本'}
+                        </button>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+        bodyEl.querySelectorAll('.pol-filter-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            state.factorPolicyFilter = btn.dataset.pol;
+            renderWorkspaceModule('factor');
+          });
+        });
+        document.getElementById('btn-open-add-factor').addEventListener('click', () => {
+          const m = document.getElementById('add-factor-modal');
+          m.classList.remove('hidden'); m.classList.add('flex');
+        });
+        bodyEl.querySelectorAll('.toggle-fac-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const target = state.factors.find(x => x.id === btn.dataset.facId);
+            if (!target) return;
+            // Enforce unique enabled per (energy + policy)
+            state.factors.forEach(x => {
+              if (x.energy === target.energy && x.policy === target.policy) x.enabled = false;
+            });
+            target.enabled = true;
+            if (target.energy === '电' && target.policy === '国内MRV') {
+              state.activeFactorVersion = target.ver;
+            }
+            updateCockpitUI();
+            buildFactory3D();
+            showToast(`已启用「${target.name}」(${target.ver})，同维度旧版本已自动停用`);
+            renderWorkspaceModule('factor');
+          });
+        });
+      } else if (modKey === 'calc') {
+        titleEl.textContent = '6. 碳排放核算（以工厂/法人为核算任务单元 · 自动收起左树）';
+        subEl.textContent = '基于锁定的活动数据与当前生效因子版本执行全厂 Scope 1/2 核算任务';
+        bodyEl.innerHTML = `
+          <div class="space-y-4">
+            <div class="rounded-xl bg-slate-900/70 border border-cyan-500/30 p-3.5 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div class="font-semibold text-cyan-300">标准核算公式引擎（当前因子版本: ${state.activeFactorVersion}）</div>
+                <div class="mt-1 font-mono text-[11px] text-slate-300">Scope 1 = Σ(燃料消耗量 × 低位发热量 × 单位热值含碳量 × 碳氧化率 × 44/12)</div>
+                <div class="mt-0.5 font-mono text-[11px] text-slate-300">Scope 2 = (外购电量 - 绿电/绿证消纳量) × 区域电网排放因子 + 外购热力 × 热力因子</div>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <select id="calc-period-sel" class="rounded-lg bg-slate-800 border border-slate-600 px-2.5 py-2 text-xs text-slate-100">
+                  <option value="2026-11 (当月)" ${state.calcPeriod === '2026-11 (当月)' ? 'selected' : ''}>2026-11 (当月)</option>
+                  <option value="2026-10 (上月)" ${state.calcPeriod === '2026-10 (上月)' ? 'selected' : ''}>2026-10 (上月)</option>
+                  <option value="2026-Q4 (季度)" ${state.calcPeriod === '2026-Q4 (季度)' ? 'selected' : ''}>2026-Q4 (季度)</option>
+                  <option value="2026全年 (年度)" ${state.calcPeriod === '2026全年 (年度)' ? 'selected' : ''}>2026全年 (年度)</option>
+                </select>
+                <button id="btn-recalc" class="rounded-lg bg-cyan-500/25 border border-cyan-400/50 px-3.5 py-2 font-medium text-cyan-200 hover:bg-cyan-500/35 transition">
+                  立即执行全厂重算
+                </button>
+              </div>
+            </div>
+            <div class="rounded-xl bg-slate-900/70 border border-slate-700/60 p-3.5 overflow-x-auto">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                <span class="font-semibold text-white">各部门 / 车间 Scope 1 + Scope 2 核算明细（周期：${state.calcPeriod}）</span>
+                <span class="text-[10px] text-emerald-300">部门之和 = 全厂总排放（自动校验无漏算）</span>
+              </div>
+              ${(() => {
+                const dayMap = { '2026-11 (当月)': 30, '2026-10 (上月)': 31, '2026-Q4 (季度)': 92, '2026全年 (年度)': 340 };
+                const mult = dayMap[state.calcPeriod] || 30;
+                const factorScale = state.activeFactorVersion === 'v2025.1' ? 1.036 : 1.0;
+                const greenReduction = 1 - (state.greenPct - f.baseGreenPct) * 0.006;
+                let sumS1 = 0, sumS2 = 0;
+                const rows = f.workshops.map(w => {
+                  const s1Day = w.inBoundary ? ((w.id === 'coating' && state.retrofitEnabled) ? (w.scope1 * 0.72) : w.scope1) : 0;
+                  const s2Day = w.inBoundary ? Math.max(2, w.scope2 * greenReduction * factorScale) : 0;
+                  const s1Mon = s1Day * mult;
+                  const s2Mon = s2Day * mult;
+                  sumS1 += s1Mon;
+                  sumS2 += s2Mon;
+                  return { w, s1Mon, s2Mon, total: s1Mon + s2Mon };
+                });
+                const grandTotal = sumS1 + sumS2;
+                return `
+                  <table class="w-full text-left border-collapse">
+                    <thead>
+                      <tr class="border-b border-slate-700 text-slate-400">
+                        <th class="py-2 pr-3">部门 / 车间</th><th class="py-2 pr-3">边界状态</th><th class="py-2 pr-3">Scope 1 (燃料)</th><th class="py-2 pr-3">Scope 2 (电力/热)</th><th class="py-2 pr-3">部门合计 (tCO₂e)</th><th class="py-2">占全厂比例</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800">
+                      ${rows.map(r => {
+                        const pct = grandTotal > 0 ? ((r.total / grandTotal) * 100).toFixed(1) : '0.0';
+                        return `
+                          <tr>
+                            <td class="py-2 pr-3 font-medium text-white">${r.w.name}</td>
+                            <td class="py-2 pr-3"><span class="rounded px-1.5 py-0.5 text-[10px] ${r.w.inBoundary ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-700 text-slate-400'}">${r.w.inBoundary ? '纳入核算' : '已剔除'}</span></td>
+                            <td class="py-2 pr-3 font-mono text-amber-300">${r.s1Mon.toFixed(1)} t</td>
+                            <td class="py-2 pr-3 font-mono text-cyan-300">${r.s2Mon.toFixed(1)} t</td>
+                            <td class="py-2 pr-3 font-mono font-semibold text-white">${r.total.toFixed(1)} t</td>
+                            <td class="py-2 font-mono text-slate-300">${pct}%</td>
+                          </tr>
+                        `;
+                      }).join('')}
+                      <tr class="bg-slate-800/60 font-semibold">
+                        <td class="py-2 pr-3 text-cyan-300" colspan="2">全厂汇总合计 (${f.name.split(' ')[0]})</td>
+                        <td class="py-2 pr-3 font-mono text-amber-300">${sumS1.toFixed(1)} t</td>
+                        <td class="py-2 pr-3 font-mono text-cyan-300">${sumS2.toFixed(1)} t</td>
+                        <td class="py-2 pr-3 font-mono text-emerald-300">${grandTotal.toFixed(1)} t</td>
+                        <td class="py-2 font-mono text-emerald-300">100.0%</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                `;
+              })()}
+            </div>
+
+            <div class="rounded-xl bg-slate-900/70 border border-slate-700/60 p-3.5">
+              <div class="font-semibold text-white mb-2">核算任务执行记录</div>
+              <div class="space-y-2">
+                ${state.calcTasks.map(t => `
+                  <div class="rounded-lg bg-slate-800/60 border border-slate-700/60 p-2.5 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <div class="font-medium text-white">${t.name}</div>
+                      <div class="text-[11px] text-slate-400 mt-0.5">公式: ${t.formula} · 执行时间: ${t.time}</div>
+                    </div>
+                    <div class="text-right">
+                      <div class="font-mono font-bold text-cyan-300">${t.result}</div>
+                      <div class="text-[10px] text-emerald-400">${t.status}</div>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        `;
+        document.getElementById('calc-period-sel').addEventListener('change', e => {
+          state.calcPeriod = e.target.value;
+          renderWorkspaceModule('calc');
+        });
+        document.getElementById('btn-recalc').addEventListener('click', () => {
+          const dayMap = { '2026-11 (当月)': 30, '2026-10 (上月)': 31, '2026-Q4 (季度)': 92, '2026全年 (年度)': 340 };
+          const mult = dayMap[state.calcPeriod] || 30;
+          const todaySum = f.workshops.reduce((s, w) => s + computeWorkshopCarbon(w), 0);
+          const periodRes = (todaySum * mult).toFixed(1);
+          state.calcTasks.unshift({
+            id: 't-' + Date.now(),
+            name: `${f.name.split(' ')[0]} · ${state.calcPeriod} 重算任务`,
+            scope: 'Scope 1 + 2',
+            formula: `活动数据快照 × 因子 (${state.activeFactorVersion})`,
+            result: `${Number(periodRes).toLocaleString()} tCO₂e`,
+            time: new Date().toLocaleTimeString(),
+            status: '重算完成'
+          });
+          updateCockpitUI();
+          buildFactory3D();
+          showToast(`已完成「${state.calcPeriod}」全厂重算，结果 ${Number(periodRes).toLocaleString()} tCO₂e`);
+          renderWorkspaceModule('calc');
+        });
+      } else if (modKey === 'budget') {
+        titleEl.textContent = '7. 碳预算与预警（车间预算执行进度 + 双层预警工单）';
+        subEl.textContent = '展示各车间年度碳预算消耗率，并兼顾点位级瞬时异常与年度配额缺口预测';
+        const filteredAlerts = state.alerts.filter(al => state.globalNode === 'all' || al.wsId === 'all' || al.wsId === state.globalNode);
+        const wsBudgets = f.workshops.filter(w => state.globalNode === 'all' || w.id === state.globalNode);
+        bodyEl.innerHTML = `
+          <div class="space-y-4">
+            <div class="rounded-xl bg-slate-900/70 border border-cyan-500/25 p-3.5">
+              <div class="font-semibold text-cyan-300 mb-2.5">车间年度碳预算执行进度（按当前排放速率推算）</div>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                ${wsBudgets.map(w => {
+                  const estAnnual = Math.round(computeWorkshopCarbon(w) * 340);
+                  const budgetCap = Math.round((w.scope1 + w.scope2) * 315) || 5000;
+                  const pct = Math.min(115, Math.round((estAnnual / budgetCap) * 100));
+                  const barCls = pct >= 95 ? 'bg-rose-500' : (pct >= 80 ? 'bg-amber-400' : 'bg-emerald-400');
+                  return `
+                    <div class="rounded-lg bg-slate-800/60 border border-slate-700 p-2.5">
+                      <div class="flex justify-between text-xs font-medium text-white">
+                        <span>${w.name}</span>
+                        <span class="${pct >= 95 ? 'text-rose-300' : 'text-cyan-300'}">${pct}%</span>
+                      </div>
+                      <div class="mt-1.5 h-2 w-full rounded-full bg-slate-700 overflow-hidden">
+                        <div class="h-full ${barCls} rounded-full" style="width:${Math.min(100, pct)}%"></div>
+                      </div>
+                      <div class="mt-1.5 flex justify-between text-[10px] text-slate-400">
+                        <span>预计年排: ${estAnnual.toLocaleString()} t</span>
+                        <span>预算上限: ${budgetCap.toLocaleString()} t</span>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+            <div class="space-y-3">
+            ${filteredAlerts.map(al => `
+              <div class="rounded-xl bg-slate-900/70 border ${al.status === '未处理' ? 'border-rose-500/40' : 'border-emerald-500/30'} p-3.5 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="rounded px-2 py-0.5 text-[10px] font-medium ${al.level === '高危' ? 'bg-rose-500/20 text-rose-300' : 'bg-amber-500/20 text-amber-300'}">${al.level}</span>
+                    <span class="font-semibold text-white">${al.target}</span>
+                    <span class="text-slate-400">${al.time}</span>
+                  </div>
+                  <p class="mt-1.5 text-slate-300">${al.msg}</p>
+                </div>
+                ${al.status === '未处理' ? `
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <select id="al-action-${al.id}" class="rounded-lg bg-slate-800 border border-slate-600 px-2 py-1.5 text-[11px] text-slate-100">
+                      <option value="retrofit">派单设备排查 (降Scope1)</option>
+                      <option value="green">增购绿电抵扣 (+10%绿电)</option>
+                      <option value="quota">提前购买配额 (+2,500吨)</option>
+                    </select>
+                    <button data-al-id="${al.id}" class="resolve-al-btn rounded-lg bg-cyan-500/20 border border-cyan-400/50 px-3 py-1.5 text-cyan-200 hover:bg-cyan-500/30 transition">
+                      执行控制
+                    </button>
+                  </div>
+                ` : `<span class="text-emerald-400 font-medium">${al.actionTaken || '已派单整改'}</span>`}
+              </div>
+            `).join('')}
+            </div>
+          </div>
+        `;
+        bodyEl.querySelectorAll('.resolve-al-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const al = state.alerts.find(x => x.id === btn.dataset.alId);
+            if (!al) return;
+            const act = document.getElementById(`al-action-${al.id}`)?.value || 'retrofit';
+            if (act === 'retrofit') {
+              state.retrofitEnabled = true;
+              document.getElementById('toggle-retrofit').checked = true;
+              al.actionTaken = '已派单设备排查并开启余热回收';
+            } else if (act === 'green') {
+              state.greenPct = Math.min(90, state.greenPct + 10);
+              document.getElementById('slider-green').value = state.greenPct;
+              document.getElementById('val-green').textContent = `${state.greenPct}%`;
+              al.actionTaken = '已增购绿电 +10% 抵扣Scope2';
+            } else if (act === 'quota') {
+              FACTORY_DATA[state.factoryKey].baseQuota += 2500;
+              al.actionTaken = '已提前购入 2,500t 配额兜底';
+            }
+            al.status = '已执行控制';
+            renderSharedOrgTree();
+            updateCockpitUI();
+            buildFactory3D();
+            showToast(`${al.actionTaken}，预算与3D视图已联动更新`);
+            renderWorkspaceModule('budget');
+          });
+        });
+      }
+    }
+
+    // ==============================
+    // 5. Raycasting & Events
+    // ==============================
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    const tooltip = document.getElementById('hover-tooltip');
+
+    renderer.domElement.addEventListener('pointerdown', e => {
+      isDragging = true;
+      pointerDownPos = { x: e.clientX, y: e.clientY };
+      prevPointer = { x: e.clientX, y: e.clientY };
+    });
+
+    window.addEventListener('pointerup', e => {
+      if (!isDragging) return;
+      isDragging = false;
+      if (state.activeModule !== 'cockpit') return;
+      if (Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y) < 5) {
+        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        const hits = raycaster.intersectObjects(interactiveObjects);
+        if (hits.length > 0) {
+          state.selectedWorkshopId = hits[0].object.userData.workshopId;
+          state.globalNode = state.selectedWorkshopId;
+          updateCockpitUI();
+          buildFactory3D();
+        }
+      }
+    });
+
+    renderer.domElement.addEventListener('pointermove', e => {
+      if (isDragging) {
+        targetSpherical.theta -= (e.clientX - prevPointer.x) * 0.007;
+        targetSpherical.phi = Math.max(0.25, Math.min(Math.PI / 2.15, targetSpherical.phi - (e.clientY - prevPointer.y) * 0.006));
+        prevPointer = { x: e.clientX, y: e.clientY };
+        tooltip.classList.add('hidden');
+        return;
+      }
+      if (state.activeModule !== 'cockpit') {
+        tooltip.classList.add('hidden');
+        return;
+      }
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const hits = raycaster.intersectObjects(interactiveObjects);
+      if (hits.length > 0) {
+        const ws = FACTORY_DATA[state.factoryKey].workshops.find(w => w.id === hits[0].object.userData.workshopId);
+        if (ws) {
+          document.getElementById('tooltip-title').textContent = ws.name;
+          document.getElementById('tooltip-sub').textContent = `当前日排碳: ${computeWorkshopCarbon(ws)} tCO₂e · 点击查看内部设备`;
+          tooltip.style.left = `${e.clientX + 14}px`;
+          tooltip.style.top = `${e.clientY + 14}px`;
+          tooltip.classList.remove('hidden');
+          renderer.domElement.style.cursor = 'pointer';
+        }
+      } else {
+        tooltip.classList.add('hidden');
+        renderer.domElement.style.cursor = 'grab';
+      }
+    });
+
+    renderer.domElement.addEventListener('wheel', e => {
+      e.preventDefault();
+      targetSpherical.radius = Math.max(14, Math.min(48, targetSpherical.radius + e.deltaY * 0.02));
+    }, { passive: false });
+
+    document.querySelectorAll('.mod-tab').forEach(btn => {
+      btn.addEventListener('click', () => switchModule(btn.dataset.mod));
+    });
+    document.getElementById('btn-back-3d').addEventListener('click', () => switchModule('cockpit'));
+    function closeAddPointModal() {
+      const modal = document.getElementById('add-point-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+    document.getElementById('btn-close-point-modal').addEventListener('click', closeAddPointModal);
+    document.getElementById('btn-cancel-point-modal').addEventListener('click', closeAddPointModal);
+    function closeFactorModal() {
+      const m = document.getElementById('add-factor-modal');
+      m.classList.add('hidden'); m.classList.remove('flex');
+    }
+    document.getElementById('btn-close-factor-modal').addEventListener('click', closeFactorModal);
+    document.getElementById('btn-cancel-factor-modal').addEventListener('click', closeFactorModal);
+    document.getElementById('btn-save-factor-modal').addEventListener('click', () => {
+      const name = (document.getElementById('new-fac-name').value || '').trim() || '自定义排放因子';
+      const energy = document.getElementById('new-fac-energy').value;
+      const policy = document.getElementById('new-fac-policy').value;
+      const val = (document.getElementById('new-fac-val').value || '').trim() || '1.000';
+      const ver = (document.getElementById('new-fac-ver').value || '').trim() || 'v2026.2';
+      const effective = (document.getElementById('new-fac-eff').value || '').trim() || '2026-11-01 ~ 长期';
+      const fileInp = document.getElementById('new-fac-file');
+      const source = (fileInp.files && fileInp.files[0]) ? fileInp.files[0].name : '企业实测热值化验单.pdf';
+
+      state.factors.forEach(x => {
+        if (x.energy === energy && x.policy === policy) x.enabled = false;
+      });
+      state.factors.unshift({ id: 'f-' + Date.now(), name, energy, policy, val, ver, effective, source, enabled: true });
+      closeFactorModal();
+      showToast(`已新增并启用「${name}」，同维度旧版本已自动停用`);
+      renderWorkspaceModule('factor');
+    });
+
+    function closeUnlockModal() {
+      const m = document.getElementById('unlock-modal');
+      m.classList.add('hidden'); m.classList.remove('flex');
+      state.pendingUnlockId = null;
+    }
+    document.getElementById('btn-close-unlock').addEventListener('click', closeUnlockModal);
+    document.getElementById('btn-cancel-unlock').addEventListener('click', closeUnlockModal);
+    document.getElementById('btn-confirm-unlock').addEventListener('click', () => {
+      const row = state.activityLedger.find(x => x.id === state.pendingUnlockId);
+      const reason = (document.getElementById('unlock-reason-inp').value || '').trim() || '人工复核解锁';
+      if (row) {
+        row.status = '已确认';
+        row.updatedBy = `已解锁: ${reason.slice(0, 12)}`;
+        showToast(`${row.energy} (${row.period}) 已解锁并记录审计原因`);
+      }
+      closeUnlockModal();
+      renderWorkspaceModule('activity');
+    });
+
+    function closeAreaModal() {
+      const m = document.getElementById('add-area-modal');
+      m.classList.add('hidden'); m.classList.remove('flex');
+    }
+    function closeSysModal() {
+      const m = document.getElementById('add-sys-modal');
+      m.classList.add('hidden'); m.classList.remove('flex');
+    }
+    document.getElementById('btn-open-add-area').addEventListener('click', () => {
+      const m = document.getElementById('add-area-modal');
+      m.classList.remove('hidden'); m.classList.add('flex');
+    });
+    document.getElementById('btn-close-area-modal').addEventListener('click', closeAreaModal);
+    document.getElementById('btn-cancel-area-modal').addEventListener('click', closeAreaModal);
+    document.getElementById('btn-save-area-modal').addEventListener('click', () => {
+      const name = (document.getElementById('new-area-name').value || '').trim() || '新建生产区域';
+      const boundary = (document.getElementById('new-area-boundary').value || '').trim() || '新增核算边界';
+      const s1 = Number(document.getElementById('new-area-s1').value) || 0;
+      const s2 = Number(document.getElementById('new-area-s2').value) || 0;
+      const f = FACTORY_DATA[state.factoryKey];
+      const newId = 'ws_' + Date.now().toString().slice(-4);
+      const idx = f.workshops.length;
+      const posX = -7.5;
+      const posZ = 5.5 + (idx - 3) * 5.2;
+      const defTag = `NB_NEW_${idx + 1}_ELEC`;
+
+      f.workshops.push({
+        id: newId, name, boundary, inBoundary: true,
+        desc: `新增区域节点：${boundary}`,
+        scope1: s1, scope2: s2,
+        pos: { x: posX, z: posZ },
+        size: { w: 6.5, h: 2.6, d: 5.5 },
+        allocations: [{ tag: defTag, energy: '电', weight: 100, note: '专表直采' }],
+        equipment: [{ id: 'eq-' + newId, name: `${name}主控柜`, meter: defTag, scope: 'Scope 2', power: '210 kW', carbon: s2, status: '正常运行' }]
+      });
+      state.points.unshift({
+        tag: defTag, wsId: newId, area: name, meterType: '专表直采', energy: '电',
+        proto: 'MQTT/Neuron', scale: 'CT 300:5', val: '210.0 kW', status: '在线'
+      });
+      state.globalNode = newId;
+      state.selectedWorkshopId = newId;
+      state.orgTreeView = 'admin';
+      closeAreaModal();
+      renderSharedOrgTree();
+      renderWorkspaceModule(state.activeModule);
+      updateCockpitUI();
+      buildFactory3D();
+      showToast(`已新增区域「${name}」，并同步生成 3D 厂房与默认点位 ${defTag}`);
+    });
+
+    document.getElementById('btn-open-add-sys').addEventListener('click', () => {
+      const m = document.getElementById('add-sys-modal');
+      m.classList.remove('hidden'); m.classList.add('flex');
+    });
+    document.getElementById('btn-close-sys-modal').addEventListener('click', closeSysModal);
+    document.getElementById('btn-cancel-sys-modal').addEventListener('click', closeSysModal);
+    document.getElementById('btn-save-sys-modal').addEventListener('click', () => {
+      const sys = (document.getElementById('new-sys-name').value || '').trim() || '新建用能系统';
+      const level = (document.getElementById('new-sys-level').value || '').trim() || '系统总表';
+      const meter = (document.getElementById('new-sys-meter').value || '').trim() || 'SYS_METER_01';
+      const chRaw = (document.getElementById('new-sys-children').value || '').trim();
+      const children = chRaw ? chRaw.split(/[,，]/).map(x => x.trim()).filter(Boolean) : ['默认支路'];
+      if (!state.systemTrees[state.factoryKey]) state.systemTrees[state.factoryKey] = [];
+      state.systemTrees[state.factoryKey].push({ sys, level, meter, children });
+      state.orgTreeView = 'system';
+      closeSysModal();
+      renderSharedOrgTree();
+      showToast(`已在用能系统树新增「${sys}」(${meter})`);
+    });
+
+    document.getElementById('btn-save-point-modal').addEventListener('click', () => {
+      const tag = (document.getElementById('new-pt-tag').value || '').trim() || ('TAG_' + Date.now().toString().slice(-4));
+      const wsId = document.getElementById('new-pt-ws').value;
+      const energy = document.getElementById('new-pt-energy').value;
+      const meterType = document.getElementById('new-pt-type').value;
+      const proto = document.getElementById('new-pt-proto').value;
+      const scale = document.getElementById('new-pt-scale').value || '×1.0';
+      const f = FACTORY_DATA[state.factoryKey];
+      const wsObj = f.workshops.find(w => w.id === wsId) || f.workshops[0];
+
+      state.points.unshift({
+        tag, wsId: wsObj.id, area: wsObj.name, meterType, energy, proto, scale,
+        val: energy === '电' ? '125.0 kW' : '85.0', status: '在线'
+      });
+      wsObj.allocations.push({
+        tag, energy,
+        weight: meterType === '公共总表' ? 50 : 100,
+        note: meterType === '公共总表' ? '公摊点位(待完成100%分配)' : '专表直采'
+      });
+
+      closeAddPointModal();
+      renderSharedOrgTree();
+      renderWorkspaceModule('ingest');
+      showToast(`点位 ${tag} 已上线并自动绑定至「${wsObj.name}」`);
+    });
+    document.getElementById('btn-collapse-tree').addEventListener('click', () => {
+      state.treeCollapsed = !state.treeCollapsed;
+      renderSharedOrgTree();
+    });
+    document.getElementById('shared-org-sidebar').querySelectorAll('.tree-view-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.orgTreeView = btn.dataset.tree;
+        renderSharedOrgTree();
+      });
+    });
+
+    document.getElementById('factory-select').addEventListener('change', e => {
+      state.factoryKey = e.target.value;
+      state.greenPct = FACTORY_DATA[state.factoryKey].baseGreenPct;
+      document.getElementById('slider-green').value = state.greenPct;
+      document.getElementById('val-green').textContent = `${state.greenPct}%`;
+      updateCockpitUI();
+      buildFactory3D();
+      if (state.activeModule !== 'cockpit') {
+        renderSharedOrgTree();
+        renderWorkspaceModule(state.activeModule);
+      }
+    });
+
+    document.querySelectorAll('.gran-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.chartGranularity = btn.dataset.gran;
+        document.querySelectorAll('.gran-btn').forEach(b => {
+          b.className = 'gran-btn rounded px-1.5 py-0.5 text-slate-400 hover:text-slate-200';
+        });
+        btn.className = 'gran-btn rounded px-1.5 py-0.5 bg-cyan-500/25 text-cyan-200 font-medium';
+        updateCockpitUI();
+      });
+    });
+
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.mode = btn.dataset.mode;
+        document.querySelectorAll('.mode-btn').forEach(b => {
+          b.className = 'mode-btn rounded-md px-2 py-1 font-medium text-slate-400 hover:text-slate-200 transition';
+        });
+        btn.className = 'mode-btn rounded-md px-2 py-1 font-medium bg-cyan-500/25 text-cyan-300 transition';
+        if (state.activeModule !== 'cockpit') switchModule('cockpit');
+        buildFactory3D();
+      });
+    });
+
+    document.getElementById('btn-rotate').addEventListener('click', e => {
+      state.autoRotate = !state.autoRotate;
+      e.target.textContent = `自动巡航: ${state.autoRotate ? '开' : '关'}`;
+    });
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      targetSpherical = { radius: 28, theta: Math.PI / 4, phi: Math.PI / 3.1 };
+    });
+    document.getElementById('btn-view-all').addEventListener('click', () => {
+      targetSpherical = { radius: 32, theta: Math.PI / 4, phi: Math.PI / 3.1 };
+    });
+    document.getElementById('btn-toggle-hud').addEventListener('click', () => {
+      document.getElementById('left-hud').classList.toggle('hidden');
+      document.getElementById('right-hud').classList.toggle('hidden');
+    });
+
+    document.getElementById('slider-price').addEventListener('input', e => {
+      state.carbonPrice = Number(e.target.value);
+      document.getElementById('val-price').textContent = `${state.carbonPrice} 元/吨`;
+      updateCockpitUI();
+    });
+    document.getElementById('slider-green').addEventListener('input', e => {
+      state.greenPct = Number(e.target.value);
+      document.getElementById('val-green').textContent = `${state.greenPct}%`;
+      updateCockpitUI();
+      buildFactory3D();
+    });
+    document.getElementById('toggle-retrofit').addEventListener('change', e => {
+      state.retrofitEnabled = e.target.checked;
+      updateCockpitUI();
+      buildFactory3D();
+    });
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    let clock = 0;
+    function animate() {
+      requestAnimationFrame(animate);
+      clock += 0.02;
+      updateCameraPosition();
+      energyParticles.forEach(p => {
+        if (!p.isTube && p.curve) {
+          p.t = (p.t + p.speed) % 1;
+          p.mesh.position.copy(p.curve.getPointAt(p.t));
+        }
+      });
+      exhaustParticles.forEach(p => {
+        const cycle = (clock * 0.4 + p.offset) % 1;
+        p.mesh.position.y = p.baseY + cycle * 3.5;
+        p.mesh.position.x = p.baseX + Math.sin(clock + p.offset * 10) * 0.25;
+        p.mesh.material.opacity = (1 - cycle) * 0.6;
+      });
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('load', () => {
+      initChart();
+      updateCockpitUI();
+      buildFactory3D();
+      animate();
+    });
+  </script>
+</body>
+</html>
